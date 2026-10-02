@@ -60,7 +60,15 @@ html.modal-open,html.modal-open body{overflow:hidden}
   .page-shell{height:calc(100dvh - 76px);display:flex;flex-direction:column;padding-bottom:24px}
   .page-intro{flex:0 0 auto}
   .main-grid{flex:1 1 auto;min-height:0;align-items:stretch}
-  .feed-section,.match-column{min-height:0;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable}
+  .feed-section,.match-column{min-height:0;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable;--scroll-thumb:#bdcfc3;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) transparent}
+  .feed-section:is(:hover,:focus-within),.match-column:is(:hover,:focus-within){--scroll-thumb:#789a85}
+  @supports selector(::-webkit-scrollbar){
+    .feed-section,.match-column{scrollbar-width:auto;scrollbar-color:auto}
+    .feed-section::-webkit-scrollbar,.match-column::-webkit-scrollbar{width:6px}
+    .feed-section::-webkit-scrollbar-track,.match-column::-webkit-scrollbar-track{background:transparent}
+    .feed-section::-webkit-scrollbar-thumb,.match-column::-webkit-scrollbar-thumb{background:var(--scroll-thumb);border:1px solid transparent;background-clip:padding-box;border-radius:999px;min-height:36px}
+    .feed-section::-webkit-scrollbar-button,.match-column::-webkit-scrollbar-button{display:none;width:0;height:0}
+  }
   .match-column{position:static}
 }
 @media(max-width:420px){.dialog{max-height:95dvh}.dialog-actions{gap:8px}.dialog-actions .primary-button,.dialog-actions .ghost-button{font-size:12px;padding:0 12px}.category-controls button{padding:0 12px}.detail-grid{grid-template-columns:1fr}}
