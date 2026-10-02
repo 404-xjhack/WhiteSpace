@@ -116,10 +116,18 @@ export function validateDraft(values, selectedCategories) {
   Object.assign(errors, scheduleErrors);
 
   let location = String(values.location || "").trim();
+  let locationPoint = null;
+  let firstStep = "";
   if (location === "other") {
     location = String(values.locationOther || "").trim();
     if (!location) errors.locationOther = "请填写其他地点。";
     else if (String(values.locationOther).length > LIMITS.location) errors.locationOther = "地点最多 40 字。";
+  } else if (location === "map") {
+    location = String(values.locationName || "").trim();
+    locationPoint = normalizeLocationPoint({ lng: values.locationLng, lat: values.locationLat });
+    if (!location || location.length > LIMITS.location || !locationPoint || values.publicPlaceConfirmed !== "yes") errors.location = "请在真实地图上选择并确认一个公共集合点。";
+    firstStep = String(values.firstStep || "").trim();
+    if (firstStep.length < 8 || firstStep.length > 80) errors.firstStep = "请用 8–80 字说明见面后先做什么。";
   } else if (location === "negotiable" && type === "offer") location = "地点可协商";
   else if (!LOCATIONS.includes(location)) errors.location = "请选择地点。";
 
@@ -146,10 +154,17 @@ export function validateDraft(values, selectedCategories) {
   const profile = { role: role || "社区成员", age: age ? Number(age) : null, agePublic: values.agePublic === "on" };
   return {
     errors, profile,
-    data: { type, title, description, categories, category: categories[0], tags: categories, schedule, time: schedule ? formatSchedule(schedule) : "", location, participants, participantSettings,
+    data: { type, title, description, categories, category: categories[0], tags: categories, schedule, time: schedule ? formatSchedule(schedule) : "", location, ...(locationPoint ? { locationPoint, firstStep } : {}), participants, participantSettings,
       role: profile.role, age: profile.agePublic && profile.age ? `${profile.age}岁` : "",
       offer: type === "offer" ? title : "一起参与、提供自己的时间和经验", need: type === "offer" ? "" : title }
   };
+}
+
+export function normalizeLocationPoint(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw) || raw.lng === "" || raw.lat === "" || raw.lng === undefined || raw.lat === undefined) return null;
+  const lng = Number(raw.lng), lat = Number(raw.lat);
+  if (!Number.isFinite(lng) || !Number.isFinite(lat) || Math.abs(lng) > 180 || Math.abs(lat) > 90) return null;
+  return { lng: Math.round(lng * 1e6) / 1e6, lat: Math.round(lat * 1e6) / 1e6 };
 }
 
 export function normalizedPost(raw) {
@@ -165,10 +180,14 @@ export function normalizedPost(raw) {
   const schedule = raw.schedule === undefined ? undefined : normalizeSchedule(raw.schedule);
   if (raw.schedule !== undefined && !schedule) return null;
   if (schedule?.mode === "negotiable" && raw.type !== "offer") return null;
+  const locationPoint = raw.locationPoint === undefined ? null : normalizeLocationPoint(raw.locationPoint);
+  if (raw.locationPoint !== undefined && !locationPoint) return null;
+  const firstStep = typeof raw.firstStep === "string" ? raw.firstStep.trim() : "";
+  if (raw.firstStep !== undefined && (!locationPoint || firstStep.length < 8 || firstStep.length > 80)) return null;
   const text = (key, limit) => typeof raw[key] === "string" ? raw[key].trim().slice(0, limit) : "";
   return { id: text("id", 80), type: raw.type, title: raw.title.trim(), description: raw.description.trim(), categories, category: categories[0],
     tags: uniqueCategories([...categories, ...(Array.isArray(raw.tags) ? raw.tags.filter((tag) => typeof tag === "string").slice(0, 6).map((tag) => tag.slice(0, 30)) : [])]),
-    time: schedule ? formatSchedule(schedule) : raw.time.trim(), schedule, location: raw.location.trim(), offer: text("offer", 160), need: text("need", 160) };
+    time: schedule ? formatSchedule(schedule) : raw.time.trim(), schedule, location: raw.location.trim(), ...(locationPoint ? { locationPoint, ...(firstStep ? { firstStep } : {}) } : {}), offer: text("offer", 160), need: text("need", 160) };
 }
 
 export function formatPublished(post, now = Date.now()) {
@@ -238,7 +257,7 @@ function domainsConflict(left, right) {
 
 export function matchFingerprint(post) {
   return JSON.stringify({ type: post.type, title: post.title, description: post.description, offer: post.offer || "", need: post.need || "",
-    categories: postCategories(post), tags: postTags(post), time: post.time, schedule: normalizeSchedule(post.schedule), location: post.location });
+    categories: postCategories(post), tags: postTags(post), time: post.time, schedule: normalizeSchedule(post.schedule), location: post.location, locationPoint: normalizeLocationPoint(post.locationPoint), firstStep: post.firstStep || "" });
 }
 
 export function assessCandidate(post, candidate) {

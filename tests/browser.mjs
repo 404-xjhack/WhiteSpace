@@ -23,6 +23,7 @@ const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 let connection;
 let aiApp;
 let aiMock;
+let mapApp;
 const errors = [];
 const checks = [];
 
@@ -102,6 +103,49 @@ try {
   assert.equal(await evaluate("document.querySelector('#emptyState').hidden"), true);
   passed("U09: one main publishing entry; examples live in form");
 
+  await click("#mapToggle");
+  assert.equal(await evaluate("document.querySelector('#neighborhoodMap').hidden"), false);
+  assert.equal(await evaluate("document.querySelector('.main-grid').hidden"), true);
+  assert.ok(await evaluate("document.querySelectorAll('.map-marker').length >= 4"));
+  await click('[data-place="workshop"]');
+  assert.match(await evaluate("document.querySelector('#mapMission h4').textContent"), /木工修家具/);
+  const routeFromSouth = await evaluate("document.querySelector('#mapRoute').getAttribute('points')");
+  assert.ok(routeFromSouth.split(' ').length >= 3, "Route traverses more than one street segment");
+  await set("#mapStart", "c");
+  assert.notEqual(await evaluate("document.querySelector('#mapRoute').getAttribute('points')"), routeFromSouth);
+  await click("#mapJoin");
+  assert.ok(await evaluate("JSON.parse(localStorage.getItem('writespace.interest.v1')).includes('p3')"));
+  await click("#mapJoin");
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.interest.v1')).includes('p3')"), false);
+  await click("#mapHeatToggle");
+  assert.ok(await evaluate("document.querySelectorAll('.heat-spot').length >= 4"));
+  await click("#realMapTab");
+  await until("/真实地图尚未配置/.test(document.querySelector('#realMapCanvas').textContent)");
+  assert.equal(await evaluate("document.querySelector('#mapLocationOption').disabled"), true);
+  const unconfiguredMapShot = await connection.send("Page.captureScreenshot", { format: "png" });
+  await writeFile(path.join(root, ".tmp", "real-map-unconfigured.png"), Buffer.from(unconfiguredMapShot.data, "base64"));
+  await click(".real-fallback-button");
+  assert.equal(await evaluate("document.querySelector('#demoMapTab').getAttribute('aria-pressed')"), "true");
+  const mapDesktopShot = await connection.send("Page.captureScreenshot", { format: "png" });
+  await writeFile(path.join(root, ".tmp", "street-map-desktop.png"), Buffer.from(mapDesktopShot.data, "base64"));
+  for (const width of [375, 320]) {
+    await connection.send("Emulation.setDeviceMetricsOverride", { width, height: 800, deviceScaleFactor: 1, mobile: true });
+    await pause(120);
+    assert.equal(await evaluate("document.documentElement.scrollWidth > innerWidth + 1"), false, `Map has no horizontal overflow at ${width}px`);
+    if (width === 375) {
+      const mapMobileShot = await connection.send("Page.captureScreenshot", { format: "png" });
+      await writeFile(path.join(root, ".tmp", "street-map-mobile.png"), Buffer.from(mapMobileShot.data, "base64"));
+      await click('[data-place="library"]');
+      await pause(550);
+      assert.match(await evaluate("document.querySelector('#mapSelectedPlace').textContent"), /社区图书角/);
+      assert.equal(await evaluate("document.querySelector('#missionTitle').getBoundingClientRect().top < innerHeight"), true, "Mobile marker selection reveals the mission");
+    }
+  }
+  await connection.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
+  await click("#mapToggle");
+  assert.equal(await evaluate("document.querySelector('.main-grid').hidden"), false);
+  passed("Street map: walkable route, selectable missions, local intent, heat and mobile layout");
+
   await click("#openCreateTop"); await until("document.querySelector('#createDialog').open");
   await assertModal("#createDialog", true);
   await click("#publishButton");
@@ -125,6 +169,8 @@ try {
   assert.equal(await evaluate("document.querySelector('#formError').hidden"), true);
   await assertModal("#createDialog", true); await click("#publishButton"); await readyMatch("修椅");
   assert.equal(await evaluate("document.querySelector('#matchSource').textContent"), "本地规则匹配");
+  assert.match(await evaluate("document.querySelector('#mapMissionCount').textContent"), /6 件有公开地点/);
+  assert.match(await evaluate("document.querySelector('[data-place=\"workshop\"]').getAttribute('aria-label')"), /2 件可参与的事/);
   let posts = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))");
   const repairId = posts[0].id;
   assert.deepEqual(posts[0].categories, ["旧物新生", "邻里 修理"]); assert.ok(!posts[0].tags.includes("数码互助"));
@@ -456,6 +502,73 @@ try {
   assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0].need"), "");
   await click('#detailDialog [data-close="detailDialog"]');
   passed("Unstated expectations stay empty; offline extraction permits manual save; legacy canned wishes are removed");
+
+  mapApp = await startServer({ AMAP_WEB_KEY: "public-test-key", AMAP_SECURITY_CODE: "private-test-code", AMAP_SERVICE_KEY: "service-test-key" });
+  await connection.send("Page.addScriptToEvaluateOnNewDocument", { source: `
+    window.__maps = []; window.__markers = []; window.__walkingCalls = []; window.__serviceWalkingCalls = []; window.__polylines = [];
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = (url, options) => {
+      const path = typeof url === 'string' ? url : url.url;
+      if (path.startsWith('/api/map/places?')) return Promise.resolve(new Response(JSON.stringify({ places:[{name:'蒋村社区文化中心',point:{lng:120.0678,lat:30.2982}}] }), {status:200,headers:{'content-type':'application/json'}}));
+      if (path.startsWith('/api/map/walking?')) { window.__serviceWalkingCalls.push(path); return Promise.resolve(new Response(JSON.stringify({duration:480,distance:550,path:[[120.067,30.297],[120.0676,30.2976],[120.068,30.2984]]}), {status:200,headers:{'content-type':'application/json'}})); }
+      return originalFetch(url, options);
+    };
+    class FakeLngLat { constructor(lng, lat) { this.lng=lng; this.lat=lat; } getLng() { return this.lng; } getLat() { return this.lat; } }
+    class FakeMap { constructor(id, opts={}) { this.events={}; this.center=opts.center || [120.067974,30.298083]; document.getElementById(id).dataset.fakeMap='ready'; window.__maps.push(this); } on(name, fn) { this.events[name]=fn; } emit(name, data) { this.events[name]?.(data); } resize() {} setCenter(point) { this.center=point; } getCenter() { return new FakeLngLat(...this.center); } }
+    class FakeMarker { constructor(opts) { this.position=opts.position; this.events={}; window.__markers.push(this); } on(name, fn) { this.events[name]=fn; } emit(name, data) { this.events[name]?.(data); } setMap() {} setPosition(point) { this.position=point; } getPosition() { return new FakeLngLat(...this.position); } }
+    class FakePolyline { constructor(opts) { this.path=opts.path; window.__polylines.push(this); } setMap() {} }
+    class FakeWalking { clear() {} search(start, end, callback) { window.__walkingCalls.push([start,end]); callback('complete',{routes:[{time:480,distance:550}]}); } }
+    class FakePlaceSearch { search(_query, callback) { callback('complete',{poiList:{pois:[{name:'蒋村社区文化中心',location:new FakeLngLat(120.0678,30.2982)}]}}); } }
+    window.AMap={Map:FakeMap,Marker:FakeMarker,Polyline:FakePolyline,Walking:FakeWalking,PlaceSearch:FakePlaceSearch,LngLat:FakeLngLat,plugin:(_name,callback)=>callback()};
+  ` });
+  await connection.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
+  await connection.send("Page.navigate", { url: mapApp.url });
+  await until("document.querySelectorAll('.post-card').length === 6 && !document.querySelector('#mapLocationOption').disabled");
+  await click("#mapToggle"); await click("#realMapTab");
+  await until("document.querySelector('#realMapCanvas').dataset.fakeMap === 'ready'");
+  assert.match(await evaluate("document.querySelector('#realMissionDetail').textContent"), /暂时没有/);
+  await click("#realPublishButton"); await until("document.querySelector('#createDialog').open");
+  await set("#postTitle", "一起整理社区故事"); await set("#postDescription", "想在公共地点和邻居一起整理旧照片，记录社区的记忆。");
+  await set("#categoryPicker", "社区生活"); await click("#addCategory");
+  await set("#timeMode", "weekly"); await set("#postWeekday", "6"); await set("#postStart", "14:00"); await set("#postEnd", "15:00");
+  await set("#postLocation", "map"); await click("#openLocationPicker");
+  await until("document.querySelector('#locationPickerDialog').open && document.querySelector('#locationPickerCanvas').dataset.fakeMap === 'ready'");
+  await set("#locationSearch", "文化中心"); await click('#locationSearchForm button[type="submit"]');
+  await until("document.querySelectorAll('[data-poi-index]').length === 1");
+  await click('[data-poi-index="0"]');
+  assert.equal(await evaluate("document.querySelector('#mapLocationName').value"), "蒋村社区文化中心");
+  await evaluate("window.__markers.at(-1).setPosition([120.068,30.2984]); window.__markers.at(-1).emit('dragend')");
+  assert.equal(await evaluate("document.querySelector('#mapLocationName').value"), "");
+  await set("#mapLocationName", "社区文化中心正门"); await click("#publicPointCheck"); await click("#saveLocationPoint");
+  await until("document.querySelector('#createDialog').open");
+  assert.equal(await evaluate("document.querySelector('#locationName').value"), "社区文化中心正门");
+  await set("#mapFirstStep", "先一起辨认三张旧照片的拍摄地点");
+  await click("#publishButton");
+  await until("document.querySelector('#realMissionDetail h4')?.textContent === '一起整理社区故事'");
+  assert.match(await evaluate("document.querySelector('#realMissionDetail').textContent"), /先一起辨认三张旧照片/);
+  assert.match(await evaluate("document.querySelector('#realJoin').textContent"), /查看我的发布/);
+  const mappedPost = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0]");
+  assert.equal(mappedPost.location, "社区文化中心正门");
+  assert.equal(mappedPost.firstStep, "先一起辨认三张旧照片的拍摄地点");
+  assert.deepEqual(mappedPost.locationPoint, { lng: 120.068, lat: 30.2984 });
+  await click("#realStartButton");
+  await evaluate("window.__maps[0].emit('click',{lnglat:new AMap.LngLat(120.067,30.297)})");
+  await until("/高德路线/.test(document.querySelector('#realRouteStatus').textContent)");
+  assert.ok(await evaluate("window.__serviceWalkingCalls.length > 0"));
+  assert.ok(await evaluate("window.__polylines.length > 0"));
+  await click("#realCenterButton");
+  await until("window.__serviceWalkingCalls.length > 1");
+  assert.equal(await evaluate("new URL(window.__serviceWalkingCalls.at(-1), location.origin).searchParams.get('from')"), "120.067974,30.298083");
+  const configuredMapShot = await connection.send("Page.captureScreenshot", { format: "png" });
+  await writeFile(path.join(root, ".tmp", "real-map-mock.png"), Buffer.from(configuredMapShot.data, "base64"));
+  await connection.send("Emulation.setDeviceMetricsOverride", { width: 375, height: 800, deviceScaleFactor: 1, mobile: true });
+  assert.equal(await evaluate("document.documentElement.scrollWidth > innerWidth + 1"), false);
+  const configuredMobileShot = await connection.send("Page.captureScreenshot", { format: "png" });
+  await writeFile(path.join(root, ".tmp", "real-map-mock-mobile.png"), Buffer.from(configuredMobileShot.data, "base64"));
+  assert.match(await evaluate("document.querySelector('#realJumpMission').textContent"), /一起整理社区故事/);
+  await click("#realJumpMission"); await pause(600);
+  assert.equal(await evaluate("document.querySelector('#realMissionTitle').getBoundingClientRect().top < innerHeight"), true);
+  passed("Configured real map: search, drag public point, publish, render and walking route (mock service)");
   assert.deepEqual(errors, [], "No uncaught browser exceptions");
   console.log(`Browser checks passed: ${checks.length}; no uncaught exceptions.`);
 } catch (error) {
@@ -468,6 +581,6 @@ try {
 } finally {
   if (connection) { try { await connection.send("Browser.close"); } catch {} connection.socket.close(); }
   if (browser.exitCode === null) browser.kill();
-  await app.close(); if (aiApp) await aiApp.close();
+  await app.close(); if (aiApp) await aiApp.close(); if (mapApp) await mapApp.close();
   if (aiMock) await new Promise((resolve) => { aiMock.close(resolve); aiMock.closeAllConnections(); });
 }

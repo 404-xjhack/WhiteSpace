@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 export const root = fileURLToPath(new URL("../", import.meta.url));
 export async function startServer(extraEnv = {}) {
   const child = spawn(process.execPath, ["server.mjs"], {
-    cwd: root, env: { ...process.env, PORT: "0", AI_API_KEY: "", ...extraEnv }, windowsHide: true, stdio: ["ignore", "pipe", "pipe"]
+    cwd: root, env: { ...process.env, PORT: "0", AI_API_KEY: "", AMAP_WEB_KEY: "", AMAP_SECURITY_CODE: "", AMAP_SERVICE_KEY: "", ...extraEnv }, windowsHide: true, stdio: ["ignore", "pipe", "pipe"]
   });
   let output = "";
   child.stderr.on("data", () => {});

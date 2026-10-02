@@ -1,4 +1,6 @@
 import { cleanCategory, postTags, validateDraft, validateSchedule, normalizeSchedule, formatSchedule, displayTime, formatPublished, matchPost, matchFingerprint, MATCH_VERSION, LEGACY_OFFER_NEED, needExtractionInput, needExtractionKey, validExtractedNeed, hasAINeed } from "./model.js";
+import { initNeighborhood } from "./map-ui.js";
+import { initRealMap } from "./real-map.js";
 
 const $ = (selector) => document.querySelector(selector);
 const postList = $("#postList");
@@ -8,6 +10,7 @@ const createForm = $("#createForm");
 const scheduleDialog = $("#scheduleDialog");
 const scheduleForm = $("#scheduleForm");
 const needDialog = $("#needDialog");
+const locationPickerDialog = $("#locationPickerDialog");
 const needForm = $("#needForm");
 const toast = $("#toast");
 const storagePosts = "writespace.posts.v1";
@@ -48,6 +51,7 @@ let needVersion = 0;
 let formAttempted = false;
 let categoryError = "";
 let toastTimer;
+let realMap;
 
 function save(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch { showToast("浏览器暂时无法保存，当前页面仍可继续体验。"); }
@@ -61,6 +65,19 @@ function showToast(message) {
 }
 function allPosts() { return [...myPosts, ...seedPosts]; }
 function isMine(post) { return post.id.startsWith("mine-"); }
+const neighborhood = initNeighborhood({
+  getPosts: allPosts,
+  showDetail: (post) => showDetail(post),
+  isInterested: (id) => interestedIds.has(id),
+  toggleInterest: (post) => {
+    const cancelling = interestedIds.has(post.id);
+    if (cancelling) interestedIds.delete(post.id); else interestedIds.add(post.id);
+    save(storageInterest, [...interestedIds]);
+    neighborhood.render();
+    realMap?.render();
+    showToast(cancelling ? "已取消参与意向。" : "已记录参与意向，可随时取消；演示中不会通知真实用户。");
+  }
+});
 function personLine(post) {
   const age = typeof post.age === "string" && /^\d+岁$/.test(post.age) ? post.age : "";
   return [isMine(post) ? "由你发布" : "", post.role || "社区成员", age].filter(Boolean).join(" · ");
@@ -85,6 +102,8 @@ function renderPosts() {
     <h3>${escapeHtml(post.title)}</h3><p class="post-description">${escapeHtml(post.description)}</p><div class="post-tags">${tagHtml(post)}</div>
     <div class="post-footer"><span class="post-foot-item">${icon("place")}${escapeHtml(post.location || "地点待确认")}</span><span class="post-foot-item">${icon("time")}${escapeHtml(displayTime(post))}</span><button type="button" class="post-card-action" data-post-id="${escapeHtml(post.id)}">查看详情 →</button></div></article>`).join("");
   $("#emptyState").hidden = visible.length > 0;
+  neighborhood.render();
+  realMap?.render();
 }
 function refreshPublished() {
   document.querySelectorAll("[data-published-id]").forEach((element) => {
@@ -99,10 +118,30 @@ function setFilter(next) {
   });
   renderPosts();
 }
-function syncDialogLock() { document.documentElement.classList.toggle("modal-open", createDialog.open || detailDialog.open || scheduleDialog.open || needDialog.open); }
+function syncDialogLock() { document.documentElement.classList.toggle("modal-open", createDialog.open || detailDialog.open || scheduleDialog.open || needDialog.open || locationPickerDialog.open); }
 function openDialog(dialog) { if (!dialog.open) dialog.showModal(); syncDialogLock(); }
 function closeDialog(dialog) { dialog.close(); syncDialogLock(); }
-for (const dialog of [createDialog, detailDialog, scheduleDialog, needDialog]) dialog.addEventListener("close", syncDialogLock);
+for (const dialog of [createDialog, detailDialog, scheduleDialog, needDialog, locationPickerDialog]) dialog.addEventListener("close", syncDialogLock);
+realMap = initRealMap({
+  getPosts: allPosts,
+  showDetail: (post) => showDetail(post),
+  isInterested: (id) => interestedIds.has(id),
+  toggleInterest: (post) => {
+    const cancelling = interestedIds.has(post.id);
+    if (cancelling) interestedIds.delete(post.id); else interestedIds.add(post.id);
+    save(storageInterest, [...interestedIds]); neighborhood.render(); realMap.render();
+    showToast(cancelling ? "已取消参与意向。" : "已记录参与意向；演示中不会通知真实用户。");
+  },
+  openCreate: () => openCreate(),
+  onPick: ({ name, lng, lat }) => {
+    $("#postLocation").value = "map";
+    $("#locationName").value = name; $("#locationLng").value = String(lng); $("#locationLat").value = String(lat);
+    $("#publicPlaceConfirmed").value = "yes";
+    $("#pickedMapLocation").textContent = `已选公共集合点：${name}`;
+    closeDialog(locationPickerDialog); updateErrors();
+  }
+});
+locationPickerDialog.addEventListener("close", () => { if (!createDialog.open) openDialog(createDialog); });
 
 const needFallbackMessages = {
   unconfigured: "AI 尚未配置，可自行补充或留空，留空将显示“未说明”。",
@@ -251,6 +290,8 @@ function syncConditionalFields() {
   $("#dateFields").hidden = mode !== "date"; $("#weeklyFields").hidden = mode !== "weekly";
   $("#clockFields").hidden = !["date", "weekly"].includes(mode);
   $("#locationOtherField").hidden = $("#postLocation").value !== "other";
+  $("#mapLocationField").hidden = $("#postLocation").value !== "map";
+  $("#mapFirstStepField").hidden = $("#postLocation").value !== "map";
   $("#customCategory").hidden = $("#categoryPicker").value !== "other";
   $("#exactParticipants").hidden = $("#participantMode").value !== "exact";
   $("#rangeParticipants").hidden = $("#participantMode").value !== "range";
@@ -293,6 +334,7 @@ function updateErrors(focus = false) {
   return { ...result, errors };
 }
 function fillExample(example) {
+  clearMapLocation();
   selectedCategories = []; categoryError = ""; formAttempted = false; $("#categoryPicker").value = ""; $("#customCategory").value = "";
   createForm.elements.type.value = example === "photo" ? "offer" : "need";
   if (example === "food") {
@@ -311,8 +353,13 @@ function fillExample(example) {
   $("#timeMode").value = example === "photo" ? "negotiable" : "weekly";
   renderCategories(); syncType(); updateErrors(); $("#postTitle").focus();
 }
+function clearMapLocation() {
+  for (const id of ["locationName", "locationLng", "locationLat", "publicPlaceConfirmed"]) $("#" + id).value = "";
+  $("#pickedMapLocation").textContent = "还未选择公共集合点。";
+}
 function openCreate() {
   createForm.reset(); selectedCategories = []; categoryError = ""; formAttempted = false;
+  clearMapLocation();
   $(".form-examples").open = false;
   $("#profileRole").value = typeof profile.role === "string" ? profile.role : ""; $("#profileAge").value = Number.isInteger(profile.age) ? profile.age : "";
   $("#agePublic").checked = profile.agePublic === true; $("#profileSummary").textContent = profile.role || "社区成员"; $("#profileSection").open = false;
@@ -321,7 +368,7 @@ function openCreate() {
 function showDetail(post) {
   currentDetail = post; $("#detailTitle").textContent = post.title;
   $("#detailContent").innerHTML = `<div class="detail-person">${avatar(post)}<div><strong>${escapeHtml(post.name || "我")}</strong><small>${escapeHtml(personLine(post))} · <span data-published-id="${escapeHtml(post.id)}">${escapeHtml(formatPublished(post))}</span></small></div></div>
-    <p class="detail-description">${escapeHtml(post.description)}</p><div class="post-tags">${tagHtml(post)}</div>
+    <p class="detail-description">${escapeHtml(post.description)}</p>${post.firstStep ? `<p class="detail-first-step"><strong>见面后先做：</strong>${escapeHtml(post.firstStep)}</p>` : ""}<div class="post-tags">${tagHtml(post)}</div>
     <div class="detail-grid"><div><span>${post.type === "offer" ? "可以分享" : "可以带来"}</span><strong>${escapeHtml(post.offer || "愿意一起参与")}</strong></div><div><span>希望获得${hasAINeed(post) ? '<small class="need-source">AI 提炼</small>' : ""}</span><strong>${escapeHtml(post.need || "未说明")}</strong></div></div>
     <div class="detail-info"><span>${icon("place")}${escapeHtml(post.location || "地点待确认")}</span><span>${icon("time")}${escapeHtml(displayTime(post))}</span><span>参与人数：${escapeHtml(post.participants || "协商决定")}</span></div><p class="detail-footnote">未来生活演示 · 参与意向仅保存在当前浏览器，不会发送给真实用户。</p>`;
   const mine = isMine(post); $("#interestButton").hidden = mine; $("#interestButton").disabled = false;
@@ -391,10 +438,11 @@ function restoreMatch(post) {
   const data = cachedMatch(post); if (!data) return false;
   cancelMatch(); matchingPost = post; matchState.lastPostId = post.id; save(storageMatches, matchState); renderMatches(data); return true;
 }
-async function runMatch(post) {
+async function runMatch(post, { keepMap = false } = {}) {
+  if (!keepMap) neighborhood.showFeed();
   cancelMatch(); const version = matchVersion; const controller = new AbortController(); matchController = controller;
   const timer = setTimeout(() => controller.abort(), 22000); matchingPost = post; matchState.lastPostId = post.id; save(storageMatches, matchState);
-  $("#matchWelcome").hidden = true; $("#matchResults").hidden = true; $("#matchLoading").hidden = false; $("#matchPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+  $("#matchWelcome").hidden = true; $("#matchResults").hidden = true; $("#matchLoading").hidden = false; if (!keepMap) $("#matchPanel").scrollIntoView({ behavior: "smooth", block: "start" });
   let data;
   try {
     const response = await fetch("/api/match", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ post }), signal: controller.signal });
@@ -414,6 +462,7 @@ $("#emptyCreate").addEventListener("click", openCreate);
 document.querySelectorAll("[data-example]").forEach((button) => button.addEventListener("click", () => fillExample(button.dataset.example)));
 document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => closeDialog($("#" + button.dataset.close))));
 $("#addCategory").addEventListener("click", addCategory);
+$("#openLocationPicker").addEventListener("click", () => { closeDialog(createDialog); openDialog(locationPickerDialog); realMap.preparePicker(); });
 $("#selectedCategories").addEventListener("click", (event) => {
   const button = event.target.closest("[data-remove-category]"); if (button) { selectedCategories.splice(Number(button.dataset.removeCategory), 1); categoryError = ""; renderCategories(); updateErrors(); }
 });
@@ -421,16 +470,16 @@ createForm.addEventListener("change", (event) => { if (event.target.name === "ty
 createForm.addEventListener("input", () => { categoryError = ""; if (formAttempted) updateErrors(); });
 $("#searchInput").addEventListener("input", renderPosts);
 document.querySelectorAll(".filter-chip").forEach((button) => button.addEventListener("click", () => setFilter(button.dataset.filter)));
-$("#myPostsButton").addEventListener("click", () => { $("#searchInput").value = ""; setFilter("mine"); $("#feedTitle").scrollIntoView({ behavior: "smooth", block: "start" }); });
+$("#myPostsButton").addEventListener("click", () => { neighborhood.showFeed(); $("#searchInput").value = ""; setFilter("mine"); $("#feedTitle").scrollIntoView({ behavior: "smooth", block: "start" }); });
 postList.addEventListener("click", (event) => { const button = event.target.closest("[data-post-id]"); if (button) { const post = allPosts().find((item) => item.id === button.dataset.postId); if (post) showDetail(post); } });
 $("#matchList").addEventListener("click", (event) => { const button = event.target.closest("[data-match-id]"); if (button) { const post = displayedMatches.find((item) => item.id === button.dataset.matchId)?.post; if (post) showDetail(post); } });
 $("#moreMatches").addEventListener("click", () => { matchesExpanded = !matchesExpanded; renderMatchList(); });
 $("#interestButton").addEventListener("click", () => {
   if (!currentDetail || isMine(currentDetail)) return; const cancelling = interestedIds.has(currentDetail.id);
   if (cancelling) interestedIds.delete(currentDetail.id); else interestedIds.add(currentDetail.id); save(storageInterest, [...interestedIds]);
-  $("#interestButton").textContent = cancelling ? "我想参与" : "取消参与意向"; showToast(cancelling ? "已取消参与意向，可以随时再次参与。" : "已记录参与意向，可随时取消。");
+  $("#interestButton").textContent = cancelling ? "我想参与" : "取消参与意向"; neighborhood.render(); realMap.render(); showToast(cancelling ? "已取消参与意向，可以随时再次参与。" : "已记录参与意向，可随时取消。");
 });
-$("#detailMatchButton").addEventListener("click", () => { if (!currentDetail || !isMine(currentDetail)) return; const post = currentDetail; closeDialog(detailDialog); if (restoreMatch(post)) $("#matchPanel").scrollIntoView({ behavior: "smooth", block: "start" }); else runMatch(post); });
+$("#detailMatchButton").addEventListener("click", () => { if (!currentDetail || !isMine(currentDetail)) return; const post = currentDetail; closeDialog(detailDialog); neighborhood.showFeed(); if (restoreMatch(post)) $("#matchPanel").scrollIntoView({ behavior: "smooth", block: "start" }); else runMatch(post); });
 $("#rerunMatch").addEventListener("click", () => { if (matchingPost) runMatch(matchingPost); });
 $("#editMatchTime").addEventListener("click", () => { if (matchingPost) openSchedule(matchingPost); });
 $("#detailTimeButton").addEventListener("click", () => { if (currentDetail && isMine(currentDetail)) { const post = currentDetail; closeDialog(detailDialog); openSchedule(post); } });
@@ -445,7 +494,14 @@ $("#resetDemo").addEventListener("click", () => {
 function publishDraft(data, nextProfile) {
   const post = { ...data, id: `mine-${crypto.randomUUID()}`, name: "我", avatar: "我", color: "self", createdAt: new Date().toISOString() };
   myPosts.unshift(post); profile = nextProfile; save(storageProfile, profile); save(storagePosts, myPosts); closeDialog(createDialog);
-  $("#searchInput").value = ""; setFilter("all"); showToast("想法已发布！正在寻找一起探索的伙伴。"); runMatch(post);
+  $("#searchInput").value = ""; setFilter("all");
+  if (post.locationPoint) {
+    neighborhood.showMap(); realMap.showReal();
+    showToast("已发布到真实地图；集合点可见，参与意向仍只保存在本机。");
+    runMatch(post, { keepMap: true });
+  } else {
+    neighborhood.showFeed(); showToast("想法已发布！正在寻找一起探索的伙伴。"); runMatch(post);
+  }
 }
 createForm.addEventListener("submit", (event) => {
   event.preventDefault(); formAttempted = true; if ($("#categoryPicker").value && !addCategory()) { updateErrors(true); return; }
