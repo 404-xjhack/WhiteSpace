@@ -27,7 +27,7 @@
       <section class="stage-card" aria-label="饺子工坊三维场景">
         <div class="scene-toolbar">
           <div class="mode-switch" role="group" aria-label="观察方式"><button id="guide-mode" class="active" type="button" aria-pressed="true">步骤导览</button><button id="observe-mode" type="button" aria-pressed="false">自由观察</button></div>
-          <div class="scene-tools"><button id="walk" class="text-button desktop-only" type="button" hidden>进入漫游</button><details id="environment"><summary>环境</summary><div><label>光照时段<input id="daylight" type="range" min="0" max="1" step="0.05" value="0.35"></label><label class="check-label"><input id="show-roof" type="checkbox">观察店铺外观</label><button id="reset-view" class="quiet-button" type="button">恢复观察视角</button></div></details></div>
+          <div class="scene-tools"><button id="walk" class="text-button desktop-only" type="button" hidden>进入漫游</button><button id="reset-view" class="text-button" type="button">恢复视角</button></div>
         </div>
         <div id="viewport" class="viewport" tabindex="0" aria-label="工坊场景；制作操作也可使用右侧按钮">
           <div class="scene-heading"><span id="station-name">和面分剂台</span><small id="scene-status">正在准备工坊…</small></div>
@@ -35,7 +35,7 @@
           <button id="drag-tool" class="drag-tool" type="button" hidden aria-label="拖动制作工具；也可点击当前操作按钮"><span id="drag-label">拖动擀面杖</span><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 16h18M10 12v8M22 12v8M3 16h4m18 0h4"/></svg></button>
           <div id="drop-target" class="drop-target" hidden aria-hidden="true">放在中央</div><p id="scene-hint" class="scene-hint">导览会自动靠近制作台；可用旁边的按钮完成每次操作。</p>
         </div>
-        <div class="stage-footer"><span><i></i>材料与动作的过程示意</span><small>模型适当放大，便于观察细节</small></div>
+        <div class="stage-footer"><span><i></i>材料与动作的过程示意</span></div>
       </section>
       <aside class="learning-panel" aria-labelledby="step-title">
         <div class="panel-heading"><p class="eyebrow" id="step-number">工序 01 / 06</p><h2 id="step-title">和面与醒面</h2><p id="step-question"></p></div>

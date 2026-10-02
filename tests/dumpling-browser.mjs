@@ -28,11 +28,13 @@ async function experienceClick(selector){
 async function shot(name,fullPage=true){await pause(650);const s=await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:fullPage});await writeFile(path.join(root,'.tmp',name),Buffer.from(s.data,'base64'));}
 async function stored(){return evaluate("JSON.parse(localStorage.getItem('writespace.experience.dumpling.v1'))");}
 async function step(id){await click(`[data-step="${id}"]`);await pause(480);}
-async function drag(kind,touch=false,valid=true){
+async function drag(kind,touch=false,valid=true,distance=68){
   const coords=await evaluate(`(()=>{const a=document.querySelector('#drag-tool').getBoundingClientRect(),b=document.querySelector('#drop-target').getBoundingClientRect();return{x:a.x+a.width/2,y:a.y+a.height/2,tx:b.x+b.width/2,ty:b.y+b.height/2}})()`);
-  const end=kind==='pin'?{x:coords.x+68,y:coords.y}:{x:valid?coords.tx:coords.x-70,y:valid?coords.ty:coords.y-60};
+  const end=kind==='pin'?{x:coords.x+(valid?distance:5),y:coords.y}:{x:valid?coords.tx:coords.tx+140,y:valid?coords.ty:coords.ty-100};
   if(touch){await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:coords.x,y:coords.y,id:1}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:end.x,y:end.y,id:1}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});}
-  else{await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',buttons:1,clickCount:1,x:coords.x,y:coords.y});await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',button:'left',buttons:1,x:end.x,y:end.y});await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',buttons:0,clickCount:1,x:end.x,y:end.y});}
+  else{await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',buttons:1,clickCount:1,x:coords.x,y:coords.y});
+    if(kind==='pin'&&!valid)for(let i=0;i<12;i++)await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',button:'left',buttons:1,x:coords.x+(i%2?5:-5),y:coords.y});
+    await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',button:'left',buttons:1,x:end.x,y:end.y});await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',buttons:0,clickCount:1,x:end.x,y:end.y});}
   await pause(140);
 }
 function passed(label){checks.push(label);console.log(`PASS ${label}`);}
@@ -44,14 +46,18 @@ try{
   await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:"window.experienceEvents=[];window.addEventListener('writespace:experience',e=>window.experienceEvents.push(e.detail));"});
   await cdp.send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
   await navigate(app.url+'/dumpling-house.html');assert.equal(await evaluate("document.querySelector('#viewport').dataset.renderer"),'webgl');
+  assert.equal(await evaluate("document.querySelectorAll('#environment,#daylight,#show-roof').length"),0);
+  assert.equal(await evaluate("document.body.textContent.includes('模型适当放大，便于观察细节')"),false);
   await shot('dumpling-dough-1440.png');assert.equal((await stored()),null);
   await step('cook');assert.equal((await stored()).completedStepIds.length,0);await step('dough');
   for(let i=0;i<3;i++)await click('#action');assert.deepEqual((await stored()).completedStepIds,['dough']);
   await click('#rest-compare');assert.match(await evaluate("document.querySelector('#feedback').textContent"),/醒面前/);await click('#rest-compare');
-  await step('filling');await click('#action');await click('#action');await step('portion');await click('#action');await click('#action');
-  await step('roll');await click('#action');await drag('pin');assert.equal((await stored()).steps.roll.passes,1);await click('#action');await click('#action');await shot('dumpling-wrapper-1440.png');
+  await step('filling');await click('#action');await click('#action');await shot('dumpling-filling-knife-1440.png');await step('portion');await click('#action');await click('#action');
+  await step('roll');await click('#action');await drag('pin',false,false);assert.equal((await stored()).steps.roll.passes,0,'Jitter cannot accumulate rolling passes');
+  await drag('pin',false,true,180);assert.equal((await stored()).steps.roll.passes,1,'A long drag completes exactly one pass');assert.equal((await stored()).steps.roll.phase,1);
+  await drag('pin');assert.equal((await stored()).steps.roll.passes,2);await click('#action');await shot('dumpling-wrapper-1440.png');
   await step('wrap');await click('input[value=large]');await drag('spoon',false,false);assert.equal((await stored()).steps.wrap.phase,0);
-  await drag('spoon');assert.equal((await stored()).steps.wrap.phase,1);await click('#action');assert.match(await evaluate("document.querySelector('#feedback').textContent"),/馅量太多/);assert.equal((await stored()).steps.wrap.phase,1);
+  await drag('spoon');assert.equal((await stored()).steps.wrap.phase,1);await click('#action');assert.match(await evaluate("document.querySelector('#feedback').textContent"),/馅量太多/);assert.equal((await stored()).steps.wrap.phase,1);await shot('dumpling-excess-filling-1440.png');
   await click('input[value=fit]');await click('#action');await click('#action');await shot('dumpling-pleats-1440.png');
   await step('cook');for(let i=0;i<4;i++)await click('#action');await until("document.querySelector('#summary-dialog').open");assert.equal((await stored()).completedStepIds.length,6);
   assert.equal(await evaluate("experienceEvents.filter(e=>e.type==='complete').length"),1);await click('#close-summary');await shot('dumpling-plate-1440.png');
@@ -59,7 +65,7 @@ try{
   await navigate(app.url+'/dumpling-house.html');assert.equal((await stored()).completedStepIds.length,6);assert.equal(await evaluate("experienceEvents.filter(e=>e.type==='complete').length"),0);
   await step('wrap');await click('#replay');assert.equal((await stored()).steps.wrap.phase,0);assert.equal((await stored()).completedStepIds.length,6);
   await click('#observe-mode');await click('[data-tool=pin]');assert.match(await evaluate("document.querySelector('#tool-detail').textContent"),/用途.*操作.*原因.*观察/);
-  await click('#environment summary');await click('#show-roof');await shot('dumpling-shop-1440.png');await click('#show-roof');await click('#environment summary');
+  await shot('dumpling-overview-1440.png');await click('#reset-view');assert.equal(await evaluate('document.body.dataset.mode'),'observe');
   await cdp.send('Page.bringToFront');await click('#walk');await pause(250);assert.equal(await evaluate('document.body.dataset.mode'),'walk');
   if(!await evaluate("document.pointerLockElement?.tagName==='CANVAS'"))await cdp.send('Runtime.evaluate',{expression:"document.querySelector('canvas').requestPointerLock().catch(()=>{})",userGesture:true,awaitPromise:true});
   const nativeLock=await evaluate("document.pointerLockElement?.tagName==='CANVAS'");
@@ -67,7 +73,7 @@ try{
     console.log('INFO Chromium headless denies native Pointer Lock; simulate the lock only for WASD/blur input verification.');
     await evaluate("window.sceneTestLock=document.querySelector('canvas');window.sceneNativeExit=document.exitPointerLock.bind(document);Object.defineProperty(document,'pointerLockElement',{configurable:true,get(){return sceneTestLock}});document.exitPointerLock=()=>{sceneTestLock=null;document.dispatchEvent(new Event('pointerlockchange'))};document.dispatchEvent(new Event('pointerlockchange'));");
   }
-  const beforeMove=await screenHash();
+  await shot('dumpling-walk-roof-1440.png');const beforeMove=await screenHash();
   await cdp.send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:'w',code:'KeyW',windowsVirtualKeyCode:87,nativeVirtualKeyCode:87});await pause(120);
   await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key:'w',code:'KeyW',windowsVirtualKeyCode:87,nativeVirtualKeyCode:87});
   const afterMove=await screenHash();assert.notEqual(afterMove,beforeMove,'W changes the visible camera position');
@@ -89,7 +95,7 @@ try{
   if(!nativeLock)await evaluate("delete document.pointerLockElement;document.exitPointerLock=sceneNativeExit;");
   await evaluate("HTMLCanvasElement.prototype.requestPointerLock=undefined");await click('#walk');assert.match(await evaluate("document.querySelector('#scene-hint').textContent"),/暂停/);await click('#walk');
   await evaluate("HTMLCanvasElement.prototype.requestPointerLock=()=>Promise.reject(new DOMException('Test denial'))");await click('#walk');await pause(120);assert.match(await evaluate("document.querySelector('#scene-hint').textContent"),/暂停/);await click('#walk');
-  passed(`Reload, replay, tools, exterior, WASD/blur, collision and Pointer Lock rejection (${nativeLock?'native lock and mouse turn':'simulated headless lock for movement'})`);
+  passed(`Reload, replay, tools, overview/walk roof policy, WASD/blur, collision and Pointer Lock rejection (${nativeLock?'native lock and mouse turn':'simulated headless lock for movement'})`);
   await cdp.send('Emulation.setDeviceMetricsOverride',{width:768,height:1024,deviceScaleFactor:1,mobile:false});await click('#guide-mode');await shot('dumpling-tablet-768.png');assert.equal(await evaluate('document.documentElement.scrollWidth>innerWidth'),false);
   await cdp.send('Emulation.setDeviceMetricsOverride',{width:375,height:900,deviceScaleFactor:1,mobile:true});await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:1});
   await step('roll');await click('#replay');await click('#action');await evaluate("document.querySelector('#viewport').scrollIntoView({block:'center',behavior:'instant'})");await drag('pin',true);assert.equal((await stored()).steps.roll.passes,1);
@@ -135,6 +141,18 @@ try{
   await click('#detailDialog [data-close]');assert.equal(await evaluate("document.documentElement.classList.contains('modal-open')"),false);
   passed('Aunt Wang detail → embedded WebGL six-step flow: mobile, progress restore, validated messages, return/exit/Esc, cleanup and unchanged participation');
   await cdp.send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
+  await evaluate("const witness=document.createElement('iframe');witness.id='reset-witness';witness.title='已打开的工坊';witness.style='position:fixed;left:-1800px;top:0;width:600px;height:500px';witness.src='/dumpling-house.html';document.body.append(witness);");
+  const witness="document.querySelector('#reset-witness').contentWindow";
+  await until(`${witness}.document.querySelector('#viewport')?.dataset.renderer && ${witness}.document.querySelector('#loading').hidden`);
+  assert.match(await evaluate(`${witness}.document.querySelector('#progress').textContent`),/6 \/ 6/);
+  await evaluate(`${witness}.document.querySelector('#open-summary').click()`);assert.equal(await evaluate(`${witness}.document.querySelector('#summary-dialog').open`),true);
+  await click('#resetDemo');await until(`${witness}.document.querySelector('#progress').textContent.includes('0 / 6')`);
+  const cleared=await stored();assert.equal(cleared.currentStepId,'dough');assert.deepEqual(cleared.completedStepIds,[]);assert.ok(Object.values(cleared.steps).every(s=>s.phase===0&&s.passes===0));
+  assert.equal(await evaluate(`${witness}.document.querySelector('#summary-dialog').open`),false);
+  await evaluate("document.querySelector('#reset-witness').remove()");
+  await click('[data-post-id="p1"]');await click('#openDumplingExperience');await until("document.querySelector('#experienceStatus').textContent.includes('0 / 6')");
+  await click('#experienceDialog [data-close]');await until("document.querySelector('#detailDialog').open");await click('#detailDialog [data-close]');
+  passed('Homepage reset clears all craft phases and progress, resets another open scene, closes its stale review and reopens at zero');
   await evaluate("window.sceneMessages=[];window.addEventListener('message',e=>{if(e.data?.experienceId==='dumpling-house')sceneMessages.push(e.data)});const frame=document.createElement('iframe');frame.id='scene-frame';frame.title='工坊';frame.style='width:900px;height:700px;border:0';frame.sandbox='allow-scripts allow-same-origin allow-pointer-lock';frame.src='/dumpling-house.html?embed=1';document.body.prepend(frame);");
   await until("sceneMessages.some(m=>m.type==='ready')");
   const frame="document.querySelector('#scene-frame').contentWindow";

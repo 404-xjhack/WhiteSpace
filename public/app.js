@@ -15,6 +15,7 @@ const storagePosts = "writespace.posts.v1";
 const storageInterest = "writespace.interest.v1";
 const storageProfile = "writespace.profile.v1";
 const storageMatches = "writespace.matches.v1";
+const storageDumpling = "writespace.experience.dumpling.v1";
 
 function readSaved(key, fallback) {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
@@ -481,8 +482,10 @@ $("#resetDemo").addEventListener("click", () => {
   cancelMatch(); myPosts = []; interestedIds = new Set(); matchingPost = null; currentDetail = null; profile = {}; matchState = { byPost: {} };
   displayedMatchData = null; displayedMatches = []; matchesExpanded = false;
   for (const [key, value] of [[storagePosts, []], [storageInterest, []], [storageProfile, {}], [storageMatches, matchState]]) save(key, value);
+  try { localStorage.removeItem(storageDumpling); } catch { showToast("浏览器暂时无法保存，当前页面仍可继续体验。"); }
+  experienceFrame?.contentWindow.postMessage({ version: 1, experienceId: "dumpling-house", type: "reset" }, location.origin);
   $("#searchInput").value = ""; $("#matchResults").hidden = true; $("#matchLoading").hidden = true; $("#matchWelcome").hidden = false;
-  setFilter("all"); window.scrollTo({ top: 0, behavior: "smooth" }); showToast("演示内容、资料和匹配记录已重置。");
+  setFilter("all"); window.scrollTo({ top: 0, behavior: "smooth" }); showToast("演示内容、资料、匹配记录和饺子工坊进度已重置。");
 });
 function publishDraft(data, nextProfile) {
   const post = { ...data, id: `mine-${crypto.randomUUID()}`, name: "我", avatar: "我", color: "self", createdAt: new Date().toISOString() };

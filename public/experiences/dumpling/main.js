@@ -23,8 +23,8 @@ function renderDiagram(){
   if(id==='dough')content+=phase===0?'<path d="M112 136Q115 209 200 208Q285 209 288 136Z" fill="#e9eee5" stroke="#819489" stroke-width="3"/><ellipse cx="200" cy="136" rx="87" ry="25" fill="#f6e5c1" stroke="#a6ad99"/>':phase===1?Array.from({length:17},(_,i)=>`<ellipse cx="${135+i%6*25}" cy="${127+Math.floor(i/6)*17}" rx="15" ry="11" fill="#efddb0" stroke="#c8b382"/>`).join(''):`<ellipse cx="200" cy="143" rx="72" ry="49" fill="${phase===3&&!compare?'#fcf9ed':'#efddb0'}" stroke="#c5b382"/><path d="M151 151Q195 180 250 151" stroke="#c9b990"/>`;
   if(id==='filling')content+=Array.from({length:phase===0?3:40},(_,i)=>`<circle cx="${phase===0?130+i*70:130+i%8*20}" cy="${phase===0?141:115+Math.floor(i/8)*13}" r="${phase===0?28:8}" fill="${['#87a35c','#c6c58a','#d5a072'][i%3]}"/>`).join('');
   if(id==='portion')content+=phase===0?'<ellipse cx="200" cy="146" rx="66" ry="43" fill="#efddb0"/>':phase===1?'<rect x="84" y="126" width="230" height="48" rx="24" fill="#efddb0" stroke="#c5b382"/>':Array.from({length:6},(_,i)=>`<ellipse cx="${90+i*45}" cy="148" rx="19" ry="26" fill="#efddb0" stroke="#c5b382"/>`).join('');
-  if(id==='roll')content+=`<ellipse cx="200" cy="144" rx="${phase===0?33:47+value.passes*13}" ry="${phase===0?27:26+value.passes*7}" fill="#f3e0b5" stroke="#c5b382" stroke-width="3"/><ellipse cx="200" cy="144" rx="${phase===0?20:25}" ry="17" fill="#ecd6a4"/><rect x="99" y="190" width="196" height="13" rx="6" fill="#91643d"/>`;
-  if(id==='wrap')content+=phase<2?'<ellipse cx="200" cy="145" rx="83" ry="43" fill="#f3e0b5" stroke="#c5b382" stroke-width="2"/>'+ (phase===1?`<ellipse cx="200" cy="142" rx="${value.amount==='large'?77:value.amount==='small'?25:43}" ry="26" fill="#8eaa65"/>`:''):dumpling(200,150);
+  if(id==='roll')content+=`<ellipse cx="200" cy="144" rx="${phase===0?26:37+value.passes*10}" ry="${phase===0?22:21+value.passes*5}" fill="#f3e0b5" stroke="#c5b382" stroke-width="3"/><ellipse cx="200" cy="144" rx="${phase===0?16:20}" ry="14" fill="#ecd6a4"/><rect x="99" y="190" width="196" height="13" rx="6" fill="#91643d"/>`;
+  if(id==='wrap')content+=phase<2?'<ellipse cx="200" cy="145" rx="67" ry="35" fill="#f3e0b5" stroke="#c5b382" stroke-width="2"/>'+ (phase===1?`<ellipse cx="200" cy="142" rx="${value.amount==='large'?68:value.amount==='small'?20:35}" ry="21" fill="#8eaa65"/>`:''):dumpling(200,150,.81);
   if(id==='cook')content=phase===4?dish+dumpling(155,140,.55)+dumpling(230,165,.55):'<path d="M93 107V190Q200 226 307 190V107" fill="#8a9d95" stroke="#576f63" stroke-width="3"/><ellipse cx="200" cy="108" rx="107" ry="29" fill="#bcd6c7" stroke="#576f63" stroke-width="3"/>'+ (phase?dumpling(170,113,.4)+dumpling(234,113,.4):'')+'<path d="M150 72Q135 53 150 33M203 67Q188 48 203 29M257 75Q243 54 256 36" stroke="#fffaf0" stroke-width="5"/>';
   $('diagram').innerHTML=`<svg viewBox="0 0 400 260" role="img" aria-label="${STEPS.find(s=>s.id===id).title}的当前状态">${content}</svg>`;
 }
@@ -34,7 +34,7 @@ function positionDrag(points=positions()){
   const kind=dragKind();$('drag-tool').hidden=!kind;$('drop-target').hidden=kind!=='spoon';
   if(!kind||drag)return;
   const rect=$('viewport').getBoundingClientRect(),x=Math.max(34,Math.min(rect.width-34,points.tool.x)),y=Math.max(105,Math.min(rect.height-75,points.tool.y));
-  $('drag-tool').style.left=`${x}px`;$('drag-tool').style.top=`${y}px`;$('drag-label').textContent=kind==='pin'?'拖动擀面杖，来回擀压':'把调羹拖到面皮中央';
+  $('drag-tool').style.left=`${x}px`;$('drag-tool').style.top=`${y}px`;$('drag-label').textContent=kind==='pin'?`每次拖动擀压一次 · ${state.steps.roll.passes}/3`:'把调羹拖到面皮中央';
   $('drop-target').style.left=`${points.target.x}px`;$('drop-target').style.top=`${points.target.y}px`;
 }
 function render(action=''){
@@ -70,7 +70,7 @@ function applyMode(next){
 }
 function setMode(next){cancelDrag();selectedTool=null;$('tool-detail').hidden=true;if(view)view.setMode(next);else applyMode(next);}
 function openSummary(finished=false){if(mode==='walk')setMode('observe');$('summary-intro').textContent=finished?'你已经动手体验了全部六步。再看一遍每一步里的关键判断。':'每一步既有动作，也有需要观察的变化。';$('summary-list').innerHTML=STEPS.map(s=>`<li><strong>${s.title}${state.completedStepIds.includes(s.id)?' · 已体验':''}</strong>${s.insight}</li>`).join('');if(!$('summary-dialog').open)$('summary-dialog').showModal();}
-function reset(){cancelDrag();state=createState();compare=false;selectedTool=null;setMode('guide');render();$('feedback').textContent='从逐渐加水开始，观察面粉怎样形成面团。';persist();emit('progress');}
+function reset(){cancelDrag();for(const id of ['summary-dialog','reset-dialog'])if($(id).open)$(id).close();state=createState();compare=false;selectedTool=null;setMode('guide');render();$('feedback').textContent='从逐渐加水开始，观察面粉怎样形成面团。';persist();emit('progress');}
 function cancelDrag(){if(!drag)return;const pointer=drag.pointer;drag=null;if($('drag-tool').hasPointerCapture(pointer))$('drag-tool').releasePointerCapture(pointer);$('drag-tool').classList.remove('dragging');view?.endDrag();positionDrag();}
 $('step-nav').addEventListener('click',e=>{const button=e.target.closest('[data-step]');if(button)changeStep(button.dataset.step);});
 $('action').addEventListener('click',()=>act());
@@ -81,28 +81,31 @@ document.querySelectorAll('input[name=amount]').forEach(input=>input.addEventLis
 $('guide-mode').addEventListener('click',()=>setMode('guide'));$('observe-mode').addEventListener('click',()=>setMode('observe'));
 $('walk').addEventListener('click',()=>setMode(mode==='walk'?'observe':'walk'));
 $('reset-view').addEventListener('click',()=>{if(mode==='walk')setMode('observe');view?.resetView();});
-for(const id of ['daylight','show-roof'])$(id).addEventListener('input',()=>view?.setEnvironment(Number($('daylight').value),$('show-roof').checked));
 $('rest-compare').addEventListener('click',()=>{compare=!compare;render();$('feedback').textContent=compare?'醒面前的面团：揉合后还需要静置，让水分分布并使面团放松。':'盖布减少表面失水。这里是醒面过程示意，不代表真实所需时间。';});
 $('open-summary').addEventListener('click',()=>openSummary());for(const id of ['continue','close-summary'])$(id).addEventListener('click',()=>$('summary-dialog').close());
 $('reset').addEventListener('click',()=>{if(mode==='walk')setMode('observe');$('reset-dialog').showModal();});$('cancel-reset').addEventListener('click',()=>$('reset-dialog').close());$('confirm-reset').addEventListener('click',()=>{$('reset-dialog').close();reset();});
 $('exit').addEventListener('click',()=>{if(mode==='walk')setMode('observe');emit('exit');$('feedback').textContent='已向所在页面发送关闭请求。';});
 $('drag-tool').addEventListener('pointerdown',e=>{
   if(e.button!==0||!dragKind())return;e.preventDefault();const rect=$('viewport').getBoundingClientRect(),points=positions();
-  drag={pointer:e.pointerId,kind:dragKind(),lastX:e.clientX,lastY:e.clientY,travel:0,start:points.tool,target:points.target,rect};$('drag-tool').setPointerCapture(e.pointerId);$('drag-tool').classList.add('dragging');
+  drag={pointer:e.pointerId,kind:dragKind(),originX:e.clientX,originY:e.clientY,maxDistance:0,threshold:Math.max(32,Math.min(60,rect.width*.09)),target:points.target,rect};$('drag-tool').setPointerCapture(e.pointerId);$('drag-tool').classList.add('dragging');
 });
 $('drag-tool').addEventListener('pointermove',e=>{
-  if(!drag||e.pointerId!==drag.pointer)return;drag.travel+=Math.hypot(e.clientX-drag.lastX,e.clientY-drag.lastY);drag.lastX=e.clientX;drag.lastY=e.clientY;
+  if(!drag||e.pointerId!==drag.pointer)return;drag.maxDistance=Math.max(drag.maxDistance,Math.hypot(e.clientX-drag.originX,e.clientY-drag.originY));
   const x=e.clientX-drag.rect.left,y=e.clientY-drag.rect.top;$('drag-tool').style.left=`${x}px`;$('drag-tool').style.top=`${y}px`;view?.moveTool(drag.kind,x,y);
 });
 $('drag-tool').addEventListener('pointerup',e=>{
   if(!drag||e.pointerId!==drag.pointer)return;const value=drag,x=e.clientX-value.rect.left,y=e.clientY-value.rect.top;cancelDrag();
-  if(value.kind==='pin'&&value.travel>=45){for(let i=0;i<Math.min(3,Math.floor(value.travel/45))&&state.steps.roll.phase===1;i++)act('roll');}
-  else if(value.kind==='spoon'&&value.travel>10&&Math.hypot(x-value.target.x,y-value.target.y)<58)act('place');
-  else $('feedback').textContent=value.kind==='pin'?'把擀面杖来回拖动一段距离，或使用操作按钮。':'把调羹拖到标记的面皮中央，或使用操作按钮。';
+  value.maxDistance=Math.max(value.maxDistance,Math.hypot(e.clientX-value.originX,e.clientY-value.originY));
+  if(value.kind==='pin'&&value.maxDistance>=value.threshold)act('roll');
+  else if(value.kind==='spoon'&&value.maxDistance>10&&Math.hypot(x-value.target.x,y-value.target.y)<58)act('place');
+  else $('feedback').textContent=value.kind==='pin'?'拖动一段距离完成一次擀压；分三次擀压，或使用操作按钮。':'把调羹拖到标记的面皮中央，或使用操作按钮。';
 });
 for(const name of ['pointercancel','lostpointercapture'])$('drag-tool').addEventListener(name,cancelDrag);
 $('drag-tool').addEventListener('click',e=>{if(e.detail===0)act();});
 window.addEventListener('blur',cancelDrag);document.addEventListener('visibilitychange',()=>{if(document.hidden)cancelDrag();});
+window.addEventListener('storage',event=>{
+  if(event.key===STORAGE_KEY&&(event.newValue===null||event.newValue==='null'))reset();
+});
 window.addEventListener('keydown',event=>{
   if(embedded&&event.key==='Escape'&&!event.defaultPrevented&&mode!=='walk'&&!document.pointerLockElement&&!document.querySelector('dialog[open]')){
     event.preventDefault();emit('exit');

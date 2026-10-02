@@ -223,10 +223,12 @@ try {
   await click('[data-post-id="mine-legacy"]'); assert.equal(await evaluate("document.querySelector('#detailMatchButton').hidden"), false); await click('#detailDialog [data-close="detailDialog"]');
   passed("B07/U08: relative timestamps agree in list/detail; legacy posts retain matching access");
 
+  await evaluate("import('/experiences/dumpling/state.js').then(S=>{let state=S.focusStep(S.createState(),'roll');state=S.perform(state,'press').state;state=S.perform(state,'roll').state;localStorage.setItem('writespace.experience.dumpling.v1',JSON.stringify(state));})");
   await click("#resetDemo"); assert.equal(await evaluate("document.querySelectorAll('.post-card').length"), 6);
+  assert.equal(await evaluate("localStorage.getItem('writespace.experience.dumpling.v1')"),null);
   assert.equal(await evaluate("document.querySelector('#matchWelcome').hidden"), false);
   await reload(); assert.equal(await evaluate("document.querySelector('#matchWelcome').hidden"), false);
-  passed("Reset clears publishing, profile, interest and matching persistence");
+  passed("Reset clears publishing, profile, interest, matching and dumpling learning persistence");
 
   const reportedTitle = "想找人一起修好一把旧椅子";
   const reportedDescription = "家里有把用了很多年的木椅，靠背松了。不想直接扔掉，希望和会木工的邻居一起修，也想学一点基础维修。";

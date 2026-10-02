@@ -4,7 +4,7 @@ import { buildShop, renderFood } from "./models.js";
 import { STEPS } from "./data.js";
 
 export function createRenderer(container, callbacks) {
-  const scene=new THREE.Scene();scene.background=new THREE.Color(0xe6dfce);scene.fog=new THREE.Fog(0xe6dfce,23,65);
+  const scene=new THREE.Scene();scene.background=new THREE.Color().setHSL(.08,.19,.67);scene.fog=new THREE.Fog(scene.background,23,65);
   const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});
   renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.outputColorSpace=THREE.SRGBColorSpace;
   renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;
@@ -13,12 +13,12 @@ export function createRenderer(container, callbacks) {
   const camera=new THREE.PerspectiveCamera(43,1,.05,100),controls=new OrbitControls(camera,renderer.domElement);
   controls.enableDamping=true;controls.dampingFactor=.08;controls.minDistance=1.8;controls.maxDistance=25;controls.maxPolarAngle=Math.PI*.49;
   controls.mouseButtons={LEFT:THREE.MOUSE.ROTATE,MIDDLE:THREE.MOUSE.PAN,RIGHT:THREE.MOUSE.PAN};controls.enabled=false;
-  const ambient=new THREE.HemisphereLight(0xfff8e8,0xb2a68b,2.6);scene.add(ambient);
-  const sun=new THREE.DirectionalLight(0xffe0b8,3.0);sun.position.set(-4,10,6);sun.castShadow=true;
+  const ambient=new THREE.HemisphereLight(0xfff8e8,0xb2a68b,1.9);scene.add(ambient);
+  const sun=new THREE.DirectionalLight(0xffe0b8,1.4);sun.color.setHSL(.09,.4,.75);sun.position.set(-4,10,6);sun.castShadow=true;
   sun.shadow.mapSize.set(1024,1024);Object.assign(sun.shadow.camera,{left:-10,right:10,top:10,bottom:-10,near:1,far:30});sun.shadow.normalBias=.04;scene.add(sun);
   const shop=buildShop(scene),ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),plane=new THREE.Plane(new THREE.Vector3(0,1,0),-.97);
   const pinHome=shop.pin.position.clone(),spoonHome=shop.spoon.position.clone(),strainerHome=shop.strainer.position.clone();
-  let mode='guide',state=null,frameId=0,lastFrame=0,disposed=false,dragging=false,roofSetting=false,compare=false;
+  let mode='guide',state=null,frameId=0,lastFrame=0,disposed=false,dragging=false,compare=false;
   let yaw=0,pitch=-.1,lastAction=0,actionId='',pointerStart=null,tween=null;const keys=new Set();
   const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
   const targets={dough:new THREE.Vector3(-2.6,.92,1.2),filling:new THREE.Vector3(2.7,.92,-1.5),wrapping:new THREE.Vector3(1.5,.92,2.6),stove:new THREE.Vector3(-5,1.22,-2.25)};
@@ -38,7 +38,7 @@ export function createRenderer(container, callbacks) {
   function setMode(next){
     if(!['guide','observe','walk'].includes(next))return;
     if(document.pointerLockElement===renderer.domElement&&next!=='walk')document.exitPointerLock();
-    mode=next;keys.clear();tween=null;controls.enabled=next==='observe';shop.roof.visible=next==='observe'&&roofSetting;
+    mode=next;keys.clear();tween=null;controls.enabled=next==='observe';shop.roof.visible=next==='walk';
     if(next==='guide')focus();
     if(next==='observe')overview();
     if(next==='walk'){camera.position.set(0,1.55,4.25);yaw=0;pitch=-.08;camera.rotation.order='YXZ';}
@@ -104,7 +104,6 @@ export function createRenderer(container, callbacks) {
     update(next,comparison=false,action=''){const changed=state?.currentStepId!==next.currentStepId;state=next;compare=comparison;renderFood(shop.stations,state,compare);if(action){lastAction=performance.now();actionId=action;}endDrag();if(changed)focus();},
     setMode,moveTool,endDrag,dragPositions,
     resetView(){if(mode==='guide')focus();else if(mode==='observe')overview();},
-    setEnvironment(daylight,showRoof){roofSetting=showRoof;shop.roof.visible=mode==='observe'&&showRoof;const night=Number(daylight);ambient.intensity=2.6-night*.7;sun.intensity=3-night*1.6;sun.color.setHSL(.09,.4,.85-night*.1);scene.background.setHSL(.12-night*.04,.19,.84-night*.17);scene.fog.color.copy(scene.background);if(showRoof&&mode==='observe')overview();},
     destroy(){if(disposed)return;disposed=true;cancelAnimationFrame(frameId);resizeObserver.disconnect();listeners.forEach(([target,event,fn])=>target.removeEventListener(event,fn));if(document.pointerLockElement===renderer.domElement)document.exitPointerLock();controls.dispose();const gs=new Set(),ms=new Set(),ts=new Set();scene.traverse(o=>{if(o.geometry)gs.add(o.geometry);for(const m of o.material?(Array.isArray(o.material)?o.material:[o.material]):[]){ms.add(m);if(m.map)ts.add(m.map);}});gs.forEach(g=>g.dispose());ms.forEach(m=>m.dispose());ts.forEach(t=>t.dispose());renderer.dispose();renderer.domElement.remove();}
   };
 }
