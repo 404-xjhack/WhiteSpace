@@ -1,24 +1,30 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_CRITERIA, EXPERIENCE_TEMPLATES, normalizeCriteria, criteriaKey, filterExperiences, localRecommendations,
-  recommendationItem, validateAIRecommendations, validRecommendationData, restoreTodayState, experienceDraft } from "../public/experience-planner.js";
-import { validateDraft } from "../public/model.js";
+import { readFile } from "node:fs/promises";
+import { DEFAULT_CRITERIA, normalizeCriteria, criteriaKey, otherPosts, postsKey, filterExperiences, localRecommendations,
+  validateAIRecommendations, validRecommendationData, restoreTodayState } from "../public/experience-planner.js";
 
+const posts = JSON.parse(await readFile(new URL("../public/data.json", import.meta.url), "utf8"));
 const criteria = (overrides = {}) => normalizeCriteria({ ...DEFAULT_CRITERIA, ...overrides });
-const ids = (conditions) => filterExperiences(conditions).map((item) => item.id);
+const ids = (conditions, pool = posts) => filterExperiences(conditions, pool).map((item) => item.id);
+const custom = (overrides = {}) => ({ ...posts[2], id: "community-new", ...overrides });
+const aiItem = { id: "p5", reason: "赵老师愿意提供表达反馈，可以讨论一起写家书。", steps: ["核对原发布和参与角色。", "向发布者确认时间、材料和余位。"] };
 
-test("Today: eight usable templates have known related posts and three to five concrete steps", () => {
-  assert.equal(EXPERIENCE_TEMPLATES.length, 8);
-  assert.equal(new Set(EXPERIENCE_TEMPLATES.map((item) => item.id)).size, 8);
-  for (const item of EXPERIENCE_TEMPLATES) {
-    assert.ok([15, 30, 60].includes(item.minutes));
-    assert.ok(item.steps.length >= 3 && item.steps.length <= 5);
-    assert.ok(item.preparation.length && item.categories.length);
-    assert.ok(item.relatedPostIds.every((id) => /^p[1-6]$/.test(id)));
+test("Today: candidates are actual other people's posts, preserving authors and excluding own, invalid and duplicate posts", () => {
+  const pool = otherPosts([...posts, { ...posts[2], id: "mine-own" }, custom(), custom(), null, { id: "broken" }]);
+  assert.equal(pool.length, 7); assert.equal(new Set(pool.map((item) => item.id)).size, 7);
+  assert.ok(!pool.some((item) => item.id.startsWith("mine-")));
+  for (const post of posts) {
+    const canonical = pool.find((item) => item.id === post.id);
+    assert.equal(canonical.title, post.title); assert.equal(canonical.name, post.name);
+    assert.equal(canonical.description, post.description); assert.equal(canonical.location, post.location);
   }
+  assert.deepEqual(otherPosts(pool), pool);
+  assert.equal(postsKey([...pool].reverse()), postsKey(pool));
+  assert.deepEqual(ids(criteria(), [custom()]), ["community-new"]);
 });
 
-test("Today: criteria validate time, total participants, categories, materials and bounded notes", () => {
+test("Today: criteria validate time, party size including self, categories, materials and bounded notes", () => {
   assert.ok(criteria({ participants: 1 })); assert.ok(criteria({ participants: 50 }));
   for (const invalid of [null, {}, { ...DEFAULT_CRITERIA, minutes: 45 }, { ...DEFAULT_CRITERIA, participants: 0 },
     { ...DEFAULT_CRITERIA, participants: 51 }, { ...DEFAULT_CRITERIA, participants: 2.5 },
@@ -29,88 +35,95 @@ test("Today: criteria validate time, total participants, categories, materials a
   assert.equal(criteria({ notes: "  安静一点  " }).notes, "安静一点");
 });
 
-test("Today: time and participant boundaries exclude longer and unsuitable experiences", () => {
-  assert.ok(filterExperiences(criteria({ minutes: 15 })).every((item) => item.minutes === 15));
-  assert.ok(!ids(criteria()).includes("dumpling-session"));
-  assert.ok(!ids(criteria({ participants: 1, minutes: 60 })).includes("paper-story"));
-  assert.ok(ids(criteria({ participants: 2, minutes: 60 })).includes("wood-session"));
-  assert.ok(!ids(criteria({ participants: 5, minutes: 60 })).includes("wood-session"));
-  assert.deepEqual(ids(criteria({ participants: 7, minutes: 60 })), []);
+test("Today: unknown session duration/materials stay candidates, schedule windows are not session durations", () => {
+  const conditions = criteria({ minutes: 15, noPurchase: true, lightOnly: true });
+  assert.ok(ids(conditions).includes("p3"));
+  const item = localRecommendations({ ...conditions, theme: "旧物新生" }, posts).recommendations[0];
+  assert.equal(item.post.durationMinutes, null); assert.equal(item.post.requiredMaterials, null);
+  assert.match(item.preparations.join(" "), /未说明单次参与时长.*确认.*15 分钟/);
+  assert.match(item.preparations.join(" "), /未说明完整材料要求/);
+  assert.match(item.preparations.join(" "), /未说明体力要求/);
+  assert.match(item.preparations.join(" "), /每周日 09:00–12:00/);
+  assert.equal(item.status, "coordinate"); assert.match(item.firstStep, /原发布.*确认/);
+  const pool = [custom({ durationMinutes: 30 }), custom({ id: "long", durationMinutes: 60 })];
+  assert.deepEqual(ids(criteria({ minutes: 15 }), pool), []);
+  assert.deepEqual(ids(criteria({ minutes: 30 }), pool), ["community-new"]);
+  assert.deepEqual(ids(criteria({ minutes: 60 }), pool), ["community-new", "long"]);
 });
 
-test("Today: themes and structured restrictions are hard filters, including alternative materials", () => {
-  assert.deepEqual(ids(criteria({ theme: "数码互助" })), ["three-photos"]);
-  assert.deepEqual(ids(criteria({ noPurchase: true })), ["notice"]);
-  assert.deepEqual(ids(criteria({ noPurchase: true, materials: ["phone"] })), ["notice", "three-lines", "three-photos", "walk-map"]);
-  assert.ok(ids(criteria({ participants: 2, noPurchase: true, materials: ["writing"] })).includes("paper-story"));
-  assert.ok(!ids(criteria({ noPurchase: true, materials: ["writing"] })).includes("repair-plan"));
-  assert.ok(ids(criteria({ noPurchase: true, materials: ["writing", "old-object"] })).includes("repair-plan"));
-  assert.ok(filterExperiences(criteria({ minutes: 60, participants: 2, indoorsOnly: true })).every((item) => !item.outdoors));
-  assert.ok(filterExperiences(criteria({ minutes: 60, participants: 2, lightOnly: true })).every((item) => item.light));
+test("Today: visitors can join group posts; party plus author must fit known capacity, unknown capacity stays", () => {
+  assert.ok(ids(criteria({ participants: 1 })).includes("p1"));
+  assert.ok(ids(criteria({ participants: 4 })).includes("p1"));
+  assert.ok(!ids(criteria({ participants: 5 })).includes("p1"));
+  assert.ok(ids(criteria({ participants: 2 })).includes("p4"));
+  assert.ok(!ids(criteria({ participants: 3 })).includes("p4"));
+  assert.deepEqual(ids(criteria({ participants: 50 })), []);
+  assert.deepEqual(ids(criteria({ participants: 50 }), [custom({ participants: "可协商" })]), ["community-new"]);
+  assert.deepEqual(ids(criteria({ participants: 2 }), [custom({ participantSettings: { mode: "exact", count: 2 } })]), []);
 });
 
-test("Today: recommendations are capped, stable, explicit about coordination and empty results", () => {
-  const solo = localRecommendations(criteria()); assert.equal(solo.recommendations.length, 3);
-  assert.equal(solo.recommendations[0].id, "walk-map");
-  assert.equal(solo.recommendations[0].status, "ready");
-  const group = localRecommendations(criteria({ participants: 2 }));
-  assert.ok(group.recommendations.every((item) => item.status === "coordinate" && /确认/.test(item.firstStep)));
-  const guided = recommendationItem(EXPERIENCE_TEMPLATES.find((item) => item.id === "wood-session"), criteria({ minutes: 60, participants: 2 }));
-  assert.equal(guided.status, "coordinate"); assert.match(guided.firstStep, /指导者/);
-  assert.equal(guided.steps.length, 5); // Don't duplicate the mandatory coordination step.
-  const empty = localRecommendations(criteria({ theme: "亲子共学", participants: 1 }));
-  assert.equal(empty.recommendations.length, 0); assert.match(empty.emptyReason, /没有符合全部条件/);
-  assert.ok(validRecommendationData(solo, criteria())); assert.ok(validRecommendationData(empty, empty.criteria));
+test("Today: themes and known travel, physical and material conflicts filter without relaxing unknown conditions", () => {
+  assert.deepEqual(ids(criteria({ theme: "数码互助" })), ["p6"]);
+  assert.deepEqual(ids(criteria({ theme: "数码互助", noPurchase: true })), []);
+  assert.deepEqual(ids(criteria({ theme: "数码互助", noPurchase: true, materials: ["phone"] })), ["p6"]);
+  const pool = [custom({ id: "online", location: "线上视频", durationMinutes: 15, requiredMaterials: [["writing", "phone"], ["old-object"]], lightActivity: true }),
+    custom({ id: "offline", location: "社区共享工坊", lightActivity: false }),
+    custom({ id: "unknown", location: "地点可协商" })];
+  assert.deepEqual(ids(criteria({ indoorsOnly: true }), pool), ["online", "unknown"]);
+  assert.deepEqual(ids(criteria({ lightOnly: true }), pool), ["online", "unknown"]);
+  assert.ok(!ids(criteria({ noPurchase: true, materials: ["phone"] }), pool).includes("online"));
+  assert.ok(ids(criteria({ noPurchase: true, materials: ["phone", "old-object"] }), pool).includes("online"));
+  assert.ok(ids(criteria({ noPurchase: true, materials: ["writing", "old-object"] }), pool).includes("online"));
+  assert.match(localRecommendations(criteria({ indoorsOnly: true }), [pool[2]]).recommendations[0].preparations.join(" "), /确认对方是否支持线上/);
 });
 
-const aiItem = { id: "three-lines", reason: "适合用自己的话安静记录今天。", steps: ["回想今天一件小事。", "用纸笔或手机写三句话。", "读一遍并保留自己的表达。"] };
-test("Today AI: only filtered, unique ids with bounded reason and action lists are accepted", () => {
+test("Today: at most three real publications, notes affect ranking, both offers and requests can be explored", () => {
+  const result = localRecommendations(criteria({ notes: "我想学习木工修复木椅" }), posts);
+  assert.equal(result.recommendations.length, 3); assert.equal(result.recommendations[0].id, "p3");
+  assert.ok(result.recommendations.every((item) => posts.some((post) => post.id === item.id && post.title === item.post.title)));
+  assert.equal(localRecommendations(criteria({ theme: "社区生活" }), posts).recommendations[0].post.type, "need");
+  const empty = localRecommendations(criteria({ participants: 50 }), posts);
+  assert.equal(empty.recommendations.length, 0); assert.match(empty.emptyReason, /没有符合已知条件/);
+  assert.ok(validRecommendationData(result, result.criteria, posts)); assert.ok(validRecommendationData(empty, empty.criteria, posts));
+});
+
+test("Today AI: accepts only eligible unique publication ids and bounded reasons/participation suggestions", () => {
   const conditions = criteria({ theme: "学习交流" });
-  const valid = validateAIRecommendations({ recommendations: [aiItem] }, conditions);
-  assert.equal(valid[0].title, "亲手写下三句话");
-  assert.equal(valid[0].firstStep, aiItem.steps[0]);
+  const valid = validateAIRecommendations({ recommendations: [aiItem] }, conditions, posts);
+  assert.equal(valid[0].post.title, posts[4].title); assert.match(valid[0].firstStep, /确认/);
+  assert.deepEqual(valid[0].steps.slice(1), aiItem.steps);
   for (const invalid of [null, { recommendations: [] }, { recommendations: [aiItem, aiItem] },
-    { recommendations: [{ ...aiItem, id: "notice" }] }, { recommendations: [{ ...aiItem, id: "invented" }] },
-    { recommendations: [{ ...aiItem, reason: " " }] }, { recommendations: [{ ...aiItem, steps: ["只有一步"] }] },
-    { recommendations: [{ ...aiItem, steps: ["字".repeat(121), "二", "三"] }] }]) assert.equal(validateAIRecommendations(invalid, conditions), null);
+    { recommendations: [{ ...aiItem, id: "p3" }] }, { recommendations: [{ ...aiItem, id: "three-lines" }] },
+    { recommendations: [{ ...aiItem, id: "mine-own" }] }, { recommendations: [{ ...aiItem, reason: " " }] },
+    { recommendations: [{ ...aiItem, steps: ["只有一步"] }] }, { recommendations: [{ ...aiItem, steps: ["字".repeat(121), "二"] }] }])
+    assert.equal(validateAIRecommendations(invalid, conditions, posts), null);
 });
 
-test("Today AI: template facts and safety preparations stay canonical; coordination stays the first step", () => {
-  const conditions = criteria({ participants: 2, notes: "孩子喜欢安静一点" });
-  const items = validateAIRecommendations({ recommendations: [{ ...aiItem, title: "不可信标题", minutes: 120, status: "ready", materials: "新工具" }] }, conditions);
-  assert.equal(items[0].title, "亲手写下三句话"); assert.equal(items[0].minutes, 15);
-  assert.equal(items[0].status, "coordinate"); assert.match(items[0].firstStep, /确认参与伙伴/);
+test("Today AI: canonical publication facts and confirmation remain intact despite invented output fields", () => {
+  const conditions = criteria({ notes: "孩子喜欢安静一点", theme: "学习交流" });
+  const items = validateAIRecommendations({ recommendations: [{ ...aiItem, post: custom(), title: "不可信标题", minutes: 120, status: "ready" }] }, conditions, posts);
+  assert.equal(items[0].post.title, posts[4].title); assert.equal(items[0].post.durationMinutes, null);
+  assert.equal(items[0].status, "coordinate"); assert.equal(items[0].steps[0], items[0].firstStep);
   assert.ok(items[0].preparations.some((line) => /家长/.test(line)));
-  const data = { ...localRecommendations(conditions), source: "ai", recommendations: items };
-  assert.ok(validRecommendationData(data, conditions));
-  assert.equal(validRecommendationData({ ...data, recommendations: [{ ...items[0], status: "ready" }] }, conditions), false);
+  const data = { ...localRecommendations(conditions, posts), source: "ai", fallbackReason: null, recommendations: items };
+  assert.ok(validRecommendationData(data, conditions, posts));
+  for (const damaged of [{ ...items[0], status: "ready" }, { ...items[0], post: { ...items[0].post, title: "假标题" } },
+    { ...items[0], firstStep: "立即开始" }]) assert.equal(validRecommendationData({ ...data, recommendations: [damaged] }, conditions, posts), false);
 });
 
-test("Today persistence: restores valid results, keeps conditions when broken, stale or outdated", () => {
-  const conditions = criteria({ theme: "学习交流", notes: "安静" });
-  const result = localRecommendations(conditions);
-  assert.deepEqual(restoreTodayState({ criteria: conditions, result }).result, result);
-  for (const broken of [{ ...result, version: "old" }, { ...result, generatedAt: "bad" },
-    { ...result, generatedAt: { toString: 123, valueOf: 123 } }, { ...result, fallbackReason: {} },
-    { ...result, generatedAt: new Date(Date.now() - 25 * 3600000).toISOString() },
-    { ...result, generatedAt: new Date(Date.now() + 60000).toISOString() }, { ...result, recommendations: [null] },
-    { ...result, inputKey: criteriaKey(criteria()) }]) {
-    const restored = restoreTodayState({ criteria: conditions, result: broken });
+test("Today persistence: restores validated snapshots, invalidates changed posts, preserves conditions on corrupt/stale/old data", () => {
+  const conditions = criteria({ theme: "旧物新生", notes: "想看看木椅" });
+  const result = localRecommendations(conditions, posts);
+  assert.deepEqual(restoreTodayState({ criteria: conditions, result }, posts).result, result);
+  assert.ok(restoreTodayState({ criteria: conditions, result }).result);
+  for (const pool of [posts.filter((post) => post.id !== "p3"), posts.map((post) => post.id === "p3" ? { ...post, description: "已改为分享其它事情。" } : post)])
+    assert.equal(restoreTodayState({ criteria: conditions, result }, pool).result, null);
+  for (const damaged of [null, { ...result, version: "today-v1" }, { ...result, inputKey: criteriaKey(criteria()) },
+    { ...result, generatedAt: "bad date" }, { ...result, generatedAt: new Date(Date.now() - 86400001).toISOString() },
+    { ...result, generatedAt: new Date(Date.now() + 60000).toISOString() }, { ...result, fallbackReason: {} },
+    { ...result, recommendations: [{ ...result.recommendations[0], reason: 7 }] }]) {
+    const restored = restoreTodayState({ criteria: conditions, result: damaged }, posts);
     assert.deepEqual(restored.criteria, conditions); assert.equal(restored.result, null);
   }
-  assert.deepEqual(restoreTodayState(null).criteria, DEFAULT_CRITERIA);
-});
-
-test("Today draft: one person becomes two, AI steps and all restrictions survive within existing form limits", () => {
-  for (const template of EXPERIENCE_TEMPLATES) {
-    const conditions = criteria({ minutes: 60, participants: template.minParticipants, notes: "补".repeat(160), indoorsOnly: true, noPurchase: true, lightOnly: true });
-    const item = recommendationItem(template, conditions, { ...aiItem, steps: Array(5).fill("经过调整的操作".repeat(10)) });
-    const draft = experienceDraft(item, conditions);
-    assert.ok(draft.title.length <= 48); assert.ok(draft.description.length <= 320);
-    assert.ok(draft.description.includes(conditions.notes)); assert.match(draft.description, /不出门、不添购材料、轻量活动/);
-    assert.match(draft.description, /经过调整/); assert.equal(draft.participants, Math.max(2, conditions.participants));
-    const validated = validateDraft({ type: "need", ...draft, timeMode: "weekly", weekday: "0", start: "09:00", end: "10:00",
-      location: "社区共享工坊", participantMode: "exact", participantCount: String(draft.participants) }, draft.categories);
-    assert.deepEqual(validated.errors, {});
-  }
+  assert.deepEqual(restoreTodayState(null, posts).criteria, DEFAULT_CRITERIA);
 });
