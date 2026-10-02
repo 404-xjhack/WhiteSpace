@@ -53,7 +53,14 @@ html.modal-open,html.modal-open body{overflow:hidden}
 .need-status{font-size:12px;line-height:1.7;color:var(--muted)}
 .need-source{font-weight:400;font-size:10px;margin-left:6px;color:var(--green)}
 #needEvidence,#needPostTitle{overflow-wrap:anywhere;line-height:1.7}
-#moreMatches{font-size:12px;margin-top:10px}
+#moreMatches{font-size:12px;margin-bottom:10px}
 .candidate-source{display:inline-block;font-size:10px;color:#79613f;background:#f7efe4;border-radius:4px;padding:3px 6px;margin-top:9px}
 #matchPanel,#feedTitle{scroll-margin-top:90px}
+@media(min-width:761px){
+  .page-shell{height:calc(100dvh - 76px);display:flex;flex-direction:column;padding-bottom:24px}
+  .page-intro{flex:0 0 auto}
+  .main-grid{flex:1 1 auto;min-height:0;align-items:stretch}
+  .feed-section,.match-column{min-height:0;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable}
+  .match-column{position:static}
+}
 @media(max-width:420px){.dialog{max-height:95dvh}.dialog-actions{gap:8px}.dialog-actions .primary-button,.dialog-actions .ghost-button{font-size:12px;padding:0 12px}.category-controls button{padding:0 12px}.detail-grid{grid-template-columns:1fr}}

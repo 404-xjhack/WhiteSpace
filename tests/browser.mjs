@@ -69,6 +69,12 @@ async function click(selector) {
 async function set(selector, value) {
   await evaluate(`(() => { const element = document.querySelector(${JSON.stringify(selector)}); element.value = ${JSON.stringify(value)}; element.dispatchEvent(new Event('input',{bubbles:true})); element.dispatchEvent(new Event('change',{bubbles:true})); })()`);
 }
+async function wheel(selector, deltaY) {
+  const point = await evaluate(`(() => { const rect = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return {x:rect.x+rect.width/2,y:rect.y+rect.height/2}; })()`);
+  await connection.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...point });
+  await connection.send("Input.dispatchMouseEvent", { type: "mouseWheel", ...point, deltaX: 0, deltaY });
+  await pause(180);
+}
 async function reload() { await connection.send("Page.reload"); await until("document.querySelectorAll('.post-card').length >= 6"); }
 async function readyMatch(title) { await until(`!document.querySelector('#matchResults').hidden && document.querySelector('#matchingPostTitle').textContent === ${JSON.stringify(title)}`); }
 function passed(label) { checks.push(label); console.log(`PASS ${label}`); }
@@ -324,6 +330,40 @@ try {
   assert.equal(await evaluate("document.querySelectorAll('.match-card').length"), 3);
   passed("Full candidate list expands and folds on mobile without discarding results after the first three");
 
+  for (const [width, height] of [[1280, 800], [900, 600]]) {
+    await connection.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
+    await evaluate("document.querySelector('.feed-section').scrollTop=0; document.querySelector('.match-column').scrollTop=0");
+    const layout = await evaluate("(() => { const feed=document.querySelector('.feed-section'), match=document.querySelector('.match-column'), button=document.querySelector('#moreMatches'), rect=match.getBoundingClientRect(), buttonRect=button.getBoundingClientRect(); return {feedScrollable:feed.scrollHeight>feed.clientHeight+2,matchScrollable:match.scrollHeight>match.clientHeight+2,top:rect.top,bottom:rect.bottom,buttonVisible:!button.hidden && buttonRect.top>=rect.top && buttonRect.bottom<=rect.bottom,buttonAboveList:buttonRect.bottom<=document.querySelector('#matchList').getBoundingClientRect().top+1,wide:document.documentElement.scrollWidth>innerWidth+1,height:innerHeight}; })()");
+    assert.equal(layout.feedScrollable, true); assert.equal(layout.matchScrollable, true);
+    assert.ok(layout.top >= 76 && layout.bottom <= height + 1); assert.equal(layout.wide, false);
+    assert.equal(layout.buttonVisible, true); assert.equal(layout.buttonAboveList, true);
+    await wheel(".match-column", 350); await until("document.querySelector('.match-column').scrollTop>0");
+    assert.equal(await evaluate("document.querySelector('.feed-section').scrollTop"), 0);
+    assert.equal(await evaluate("scrollY"), 0);
+    const matchScroll = await evaluate("document.querySelector('.match-column').scrollTop");
+    await wheel(".feed-section", 350); await until("document.querySelector('.feed-section').scrollTop>0");
+    assert.equal(await evaluate("document.querySelector('.match-column').scrollTop"), matchScroll);
+    const feedScroll = await evaluate("document.querySelector('.feed-section').scrollTop");
+    await evaluate("document.querySelector('.match-column').scrollTop=document.querySelector('.match-column').scrollHeight");
+    await wheel(".match-column", 350);
+    assert.equal(await evaluate("document.querySelector('.feed-section').scrollTop"), feedScroll);
+    assert.equal(await evaluate("scrollY"), 0);
+    await evaluate("document.querySelector('.feed-section').scrollTop=0; document.querySelector('.match-column').scrollTop=0");
+    if (width === 1280) {
+      await pause(300);
+      await until("document.querySelector('.feed-section').scrollTop===0 && document.querySelector('.match-column').scrollTop===0");
+      const desktopShot = await connection.send("Page.captureScreenshot", { format: "png" });
+      await writeFile(path.join(root, ".tmp", "matching-desktop-scroll.png"), Buffer.from(desktopShot.data, "base64"));
+    }
+  }
+  await click("#moreMatches"); assert.ok(await evaluate("document.querySelectorAll('.match-card').length>3"));
+  await wheel(".match-column", 450); await click(".match-card:last-child [data-match-id]");
+  await until("document.querySelector('#detailDialog').open"); await assertModal("#detailDialog", false);
+  await click('#detailDialog [data-close="detailDialog"]');
+  await connection.send("Emulation.setDeviceMetricsOverride", { width: 320, height: 568, deviceScaleFactor: 1, mobile: false });
+  assert.equal(await evaluate("getComputedStyle(document.querySelector('.match-column')).overflowY"), "visible");
+  passed("Desktop columns scroll independently by mouse wheel; expansion is visible above cards and mobile keeps page scrolling");
+
   let aiReplyMatches = [{ id: "p3", score: 90, reason: "陈师傅提供木工维修和指导，符合修椅子的需求。", first_step: "先沟通椅子损坏情况，确认时间地点和分工。" }];
   let aiNeedReply = { need: "听邻居分享照片背后的社区故事", evidence: "也希望听你分享照片背后的社区故事" };
   aiMock = http.createServer(async (req, res) => {
@@ -337,12 +377,19 @@ try {
   await connection.send("Page.navigate", { url: aiApp.url }); await until("document.querySelectorAll('.post-card').length === 6");
   await click("#openCreateTop"); await click('.form-examples summary'); await click('[data-example="repair"]'); await click("#publishButton"); await readyMatch("想找人一起修好一把旧椅子");
   assert.equal(await evaluate("document.querySelector('#matchSource').textContent"), "AI 匹配");
+  assert.equal(await evaluate("document.querySelector('#moreMatches').hidden"), true);
+  assert.doesNotMatch(await evaluate("document.querySelector('#matchSourceDetail').textContent"), /展开/);
   passed("U06: successful AI response is visibly labeled AI in the full publishing flow (mock gateway)");
   aiReplyMatches = [];
   await click("#rerunMatch"); await readyMatch(reportedTitle);
   assert.equal(await evaluate("document.querySelectorAll('.match-card').length"), 0);
   assert.match(await evaluate("document.querySelector('#matchList').textContent"), /AI 本次未推荐/);
+  assert.equal(await evaluate("document.querySelector('#moreMatches').hidden"), false);
+  assert.match(await evaluate("document.querySelector('#matchSourceDetail').textContent"), /另有 1 个候选可展开查看/);
+  assert.equal(await evaluate("document.querySelector('#moreMatches').getBoundingClientRect().bottom<=document.querySelector('#matchList').getBoundingClientRect().top+1"), true);
   await click("#moreMatches");
+  assert.match(await evaluate("document.querySelector('#matchSourceDetail').textContent"), /已展开 1 个其他候选/);
+  assert.equal(await evaluate("document.querySelector('#moreMatches').getAttribute('aria-expanded')"), "true");
   assert.equal(await evaluate("document.querySelector('[data-match-id=\"p3\"]') !== null"), true);
   assert.equal(await evaluate("document.querySelector('.candidate-source').textContent"), "本地内容匹配");
   await click('[data-match-id="p3"]'); assert.match(await evaluate("document.querySelector('#detailContent').textContent"), /陈师傅/);

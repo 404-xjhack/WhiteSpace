@@ -350,16 +350,21 @@ function renderMatchList() {
   const data = displayedMatchData;
   const mainIds = new Set(data.matches.map((entry) => entry.id));
   const primary = displayedMatches.filter((entry) => mainIds.has(entry.id));
-  const visible = matchesExpanded ? displayedMatches : primary.slice(0, 3);
+  const collapsed = primary.slice(0, 3);
+  const extraCount = displayedMatches.length - collapsed.length;
+  const visible = matchesExpanded ? displayedMatches : collapsed;
   let emptyMessage = "当前资料里还未找到与你正文相关的帮助，可以补充具体说明，或等待更多社区内容。";
-  if (data.source === "ai" && displayedMatches.length) emptyMessage = "AI 本次未推荐人选。可以展开下方的本地内容候选，进一步确认。";
+  if (data.source === "ai" && displayedMatches.length) emptyMessage = "AI 本次未推荐人选。点击上方“展开其他候选”，查看本地内容候选并进一步确认。";
   else if (data.summary?.emptyReason === "time_conflict") emptyMessage = "有内容相关的人，但与你填写的时间冲突。可调整活动时间后重新匹配。";
   else if (data.summary?.emptyReason === "no_candidates") emptyMessage = "社区资料暂未载入，刷新后可以重新匹配。";
   $("#matchList").innerHTML = visible.length ? visible.map(({ post, score, reason, first_step, source }) => `<article class="match-card"><div class="match-card-top">${avatar(post)}<strong>${escapeHtml(post.name)}</strong><em>参考分 ${Math.round(score)}</em></div>${data.source === "ai" && source === "local" ? '<span class="candidate-source">本地内容匹配</span>' : ""}<h3>${escapeHtml(post.title)}</h3><p>${escapeHtml(reason)}</p><div class="match-first-step"><strong>建议的第一步</strong>${escapeHtml(first_step)}</div><button type="button" data-match-id="${escapeHtml(post.id)}">了解这个人 →</button></article>`).join("") : `<p class="match-empty">${escapeHtml(emptyMessage)}</p>`;
   const more = $("#moreMatches");
-  more.hidden = displayedMatches.length <= primary.slice(0, 3).length;
-  more.textContent = matchesExpanded ? "收起其他候选" : `查看其他候选（${displayedMatches.length - primary.slice(0, 3).length}）`;
+  more.hidden = extraCount === 0;
+  more.textContent = matchesExpanded ? "收起其他候选" : `展开其他候选（${extraCount}）`;
   more.setAttribute("aria-expanded", String(matchesExpanded));
+  const extraHint = extraCount ? matchesExpanded ? `；已展开 ${extraCount} 个其他候选` : `；另有 ${extraCount} 个候选可展开查看` : "";
+  const explanation = data.source === "ai" ? `AI 整理推荐${extraHint}，时间地点仍需双方确认` : fallbackMessages[data.fallbackReason] || "优先比较实际需求与帮助，标签仅作辅助";
+  $("#matchSourceDetail").textContent = `${explanation}${data.savedAt ? ` · 生成于 ${new Date(data.savedAt).toLocaleString("zh-CN")}` : ""}`;
 }
 function renderMatches(data) {
   displayedMatchData = data;
@@ -376,8 +381,6 @@ function renderMatches(data) {
   $("#matchLoading").hidden = true; $("#matchWelcome").hidden = true; $("#matchResults").hidden = false; $("#matchingPostTitle").textContent = matchingPost.title;
   $("#matchingPostConditions").textContent = `${displayTime(matchingPost)} · ${data.criteria?.location || matchingPost.location || "地点待确认"}`;
   const source = $("#matchSource"); source.textContent = data.source === "ai" ? "AI 匹配" : "本地规则匹配"; source.classList.toggle("local", data.source !== "ai");
-  const explanation = data.source === "ai" ? "AI 整理推荐；其他本地内容候选可展开查看，时间地点仍需双方确认" : fallbackMessages[data.fallbackReason] || "优先比较实际需求与帮助，标签仅作辅助";
-  $("#matchSourceDetail").textContent = `${explanation}${data.savedAt ? ` · 生成于 ${new Date(data.savedAt).toLocaleString("zh-CN")}` : ""}`;
   const conflicts = Array.isArray(data.summary?.timeConflicts) ? data.summary.timeConflicts : [];
   $("#matchDiagnostics").textContent = conflicts.length ? `以下发布与你的时间（${displayTime(matchingPost)}）不重合：${conflicts.map((item) => `${item.name || "社区成员"}（${item.time || "时间待确认"}）`).join("；")}。` : "";
   $("#matchDiagnostics").hidden = conflicts.length === 0;
