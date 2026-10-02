@@ -102,7 +102,7 @@ export function validateDraft(values, selectedCategories) {
   const type = values.type === "offer" ? "offer" : "need";
   const title = String(values.title || "").trim();
   const description = String(values.description || "").trim();
-  const titleLabel = type === "offer" ? "技能或帮助名称" : "标题";
+  const titleLabel = type === "offer" ? "技能或体验名称" : "标题";
   const descriptionLabel = type === "offer" ? "分享说明" : "具体说明";
   if (!title) errors.title = `请填写${titleLabel}。`;
   else if (String(values.title).length > LIMITS.title) errors.title = `${titleLabel}最多 ${LIMITS.title} 字。`;
@@ -141,7 +141,7 @@ export function validateDraft(values, selectedCategories) {
 
   const role = String(values.role || "").trim();
   const age = String(values.age || "").trim();
-  if (role.length > 40) errors.role = "社区身份说明最多 40 字。";
+  if (role.length > 40) errors.role = "身份或兴趣说明最多 40 字。";
   if (age && (!/^\d+$/.test(age) || Number(age) < 1 || Number(age) > 120)) errors.age = "年龄须为 1–120 的整数，可留空。";
   const profile = { role: role || "社区成员", age: age ? Number(age) : null, agePublic: values.agePublic === "on" };
   return {
