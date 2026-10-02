@@ -43,8 +43,15 @@ function makePin(p, x,y,z) {
 }
 function makeSpoon(p,x,y,z) {
   const g = new THREE.Group(); g.position.set(x,y,z); p.add(g);
-  const head=bowl(g,.105,0,0,0,steel); head.scale.y=.27;
-  cylinder(g,steel,.014,.014,.43,.25,.035,0,10).rotation.z=Math.PI/2; g.rotation.y=.3; return g;
+  const head=bowl(g,.105,0,0,0,steel); head.scale.set(1.28,.27,.82);
+  cylinder(g,steel,.014,.014,.40,.326,.054,0,10).rotation.z=Math.PI/2; g.rotation.y=.3; return g;
+}
+function makeKnife(p,x,y,z) {
+  const g=new THREE.Group();g.position.set(x,y,z);p.add(g);
+  box(g,steel,.34,.018,.16,0,.01,0);
+  cylinder(g,steel,.024,.024,.025,.182,.021,0,12).rotation.z=Math.PI/2;
+  cylinder(g,darkWood,.027,.027,.23,.295,.021,0,12).rotation.z=Math.PI/2;
+  return g;
 }
 function makeStrainer(p,x,y,z) {
   const g=new THREE.Group();g.position.set(x,y,z);g.rotation.y=-Math.PI/2;p.add(g);
@@ -54,8 +61,8 @@ function makeStrainer(p,x,y,z) {
     for(let j=0;j<=12;j++){const a=-edge+j/6*edge,h=-.045+.045*(a*a+off*off)/(.15**2);row.push([a,h,off]);column.push([off,h,a]);}
     tube(g,row,steel,.005);tube(g,column,steel,.005);
   }
-  cylinder(g,steel,.016,.016,.46,.35,0,0,10).rotation.z=Math.PI/2;
-  cylinder(g,darkWood,.025,.025,.15,.64,0,0,12).rotation.z=Math.PI/2;return g;
+  cylinder(g,steel,.016,.016,.46,.38,0,0,10).rotation.z=Math.PI/2;
+  cylinder(g,darkWood,.025,.025,.15,.685,0,0,12).rotation.z=Math.PI/2;return g;
 }
 function dumpling(p, x=0, y=0,z=0, sealed=true, isCooked=false, scale=1) {
   const g=new THREE.Group();g.position.set(x,y,z);g.scale.setScalar(scale);p.add(g);
@@ -71,8 +78,8 @@ function dumpling(p, x=0, y=0,z=0, sealed=true, isCooked=false, scale=1) {
   return g;
 }
 function wrapper(p, passes=3, x=0,y=0,z=0) {
-  const r=.19+passes*.067;
-  return lathe(p,[[0,-.012],[r,-.012],[r,.006],[r*.7,.018],[r*.33,.041],[0,.045]],dough,x,y,z);
+  const r=.15+passes*.053;
+  return lathe(p,[[0,-.008],[r,-.008],[r,.005],[r*.7,.014],[r*.33,.027],[0,.03]],dough,x,y,z);
 }
 function filling(p, x=0,y=0,z=0, scale=1, count=65) {
   const random=seeded(184); const geo=new THREE.SphereGeometry(.026,6,4);
@@ -86,22 +93,31 @@ export function buildShop(scene) {
   for(let x=-6;x<=6;x+=1)box(shop,material(0xb5aa94),.013,.003,10,x,.013,0);
   for(let z=-5;z<=5;z+=1)box(shop,material(0xb5aa94),12,.003,.013,0,.013,z);
   box(shell,wall,12,3.6,.15,0,1.8,-5);box(shell,wall,.15,3.6,10,-6,1.8,0);box(shell,wall,.15,3.6,10,6,1.8,0);
+  const windowBottom=.72,windowTop=3.6,windowWidth=3.8,windowHeight=windowTop-windowBottom;
   for(const side of [-1,1]){
-    box(shell,wall,3.8,.7,.18,side*4.1,.35,5);box(shell,darkWood,.13,3.7,.2,side*2.2,1.85,5);
-    for(let i=0;i<4;i++)box(shell,darkWood,.045,1.9,.09,side*(2.8+i*.8),1.85,5);
-    for(let i=0;i<3;i++)box(shell,darkWood,3.6,.045,.09,side*4.1,1.0+i*.7,5);
+    box(shell,wall,windowWidth,.7,.18,side*4.1,.35,5);
+    for(const x of [2.2,5.98])box(shell,darkWood,.13,3.7,.2,side*x,1.85,5);
+    box(shell,darkWood,windowWidth,.10,.2,side*4.1,windowBottom,5);
+    // Bars overlap the sill, header and posts so the facade remains connected without the roof.
+    for(let i=0;i<4;i++)box(shell,darkWood,.045,windowHeight,.09,side*(4.1-windowWidth/2+windowWidth*(i+1)/5),(windowBottom+windowTop)/2,5.04);
+    for(let i=0;i<3;i++)box(shell,darkWood,windowWidth,.045,.09,side*4.1,windowBottom+windowHeight*(i+1)/4,5.04);
   }
   box(shell,darkWood,12,.16,.22,0,3.62,5);box(shell,darkWood,12,.16,.22,0,3.62,-5);
   box(shell,red,5.5,.6,.14,0,3.2,5.12);textPlane(shell,"手工饺子工坊",5,.5,0,3.2,5.2);
   box(shop,darkWood,5.4,1.05,.08,0,2.18,-4.9);textPlane(shop,"和面 → 制馅 → 分剂",4.9,.38,0,2.38,-4.84);textPlane(shop,"擀皮 → 包合 → 煮制",4.9,.38,0,1.97,-4.84);
+  const roofRise=.9,roofRun=5.3,roofLength=Math.hypot(roofRun,roofRise),roofAngle=Math.atan2(roofRise,roofRun);
   for(const side of [-1,1]){
-    const panel=box(roof,tile,12.6,.15,5.7,0,4.05,side*2.6);panel.rotation.x=side*.18;
-    for(let i=-12;i<=12;i++){const rib=box(panel,darkWood,.06,.08,5.65,i*.49,.12,0);rib.castShadow=false;}
+    const panel=box(roof,tile,12.6,.15,roofLength,0,4.15,side*roofRun/2);panel.rotation.x=side*roofAngle;
+    for(let i=-12;i<=12;i++){const rib=box(panel,darkWood,.06,.08,roofLength-.05,i*.49,.115,0);rib.castShadow=false;}
+    const gable=new THREE.Shape();gable.moveTo(-5,3.6);gable.lineTo(5,3.6);gable.lineTo(5,4.6-5*roofRise/roofRun);gable.lineTo(0,4.6);gable.lineTo(-5,4.6-5*roofRise/roofRun);gable.closePath();
+    const geometry=new THREE.ExtrudeGeometry(gable,{depth:.15,bevelEnabled:false});geometry.rotateY(Math.PI/2);mesh(roof,geometry,wall,side*6-.075,0,0);
   }
   box(roof,tile,12.8,.18,.25,0,4.61,0);roof.visible=false;
+  const lanterns=new THREE.Group();roof.add(lanterns);
   for(const [x,z] of [[-4.5,3.5],[4.5,3.5]]){
-    cylinder(shop,red,.07,.07,.7,x,2.75,z);const lamp=ball(shop,red,.27,x,2.5,z);lamp.scale.y=1.25;
-    cylinder(shop,bamboo,.08,.08,.035,x,2.82,z);cylinder(shop,bamboo,.08,.08,.035,x,2.17,z);
+    const suspensionTop=4.6-z*roofRise/roofRun-.075;
+    cylinder(lanterns,darkWood,.012,.012,suspensionTop-2.82,x,(suspensionTop+2.82)/2,z);const lamp=ball(lanterns,red,.27,x,2.5,z);lamp.scale.y=1.25;
+    cylinder(lanterns,bamboo,.08,.08,.035,x,2.82,z);cylinder(lanterns,bamboo,.08,.08,.035,x,2.17,z);
   }
   for(const x of [-7.3,7.3]){box(shop,material(0xbac0b2),3,6,4,x*1.7,2.8,-4);cylinder(shop,bamboo,.13,.17,3,x,1.4,6);const leaves=ball(shop,green,.9,x,3.2,6);leaves.scale.y=1.25;}
   const boardMat=material(0xffffff,{map:makeWoodTexture()}),stations={},colliders=[];
@@ -119,8 +135,8 @@ export function buildShop(scene) {
   cylinder(stations.dough.group,porcelain,.035,.045,.17,.49,1.13,-.5,16).rotation.z=Math.PI/3;
   box(stations.dough.group,steel,.35,.18,.016,.65,.97,.53);box(stations.dough.group,darkWood,.35,.07,.035,.65,1.1,.53);
   const cabbage=ball(stations.filling.group,green,.21,-.67,1.02,-.5);cabbage.scale.y=.9;bowl(stations.filling.group,.3,.65,.86,-.45);
-  box(stations.filling.group,steel,.35,.11,.015,.6,.94,.53).rotation.y=.2;box(stations.filling.group,darkWood,.24,.045,.04,.88,.94,.5);
-  const pin=makePin(stations.wrapping.group,-.25,.97,.57),spoon=makeSpoon(stations.wrapping.group,.62,1.0,.12);bowl(stations.wrapping.group,.26,.65,.86,-.4);filling(stations.wrapping.group,.65,1.0,-.4,.85,36);
+  makeKnife(stations.filling.group,.40,.879,.40);
+  const pin=makePin(stations.wrapping.group,-.25,.97,.57),spoon=makeSpoon(stations.wrapping.group,.45,.887,.36);bowl(stations.wrapping.group,.26,.65,.86,-.4);filling(stations.wrapping.group,.65,1.0,-.4,.85,36);
   const stoveGroup=new THREE.Group();stoveGroup.position.set(-5.0,0,-2.15);shop.add(stoveGroup);box(stoveGroup,steel,1.4,.9,2.2,0,.45,0);box(stoveGroup,material(0x454f4c),1.45,.045,2.25,0,.93,0);
   const pot=bowl(stoveGroup,.51,0,.96,-.25,steel);pot.scale.y=2.35;
   for(const side of [-1,1])box(stoveGroup,darkWood,.18,.06,.12,side*.57,1.32,-.25);
@@ -128,10 +144,10 @@ export function buildShop(scene) {
   const strainer=makeStrainer(stoveGroup,-.48,1.01,.58);plate(stoveGroup,.2,.96,.72,.38);
   const cookFood=new THREE.Group();stoveGroup.add(cookFood);stations.stove={group:stoveGroup,food:cookFood,water};colliders.push({x:-5,z:-2.15,hx:.74,hz:1.14});
   const toolTargets=[];
-  for(const [id,station,anchor] of [['basin','dough',[-.6,1,-.4]],['board','dough',[.5,1,.4]],['filling-bowl','filling',[0,1,0]],['pin','wrapping',[-.25,1,.57]],['spoon','wrapping',[.62,1,.12]],['pot','stove',[0,1.45,-.25]]]){
+  for(const [id,station,anchor] of [['basin','dough',[-.6,1,-.4]],['board','dough',[.5,1,.4]],['filling-bowl','filling',[0,1,0]],['pin','wrapping',[-.25,1,.57]],['spoon','wrapping',[.65,.94,.29]],['pot','stove',[0,1.45,-.25]]]){
     const target=mesh(stations[station].group,new THREE.SphereGeometry(.23,12,8),new THREE.MeshBasicMaterial({visible:false}),...anchor);target.userData.toolId=id;toolTargets.push(target);
   }
-  return {shop,shell,roof,stations,colliders,toolTargets,pin,spoon,strainer};
+  return {shop,shell,roof,lanterns,stations,colliders,toolTargets,pin,spoon,strainer};
 }
 export function clearFood(group) { const geometries=new Set();group.traverse(o=>{if(o.geometry)geometries.add(o.geometry);});geometries.forEach(g=>g.dispose());group.clear(); }
 export function renderFood(stations,state,compare=false) {
@@ -157,7 +173,7 @@ export function renderFood(stations,state,compare=false) {
   const w=stations.wrapping.food;
   if(current==='wrap'){
     if(s.wrap.phase<2){wrapper(w);if(s.wrap.phase===1)filling(w,0,.045,0,s.wrap.amount==='large'?1.75:s.wrap.amount==='small'?.65:1);}
-    else dumpling(w,0,0,0,s.wrap.phase===3);
+    else dumpling(w,0,0,0,s.wrap.phase===3,false,.81);
   }else{
     if(s.roll.phase===0)ball(w,dough,.14,0,.1,0).scale.y=.8;
     else wrapper(w,s.roll.passes);
