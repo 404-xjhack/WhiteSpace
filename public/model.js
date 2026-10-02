@@ -159,36 +159,117 @@ export function timeCompatibility(a, b) {
   return "overlap";
 }
 
-const topicTerms = {
-  "生活手艺": ["饺子", "做饭", "和面", "擀皮", "食物", "手作", "手工"],
-  "旧物新生": ["维修", "修好", "木工", "椅子", "家具", "旧物", "环保", "打磨", "手工", "手作"],
-  "亲子共学": ["孩子", "亲子", "小朋友", "体验", "手工", "手作"],
-  "学习交流": ["写作", "表达", "故事", "家书", "自我介绍", "语文"],
-  "数码互助": ["手机", "摄影", "照片", "修图", "数码"],
-  "社区生活": ["邻居", "社区", "散步", "街区", "认识"]
-};
-const genericTerms = new Set(["社区", "邻居", "体验", "跨代交流", "代际交流", "技能分享", "亲子友好"]);
+export const MATCH_VERSION = "content-v2";
+const normalizeText = (value) => String(value ?? "").normalize("NFKC").toLowerCase().trim();
+const segmenter = new Intl.Segmenter("zh-CN", { granularity: "word" });
+const stopTerms = new Set(["一起", "可以", "希望", "愿意", "自己", "有人", "邻居", "社区", "需要", "提供", "分享", "参与", "帮忙", "帮助", "想要", "想找", "找到", "学习", "基础", "简单", "经验", "具体", "一点", "一次", "一些", "如何", "怎样", "真正", "能够", "维修", "修理", "修好", "指导", "认识", "了解", "交流", "活动", "时候", "事情", "内容", "适合", "时候"]);
+// Aliases supplement literal word matches; labels never generate core evidence.
+const concepts = [
+  { id: "wood", label: "木工与家具", aliases: ["木工", "木纹", "木椅", "椅子", "修椅", "家具", "打磨", "木制", "凳子", "榫卯"] },
+  { id: "food", label: "包饺子与做饭", aliases: ["饺子", "包饺", "和面", "擀皮", "做饭", "烹饪", "下厨", "包子"] },
+  { id: "photo", label: "摄影与修图", aliases: ["摄影", "拍照", "照相", "修图", "照片"] },
+  { id: "writing", label: "写作与表达", aliases: ["写作", "家书", "写信", "文章", "自我介绍", "语文", "表达", "写下来"] },
+  { id: "tools", label: "工具", aliases: ["工具"] },
+  { id: "craft", label: "手工劳动", aliases: ["手工", "手作", "动手", "劳动"] },
+  { id: "walk", label: "散步与街区导览", aliases: ["散步", "街区", "带路", "街坊", "逛街", "社区周边"] }
+];
+const specificDomains = new Set(["wood", "food", "photo", "writing", "tools", "walk", "electronics"]);
 
-export function localMatch(post, candidates, limit = 3) {
-  const haystack = `${post.title} ${post.description} ${postCategories(post).join(" ")} ${postTags(post).join(" ")}`.toLowerCase();
-  return candidates.filter((item) => item.id !== post.id).map((item) => {
-    const shared = postCategories(item).filter((category) => postCategories(post).includes(category));
-    const terms = uniqueCategories([...postCategories(item).flatMap((category) => topicTerms[category] || [category]), ...postTags(item)]);
-    const overlap = terms.filter((term) => !genericTerms.has(term) && haystack.includes(term.toLowerCase()));
-    const availability = timeCompatibility(post, item);
-    // An opposite post type alone is not evidence of a useful match.
-    if ((!shared.length && !overlap.length) || availability === "conflict") return null;
-    const complementary = item.type !== post.type;
-    const samePlace = post.location === item.location && post.location !== "地点可协商";
-    const score = Math.min(94, 38 + (shared.length ? 20 : 0) + Math.min(overlap.length * 6, 18) + (complementary ? 14 : 5) + (availability === "overlap" ? 6 : 0) + (samePlace ? 4 : 0));
-    const evidence = overlap.length ? `你提到的“${overlap.slice(0, 2).join("、")}”与对方的“${item.title}”相关。` : `双方都选择了“${shared.join("、")}”，可以先确认具体内容。`;
-    const benefit = complementary
-      ? post.type === "need" ? `对方可提供${item.offer || item.title}；希望获得${item.need || "共同参与"}。` : `对方正在寻找${item.need || item.title}，可以先确认你的分享是否适合。`
-      : "双方发布类型相同，可讨论共同参与；尚不能确认供需互补。";
-    const timing = availability === "overlap" ? "填写的时间段有交集。" : "时间尚需双方确认。";
-    const place = samePlace ? "地点相同。" : "地点尚需双方协商。";
-    const children = /孩子|亲子|小朋友/.test(`${haystack} ${item.description}`);
-    return { id: item.id, score, reason: `${evidence}${benefit}${timing}${place}`,
-      first_step: `${children ? "由家长或社区工作人员在场，" : ""}先沟通“${item.title}”是否适合，确认双方时间、地点和分工，再约一次短交流。` };
-  }).filter(Boolean).sort((a, b) => b.score - a.score).slice(0, limit);
+function contentText(post) {
+  // The opposite field expresses what this person hopes to receive, not an ability.
+  const intent = post.type === "offer" ? post.offer : post.need;
+  return normalizeText([post.title, post.description, intent].filter((value) => typeof value === "string").join(" "));
 }
+function words(text) {
+  return [...new Set([...segmenter.segment(text)].filter((part) => part.isWordLike).map((part) => part.segment).filter((word) => word.length >= 2 && !stopTerms.has(word)))];
+}
+function contentConcepts(text) {
+  const found = concepts.filter((concept) => concept.aliases.some((alias) => text.includes(alias))).map((concept) => concept.id);
+  if (/手机|电脑|电子设备/.test(text) && /维修|修理|故障|坏了|开不了机|修手机|修电脑/.test(text)) found.push("electronics");
+  return found;
+}
+function focusedConcepts(post, text) {
+  const intent = post.type === "offer" ? post.offer : post.need;
+  const primary = contentConcepts(normalizeText(`${post.title || ""} ${typeof intent === "string" ? intent : ""}`));
+  return primary.length ? primary : contentConcepts(text);
+}
+function domainsConflict(left, right) {
+  const a = left.filter((id) => specificDomains.has(id));
+  const b = right.filter((id) => specificDomains.has(id));
+  return a.length > 0 && b.length > 0 && !a.some((id) => b.includes(id));
+}
+
+export function matchFingerprint(post) {
+  return JSON.stringify({ type: post.type, title: post.title, description: post.description, offer: post.offer || "", need: post.need || "",
+    categories: postCategories(post), tags: postTags(post), time: post.time, schedule: normalizeSchedule(post.schedule), location: post.location });
+}
+
+export function assessCandidate(post, candidate) {
+  const query = contentText(post);
+  const content = contentText(candidate);
+  const queryConcepts = focusedConcepts(post, query);
+  const candidateConcepts = focusedConcepts(candidate, content);
+  const conflictingSkills = domainsConflict(queryConcepts, candidateConcepts);
+  const sharedConcepts = queryConcepts.filter((id) => candidateConcepts.includes(id));
+  if (queryConcepts.includes("craft") && candidateConcepts.some((id) => id === "food" || id === "wood") && !sharedConcepts.includes("craft")) sharedConcepts.push("craft");
+  const candidateWords = new Set(words(content));
+  const terms = words(query).filter((word) => candidateWords.has(word));
+  const labels = postTags(post).filter((tag) => postTags(candidate).some((other) => normalizeText(other) === normalizeText(tag)));
+  const availability = timeCompatibility(post, candidate);
+  const relevant = !conflictingSkills && (terms.length > 0 || sharedConcepts.length > 0);
+  return { relevant, conflictingSkills, terms, concepts: sharedConcepts, labels, availability, complementary: post.type !== candidate.type,
+    samePlace: normalizeText(post.location) === normalizeText(candidate.location) && Boolean(post.location) && post.location !== "地点可协商" };
+}
+
+export function eligibleForAI(post, candidate) {
+  const evidence = assessCandidate(post, candidate);
+  // AI may interpret content outside the local lexicon, while clear conflicts stay excluded.
+  return candidate.id !== post.id && evidence.availability !== "conflict" && !evidence.conflictingSkills;
+}
+
+function rankScore(evidence) {
+  const specific = evidence.concepts.some((id) => specificDomains.has(id));
+  const content = specific ? 62 : evidence.concepts.length ? 54 : 50;
+  return Math.min(96, content + Math.min(evidence.terms.length * 3, 8) + (evidence.complementary ? 12 : 3)
+    + (evidence.availability === "overlap" ? 6 : 0) + (evidence.samePlace ? 4 : 0) + Math.min(evidence.labels.length * 2, 4));
+}
+
+function explainMatch(post, candidate, evidence) {
+  const conceptLabels = evidence.concepts.map((id) => concepts.find((concept) => concept.id === id)?.label || "电子设备维修");
+  const shared = [...new Set([...conceptLabels, ...evidence.terms])].slice(0, 2).join("、");
+  const fit = `你的“${post.title}”与对方的“${candidate.title}”在“${shared}”方面相关。`;
+  const benefit = evidence.complementary
+    ? post.type === "need" ? `对方可提供${candidate.offer || candidate.title}；希望获得${candidate.need || "共同参与"}。`
+      : `对方正在寻找${candidate.need || candidate.title}，可以确认你的分享是否适合。`
+    : "双方发布类型相同，可讨论共同参与；尚不能确认供需互补。";
+  const timing = evidence.availability === "overlap" ? "填写的时间段有交集。" : "时间尚需双方确认。";
+  const place = evidence.samePlace ? "地点相同。" : "地点尚需双方协商。";
+  const children = /孩子|亲子|小朋友/.test(`${post.title} ${post.description} ${candidate.description}`);
+  return { reason: `${fit}${benefit}${timing}${place}`,
+    first_step: `${children ? "由家长或社区工作人员在场，" : ""}先沟通“${post.title}”如何与“${candidate.title}”配合，确认时间、地点和分工，再约一次短交流。` };
+}
+
+export function matchPost(post, candidates) {
+  const matches = [];
+  const timeConflicts = [];
+  let considered = 0;
+  for (const candidate of candidates) {
+    if (candidate.id === post.id) continue;
+    considered++;
+    const evidence = assessCandidate(post, candidate);
+    if (!evidence.relevant) continue;
+    if (evidence.availability === "conflict") {
+      timeConflicts.push({ id: candidate.id, name: candidate.name, time: candidate.time });
+      continue;
+    }
+    matches.push({ id: candidate.id, score: rankScore(evidence), ...explainMatch(post, candidate, evidence), evidence, candidate });
+  }
+  matches.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
+  const schedule = normalizeSchedule(post.schedule);
+  return { algorithmVersion: MATCH_VERSION, matches,
+    criteria: { time: schedule ? formatSchedule(schedule) : post.time, location: post.location },
+    summary: { considered, timeConflicts, emptyReason: matches.length ? null : timeConflicts.length ? "time_conflict" : considered ? "no_content_match" : "no_candidates" } };
+}
+
+// Retain the existing helper interface for callers that request a limited list.
+export function localMatch(post, candidates, limit = 3) { return matchPost(post, candidates).matches.slice(0, limit); }

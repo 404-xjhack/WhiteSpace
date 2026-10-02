@@ -217,13 +217,77 @@ try {
   await reload(); assert.equal(await evaluate("document.querySelector('#matchWelcome').hidden"), false);
   passed("Reset clears publishing, profile, interest and matching persistence");
 
-  aiMock = http.createServer((_req, res) => { res.setHeader("content-type", "application/json"); res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ matches: [{ id: "p3", score: 90, reason: "陈师傅提供木工维修和指导，符合修椅子的需求。", first_step: "先沟通椅子损坏情况，确认时间地点和分工。" }] }) } }] })); });
+  const reportedTitle = "想找人一起修好一把旧椅子";
+  const reportedDescription = "家里有把用了很多年的木椅，靠背松了。不想直接扔掉，希望和会木工的邻居一起修，也想学一点基础维修。";
+  await click("#openCreateTop"); await click('.form-examples summary'); await click('[data-example="repair"]');
+  await set("#postDescription", reportedDescription);
+  await set("#categoryPicker", "other"); await set("#customCategory", "test"); await click("#addCategory");
+  await click("#publishButton"); await readyMatch(reportedTitle);
+  const reportedId = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0].id");
+  assert.equal(await evaluate("document.querySelector('[data-match-id=\"p3\"]') !== null"), true);
+  assert.match(await evaluate("document.querySelector('#matchingPostConditions').textContent"), /每周日 09:00–11:00.*社区共享工坊/);
+  await reload(); await readyMatch(reportedTitle);
+  assert.match(await evaluate("document.querySelector('#matchList').textContent"), /陈师傅/);
+  passed("Reported case: full chair repair + custom test + Sunday visibly returns Chen and survives reload");
+
+  await evaluate(`(() => { const cache=JSON.parse(localStorage.getItem('writespace.matches.v1')); cache.byPost[${JSON.stringify(reportedId)}].algorithmVersion='legacy'; cache.byPost[${JSON.stringify(reportedId)}].matches=[]; localStorage.setItem('writespace.matches.v1',JSON.stringify(cache)); })()`);
+  await reload(); await readyMatch(reportedTitle);
+  assert.equal(await evaluate("document.querySelector('[data-match-id=\"p3\"]') !== null"), true);
+  await evaluate("(() => { const posts=JSON.parse(localStorage.getItem('writespace.posts.v1')); posts[0].schedule.days=[1]; localStorage.setItem('writespace.posts.v1',JSON.stringify(posts)); })()");
+  await reload(); await readyMatch(reportedTitle);
+  assert.equal(await evaluate("document.querySelectorAll('.match-card').length"), 0);
+  assert.match(await evaluate("document.querySelector('#matchList').textContent"), /时间冲突/);
+  assert.match(await evaluate("document.querySelector('#matchDiagnostics').textContent"), /陈师傅.*每周日/);
+  assert.match(await evaluate("document.querySelector('#matchingPostConditions').textContent"), /每周一/);
+  await evaluate("(() => { const posts=JSON.parse(localStorage.getItem('writespace.posts.v1')); posts[0].schedule.days=[0]; localStorage.setItem('writespace.posts.v1',JSON.stringify(posts)); })()");
+  await reload(); await readyMatch(reportedTitle);
+  assert.equal(await evaluate("document.querySelector('[data-match-id=\"p3\"]') !== null"), true);
+  passed("Version and input changes invalidate stale/empty cache; time conflicts identify Chen and the actual day");
+
+  await evaluate("(() => { const cache=JSON.parse(localStorage.getItem('writespace.matches.v1')); delete cache.byPost[cache.lastPostId]; localStorage.setItem('writespace.matches.v1',JSON.stringify(cache)); })()");
+  await connection.send("Network.setBlockedURLs", { urls: ["*/data.json"] });
+  await connection.send("Page.reload"); await readyMatch(reportedTitle);
+  assert.equal(await evaluate("document.querySelectorAll('.post-card').length"), 1);
+  assert.equal(await evaluate("document.querySelector('[data-match-id=\"p3\"]') !== null"), true);
+  await click('[data-match-id="p3"]');
+  assert.match(await evaluate("document.querySelector('#detailContent').textContent"), /陈师傅/);
+  await click("#interestButton"); assert.equal(await evaluate("document.querySelector('#interestButton').textContent"), "取消参与意向");
+  await click('#detailDialog [data-close="detailDialog"]');
+  await connection.send("Network.setBlockedURLs", { urls: [] }); await reload(); await readyMatch(reportedTitle);
+  passed("Missing browser seed data cannot hide an API candidate; detail and participation still work");
+
+  await click("#openCreateTop"); await click('[name="type"][value="offer"]');
+  const broadTitle = "分享手工、木工、写作和手机摄影";
+  await set("#postTitle", broadTitle); await set("#postDescription", "我会包饺子、修家具、写作和拍照，希望一起练习");
+  await set("#categoryPicker", "other"); await set("#customCategory", "test"); await click("#addCategory");
+  await click("#publishButton"); await readyMatch(broadTitle);
+  assert.equal(await evaluate("document.querySelectorAll('.match-card').length"), 3);
+  assert.equal(await evaluate("document.querySelector('#moreMatches').hidden"), false);
+  await click("#moreMatches"); assert.ok(await evaluate("document.querySelectorAll('.match-card').length > 3"));
+  const matchingShot = await connection.send("Page.captureScreenshot", { format: "png" });
+  await writeFile(path.join(root, ".tmp", "matching-mobile.png"), Buffer.from(matchingShot.data, "base64"));
+  assert.equal(await evaluate("document.documentElement.scrollWidth > innerWidth+1"), false);
+  await click("#moreMatches"); assert.equal(await evaluate("document.querySelectorAll('.match-card').length"), 3);
+  passed("Full candidate list expands and folds on mobile without discarding results after the first three");
+
+  let aiReplyMatches = [{ id: "p3", score: 90, reason: "陈师傅提供木工维修和指导，符合修椅子的需求。", first_step: "先沟通椅子损坏情况，确认时间地点和分工。" }];
+  aiMock = http.createServer((_req, res) => { res.setHeader("content-type", "application/json"); res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ matches: aiReplyMatches }) } }] })); });
   await new Promise((resolve) => aiMock.listen(0, "127.0.0.1", resolve));
   aiApp = await startServer({ AI_API_KEY: "test-only-placeholder", AI_API_URL: `http://127.0.0.1:${aiMock.address().port}` });
   await connection.send("Page.navigate", { url: aiApp.url }); await until("document.querySelectorAll('.post-card').length === 6");
   await click("#openCreateTop"); await click('.form-examples summary'); await click('[data-example="repair"]'); await click("#publishButton"); await readyMatch("想找人一起修好一把旧椅子");
   assert.equal(await evaluate("document.querySelector('#matchSource').textContent"), "AI 匹配");
   passed("U06: successful AI response is visibly labeled AI in the full publishing flow (mock gateway)");
+  aiReplyMatches = [];
+  await click("#rerunMatch"); await readyMatch(reportedTitle);
+  assert.equal(await evaluate("document.querySelectorAll('.match-card').length"), 0);
+  assert.match(await evaluate("document.querySelector('#matchList').textContent"), /AI 本次未推荐/);
+  await click("#moreMatches");
+  assert.equal(await evaluate("document.querySelector('[data-match-id=\"p3\"]') !== null"), true);
+  assert.equal(await evaluate("document.querySelector('.candidate-source').textContent"), "本地内容匹配");
+  await click('[data-match-id="p3"]'); assert.match(await evaluate("document.querySelector('#detailContent').textContent"), /陈师傅/);
+  await click('#detailDialog [data-close="detailDialog"]');
+  passed("An empty AI recommendation keeps local candidates available with truthful per-card source labels");
   assert.deepEqual(errors, [], "No uncaught browser exceptions");
   console.log(`Browser checks passed: ${checks.length}; no uncaught exceptions.`);
 } catch (error) {

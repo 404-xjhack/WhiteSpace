@@ -1,4 +1,4 @@
-import { cleanCategory, postTags, validateDraft, formatPublished, localMatch } from "./model.js";
+import { cleanCategory, postTags, validateDraft, formatPublished, matchPost, matchFingerprint, MATCH_VERSION } from "./model.js";
 
 const $ = (selector) => document.querySelector(selector);
 const postList = $("#postList");
@@ -30,6 +30,9 @@ let currentDetail = null;
 let matchingPost = null;
 let matchController = null;
 let matchVersion = 0;
+let displayedMatches = [];
+let displayedMatchData = null;
+let matchesExpanded = false;
 let formAttempted = false;
 let categoryError = "";
 let toastTimer;
@@ -185,27 +188,64 @@ function showDetail(post) {
     <div class="detail-info"><span>${icon("place")}${escapeHtml(post.location || "地点待确认")}</span><span>${icon("time")}${escapeHtml(post.time || "时间待确认")}</span><span>参与人数：${escapeHtml(post.participants || "协商决定")}</span></div><p class="detail-footnote">演示资料 · 参与意向仅保存在当前浏览器，不会发送给真实用户。</p>`;
   const mine = isMine(post); $("#interestButton").hidden = mine; $("#interestButton").disabled = false;
   $("#interestButton").textContent = interestedIds.has(post.id) ? "取消参与意向" : "我想参与";
-  $("#detailMatchButton").hidden = !mine; $("#detailMatchButton").textContent = matchState.byPost[post.id] ? "查看上次匹配" : "寻找匹配";
+  $("#detailMatchButton").hidden = !mine; $("#detailMatchButton").textContent = cachedMatch(post) ? "查看上次匹配" : "寻找匹配";
   openDialog(detailDialog);
 }
 const fallbackMessages = {
   unconfigured: "未配置 AI，使用主题、供需和时间地点的本地规则", timeout: "AI 响应超时，已切换本地规则",
-  upstream: "AI 服务暂不可用，已切换本地规则", invalid_response: "AI 返回内容无效，已切换本地规则", network: "未连接到匹配服务，使用浏览器中的本地规则"
+  upstream: "AI 服务暂不可用，已切换本地规则", invalid_response: "AI 返回内容无效，已切换本地规则", network: "未连接到匹配服务，使用浏览器中的本地规则",
+  version_mismatch: "已使用最新的本地内容匹配", invalid_match_data: "返回资料不完整，已使用本地内容匹配"
 };
 function validMatchData(data) {
-  return data && ["ai", "local"].includes(data.source) && Array.isArray(data.matches) && data.matches.every((entry) => entry && typeof entry.id === "string" && Number.isFinite(entry.score) && entry.score >= 0 && entry.score <= 100 && typeof entry.reason === "string" && typeof entry.first_step === "string");
+  const validEntry = (entry) => entry && typeof entry.id === "string" && Number.isFinite(entry.score) && entry.score >= 0 && entry.score <= 100 && typeof entry.reason === "string" && typeof entry.first_step === "string";
+  return data && ["ai", "local"].includes(data.source) && Array.isArray(data.matches) && data.matches.every(validEntry)
+    && (data.additionalMatches === undefined || (Array.isArray(data.additionalMatches) && data.additionalMatches.every(validEntry)))
+    && (data.summary === undefined || (data.summary && Array.isArray(data.summary.timeConflicts)));
+}
+function cachedMatch(post) {
+  const data = matchState.byPost[post.id];
+  return validMatchData(data) && data.algorithmVersion === MATCH_VERSION && data.inputFingerprint === matchFingerprint(post) && data.postId === post.id ? data : null;
+}
+function renderMatchList() {
+  const data = displayedMatchData;
+  const mainIds = new Set(data.matches.map((entry) => entry.id));
+  const primary = displayedMatches.filter((entry) => mainIds.has(entry.id));
+  const visible = matchesExpanded ? displayedMatches : primary.slice(0, 3);
+  let emptyMessage = "当前资料里还未找到与你正文相关的帮助，可以补充具体说明，或等待更多社区内容。";
+  if (data.source === "ai" && displayedMatches.length) emptyMessage = "AI 本次未推荐人选。可以展开下方的本地内容候选，进一步确认。";
+  else if (data.summary?.emptyReason === "time_conflict") emptyMessage = "有内容相关的人，但与你填写的时间冲突。可调整活动时间后重新匹配。";
+  else if (data.summary?.emptyReason === "no_candidates") emptyMessage = "社区资料暂未载入，刷新后可以重新匹配。";
+  $("#matchList").innerHTML = visible.length ? visible.map(({ post, score, reason, first_step, source }) => `<article class="match-card"><div class="match-card-top">${avatar(post)}<strong>${escapeHtml(post.name)}</strong><em>参考分 ${Math.round(score)}</em></div>${data.source === "ai" && source === "local" ? '<span class="candidate-source">本地内容匹配</span>' : ""}<h3>${escapeHtml(post.title)}</h3><p>${escapeHtml(reason)}</p><div class="match-first-step"><strong>建议的第一步</strong>${escapeHtml(first_step)}</div><button type="button" data-match-id="${escapeHtml(post.id)}">了解这个人 →</button></article>`).join("") : `<p class="match-empty">${escapeHtml(emptyMessage)}</p>`;
+  const more = $("#moreMatches");
+  more.hidden = displayedMatches.length <= primary.slice(0, 3).length;
+  more.textContent = matchesExpanded ? "收起其他候选" : `查看其他候选（${displayedMatches.length - primary.slice(0, 3).length}）`;
+  more.setAttribute("aria-expanded", String(matchesExpanded));
 }
 function renderMatches(data) {
-  const matches = data.matches.map((entry) => ({ ...entry, post: seedPosts.find((post) => post.id === entry.id) })).filter((entry) => entry.post);
+  displayedMatchData = data;
+  matchesExpanded = false;
+  const used = new Set();
+  displayedMatches = [...data.matches, ...(data.additionalMatches || [])].map((entry) => {
+    const fromApi = entry.candidate;
+    const post = seedPosts.find((post) => post.id === entry.id) || (fromApi?.id === entry.id && typeof fromApi.title === "string" ? fromApi : null);
+    return { ...entry, source: entry.source || data.source, post };
+  }).filter((entry) => {
+    if (!entry.post || used.has(entry.id)) return false;
+    used.add(entry.id); return true;
+  });
   $("#matchLoading").hidden = true; $("#matchWelcome").hidden = true; $("#matchResults").hidden = false; $("#matchingPostTitle").textContent = matchingPost.title;
+  $("#matchingPostConditions").textContent = `${data.criteria?.time || matchingPost.time || "时间待确认"} · ${data.criteria?.location || matchingPost.location || "地点待确认"}`;
   const source = $("#matchSource"); source.textContent = data.source === "ai" ? "AI 匹配" : "本地规则匹配"; source.classList.toggle("local", data.source !== "ai");
-  const explanation = data.source === "ai" ? "匹配理由由 AI 生成，时间地点仍需双方确认" : fallbackMessages[data.fallbackReason] || "按主题、供需和时间地点生成建议";
+  const explanation = data.source === "ai" ? "AI 整理推荐；其他本地内容候选可展开查看，时间地点仍需双方确认" : fallbackMessages[data.fallbackReason] || "优先比较实际需求与帮助，标签仅作辅助";
   $("#matchSourceDetail").textContent = `${explanation}${data.savedAt ? ` · 生成于 ${new Date(data.savedAt).toLocaleString("zh-CN")}` : ""}`;
-  $("#matchList").innerHTML = matches.length ? matches.map(({ post, score, reason, first_step }) => `<article class="match-card"><div class="match-card-top">${avatar(post)}<strong>${escapeHtml(post.name)}</strong><em>参考分 ${Math.round(score)}</em></div><h3>${escapeHtml(post.title)}</h3><p>${escapeHtml(reason)}</p><div class="match-first-step"><strong>建议的第一步</strong>${escapeHtml(first_step)}</div><button type="button" data-match-id="${escapeHtml(post.id)}">了解这个人 →</button></article>`).join("") : '<p class="match-empty">暂时没有主题和时间合适的人选。可以重新匹配，或等待更多社区内容。</p>';
+  const conflicts = Array.isArray(data.summary?.timeConflicts) ? data.summary.timeConflicts : [];
+  $("#matchDiagnostics").textContent = conflicts.length ? `另有内容相关但时间冲突的发布：${conflicts.map((item) => `${item.name || "社区成员"}（${item.time || "时间待确认"}）`).join("；")}。` : "";
+  $("#matchDiagnostics").hidden = conflicts.length === 0;
+  renderMatchList();
 }
 function cancelMatch() { matchVersion++; matchController?.abort(); matchController = null; }
 function restoreMatch(post) {
-  const data = matchState.byPost[post.id]; if (!validMatchData(data)) return false;
+  const data = cachedMatch(post); if (!data) return false;
   cancelMatch(); matchingPost = post; matchState.lastPostId = post.id; save(storageMatches, matchState); renderMatches(data); return true;
 }
 async function runMatch(post) {
@@ -216,7 +256,11 @@ async function runMatch(post) {
   try {
     const response = await fetch("/api/match", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ post }), signal: controller.signal });
     if (!response.ok) throw new Error("match_failed"); data = await response.json(); if (!validMatchData(data)) throw new Error("invalid_match_data");
-  } catch { if (version !== matchVersion) return; data = { source: "local", fallbackReason: "network", matches: localMatch(post, seedPosts) }; }
+    if (data.algorithmVersion !== MATCH_VERSION || data.inputFingerprint !== matchFingerprint(post) || data.postId !== post.id) throw new Error("version_mismatch");
+  } catch (error) {
+    if (version !== matchVersion) return;
+    data = { ...matchPost(post, seedPosts), postId: post.id, inputFingerprint: matchFingerprint(post), source: "local", fallbackReason: ["version_mismatch", "invalid_match_data"].includes(error.message) ? error.message : "network" };
+  }
   finally { clearTimeout(timer); if (matchController === controller) matchController = null; }
   if (version !== matchVersion) return;
   data.savedAt = new Date().toISOString(); matchState.byPost[post.id] = data; save(storageMatches, matchState); renderMatches(data);
@@ -236,7 +280,8 @@ $("#searchInput").addEventListener("input", renderPosts);
 document.querySelectorAll(".filter-chip").forEach((button) => button.addEventListener("click", () => setFilter(button.dataset.filter)));
 $("#myPostsButton").addEventListener("click", () => { $("#searchInput").value = ""; setFilter("mine"); $("#feedTitle").scrollIntoView({ behavior: "smooth", block: "start" }); });
 postList.addEventListener("click", (event) => { const button = event.target.closest("[data-post-id]"); if (button) { const post = allPosts().find((item) => item.id === button.dataset.postId); if (post) showDetail(post); } });
-$("#matchList").addEventListener("click", (event) => { const button = event.target.closest("[data-match-id]"); if (button) { const post = seedPosts.find((item) => item.id === button.dataset.matchId); if (post) showDetail(post); } });
+$("#matchList").addEventListener("click", (event) => { const button = event.target.closest("[data-match-id]"); if (button) { const post = displayedMatches.find((item) => item.id === button.dataset.matchId)?.post; if (post) showDetail(post); } });
+$("#moreMatches").addEventListener("click", () => { matchesExpanded = !matchesExpanded; renderMatchList(); });
 $("#interestButton").addEventListener("click", () => {
   if (!currentDetail || isMine(currentDetail)) return; const cancelling = interestedIds.has(currentDetail.id);
   if (cancelling) interestedIds.delete(currentDetail.id); else interestedIds.add(currentDetail.id); save(storageInterest, [...interestedIds]);
@@ -246,6 +291,7 @@ $("#detailMatchButton").addEventListener("click", () => { if (!currentDetail || 
 $("#rerunMatch").addEventListener("click", () => { if (matchingPost) runMatch(matchingPost); });
 $("#resetDemo").addEventListener("click", () => {
   cancelMatch(); myPosts = []; interestedIds = new Set(); matchingPost = null; currentDetail = null; profile = {}; matchState = { byPost: {} };
+  displayedMatchData = null; displayedMatches = []; matchesExpanded = false;
   for (const [key, value] of [[storagePosts, []], [storageInterest, []], [storageProfile, {}], [storageMatches, matchState]]) save(key, value);
   $("#searchInput").value = ""; $("#matchResults").hidden = true; $("#matchLoading").hidden = true; $("#matchWelcome").hidden = false;
   setFilter("all"); window.scrollTo({ top: 0, behavior: "smooth" }); showToast("演示内容、资料和匹配记录已重置。");

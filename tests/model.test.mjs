@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { validateDraft, normalizedPost, uniqueCategories, postTags, formatPublished, localMatch, timeCompatibility } from "../public/model.js";
+import { validateDraft, normalizedPost, uniqueCategories, postTags, formatPublished, localMatch, matchPost, assessCandidate, eligibleForAI, matchFingerprint, MATCH_VERSION, timeCompatibility } from "../public/model.js";
 
 const seed = JSON.parse(await readFile(new URL("../public/data.json", import.meta.url), "utf8"));
 const values = { type: "need", title: "修椅", description: "帮修", timeMode: "weekly", weekday: "0", start: "09:00", end: "11:00", location: "社区共享工坊", participantMode: "negotiable" };
@@ -77,4 +77,64 @@ test("U06: several topics rank grounded candidates; unrelated and conflicting po
   assert.equal(timeCompatibility(conflict, seed[2]), "conflict");
   const sameType = localMatch({ ...make().data, type: "offer" }, seed).find((entry) => entry.id === "p3");
   assert.match(sameType.reason, /类型相同/); assert.match(sameType.reason, /尚不能确认/);
+});
+
+test("Reported regression: repair chair + test + Sunday always retains Chen", () => {
+  const post = make({ title: "想找人一起修好一把旧椅子", description: "家里有把用了很多年的木椅，靠背松了。不想直接扔掉，希望和会木工的邻居一起修，也想学一点基础维修。" }).data;
+  const base = localMatch(post, seed);
+  const added = localMatch({ ...post, categories: [...post.categories, "test"], tags: [...post.tags, "test"] }, seed);
+  assert.deepEqual(added, base);
+  assert.equal(base[0].id, "p3");
+  assert.equal(localMatch({ ...post, categories: ["test"], category: "test", tags: ["test"] }, seed)[0].id, "p3");
+});
+test("Content matching uses actual help and novel words independently of labels", () => {
+  const tools = make({ title: "借工具", description: "需要基础工具和指导" }, ["工具借用"]).data;
+  assert.equal(localMatch(tools, seed)[0].id, "p3");
+  const phone = make({ title: "修手机", description: "手机开不了机，想修理电子设备" }).data;
+  assert.ok(!localMatch(phone, seed).some((entry) => entry.id === "p3"));
+  const gardening = { ...tools, title: "想养兰花", description: "请教兰花养护", categories: ["test"], tags: ["test"] };
+  const gardener = { id: "new-skill", type: "offer", title: "分享种植经验", offer: "兰花养护", description: "愿意帮忙", location: "社区共享工坊" };
+  assert.equal(localMatch(gardening, [gardener])[0].id, gardener.id);
+  assert.equal(assessCandidate(phone, seed[2]).conflictingSkills, true);
+});
+test("Tags alone cannot establish ability; unrelated labels cannot change existing core score", () => {
+  const tools = make({ title: "借工具", description: "需要工具" }, ["工具借用"]).data;
+  const misleading = { ...seed[4], tags: ["工具借用", "工具"], category: "工具借用" };
+  assert.deepEqual(localMatch(tools, [misleading]), []);
+  const before = assessCandidate(tools, seed[2]);
+  const after = assessCandidate({ ...tools, tags: [...tools.tags, "test", "摄影", "手机维修"] }, seed[2]);
+  assert.equal(before.relevant, after.relevant); assert.equal(after.conflictingSkills, false);
+  assert.deepEqual(after.terms, before.terms); assert.deepEqual(after.concepts, before.concepts);
+});
+test("A person's own skills and opposite expectations do not replace the stated need", () => {
+  const post = make({ title: "想学木工", description: "我会摄影，但希望修椅子并学习木工" }, ["test"]).data;
+  assert.equal(localMatch(post, seed)[0].id, "p3");
+  assert.ok(!localMatch(post, seed).some((entry) => entry.id === "p6"));
+  const photoOffer = { ...post, type: "offer", title: "分享手机摄影", offer: "拍照和修图", need: "希望学习木工", description: "我会拍照，想认识不同邻居" };
+  assert.ok(!localMatch(photoOffer, seed).some((entry) => entry.id === "p3"));
+});
+test("All ranked candidates and time exclusions are retained with clear empty reasons", () => {
+  const post = make().data;
+  const candidates = Array.from({ length: 5 }, (_, i) => ({ ...seed[2], id: `wood-${i}`, name: `木工${i}` }));
+  const result = matchPost(post, candidates);
+  assert.equal(result.matches.length, 5); assert.equal(localMatch(post, candidates).length, 3);
+  assert.equal(result.algorithmVersion, MATCH_VERSION); assert.equal(result.summary.emptyReason, null);
+  const conflict = matchPost(make({ weekday: "1" }).data, [seed[2]]);
+  assert.equal(conflict.summary.emptyReason, "time_conflict"); assert.equal(conflict.summary.timeConflicts[0].name, "陈师傅");
+  assert.equal(matchPost(post, []).summary.emptyReason, "no_candidates");
+  assert.equal(matchPost(post, [seed[4]]).summary.emptyReason, "no_content_match");
+});
+test("AI eligibility allows meanings outside local recall, retaining time and clear skill constraints", () => {
+  const post = make({ title: "修椅", description: "想修椅子" }, ["test"]).data;
+  const novel = { id: "novel", type: "offer", title: "恢复榫接结构", description: "愿意提供帮助", offer: "修复松动接合处" };
+  assert.equal(assessCandidate(post, novel).relevant, false);
+  assert.equal(eligibleForAI(post, novel), true);
+  assert.equal(eligibleForAI(post, seed[4]), false);
+  assert.equal(eligibleForAI(make({ weekday: "1" }).data, seed[2]), false);
+});
+test("Cache identity follows matching input, not profile display metadata", () => {
+  const post = make().data;
+  assert.equal(matchFingerprint(post), matchFingerprint({ ...post, role: "不同身份", age: "27岁" }));
+  assert.notEqual(matchFingerprint(post), matchFingerprint({ ...post, description: "需要工具" }));
+  assert.notEqual(matchFingerprint(post), matchFingerprint({ ...post, categories: [...post.categories, "test"] }));
 });

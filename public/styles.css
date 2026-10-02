@@ -44,5 +44,9 @@ html.modal-open,html.modal-open body{overflow:hidden}
 .detail-description{white-space:pre-wrap;overflow-wrap:anywhere}
 .post-card h3,.dialog-header h2,.match-context strong,.match-card h3,.detail-person small,.post-foot-item{overflow-wrap:anywhere}
 .post-foot-item{min-width:0}
+.match-conditions,.match-diagnostics{font-size:11px;line-height:1.7;color:var(--muted);overflow-wrap:anywhere;margin:0}
+.match-diagnostics{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
+#moreMatches{font-size:12px;margin-top:10px}
+.candidate-source{display:inline-block;font-size:10px;color:#79613f;background:#f7efe4;border-radius:4px;padding:3px 6px;margin-top:9px}
 #matchPanel,#feedTitle{scroll-margin-top:90px}
 @media(max-width:420px){.dialog{max-height:95dvh}.dialog-actions{gap:8px}.dialog-actions .primary-button,.dialog-actions .ghost-button{font-size:12px;padding:0 12px}.category-controls button{padding:0 12px}.detail-grid{grid-template-columns:1fr}}
