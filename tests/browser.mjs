@@ -150,7 +150,7 @@ try {
   passed("U07: interest → cancel → rejoin, retained across reload and scoped to one post");
 
   await click("#openCreateTop"); await click('[name="type"][value="offer"]');
-  assert.equal(await evaluate("document.querySelector('#titleLabel').textContent"), "技能或帮助名称");
+  assert.equal(await evaluate("document.querySelector('#titleLabel').textContent"), "技能或体验名称");
   assert.equal(await evaluate("document.querySelector('#timeMode').value"), "negotiable");
   await click('[name="type"][value="need"]');
   assert.equal(await evaluate("document.querySelector('#timeMode').value"), "");
@@ -208,7 +208,7 @@ try {
   await click("#openCreateTop");
   await click('.form-examples summary'); await click('[data-example="food"]');
   assert.equal(await evaluate("document.querySelectorAll('.selected-category').length"), 2);
-  await click("#publishButton"); await readyMatch("想带孩子体验手工包饺子");
+  await click("#publishButton"); await readyMatch("自动厨房之外，想带孩子体验手工包饺子");
   passed("B02/U09: single modal scroll at 1280/375/320 px, long details, reachable actions and usable example");
 
   await evaluate("(() => { const posts=JSON.parse(localStorage.getItem('writespace.posts.v1')); posts[0].createdAt=new Date(Date.now()-120000).toISOString(); localStorage.setItem('writespace.posts.v1',JSON.stringify(posts)); })()");
@@ -231,6 +231,7 @@ try {
   const reportedTitle = "想找人一起修好一把旧椅子";
   const reportedDescription = "家里有把用了很多年的木椅，靠背松了。不想直接扔掉，希望和会木工的邻居一起修，也想学一点基础维修。";
   await click("#openCreateTop"); await click('.form-examples summary'); await click('[data-example="repair"]');
+  await set("#postTitle", reportedTitle);
   await set("#postDescription", reportedDescription);
   await set("#categoryPicker", "other"); await set("#customCategory", "test"); await click("#addCategory");
   await click("#publishButton"); await readyMatch(reportedTitle);
@@ -375,7 +376,8 @@ try {
   await new Promise((resolve) => aiMock.listen(0, "127.0.0.1", resolve));
   aiApp = await startServer({ AI_API_KEY: "test-only-placeholder", AI_API_URL: `http://127.0.0.1:${aiMock.address().port}` });
   await connection.send("Page.navigate", { url: aiApp.url }); await until("document.querySelectorAll('.post-card').length === 6");
-  await click("#openCreateTop"); await click('.form-examples summary'); await click('[data-example="repair"]'); await click("#publishButton"); await readyMatch("想找人一起修好一把旧椅子");
+  await click("#openCreateTop"); await click('.form-examples summary'); await click('[data-example="repair"]');
+  await set("#postTitle", reportedTitle); await set("#postDescription", reportedDescription); await click("#publishButton"); await readyMatch(reportedTitle);
   assert.equal(await evaluate("document.querySelector('#matchSource').textContent"), "AI 匹配");
   assert.equal(await evaluate("document.querySelector('#moreMatches').hidden"), true);
   assert.doesNotMatch(await evaluate("document.querySelector('#matchSourceDetail').textContent"), /展开/);
@@ -397,7 +399,7 @@ try {
   passed("An empty AI recommendation keeps local candidates available with truthful per-card source labels");
 
   await click("#openCreateTop"); await click('.form-examples summary'); await click('[data-example="photo"]');
-  const aiOfferTitle = "我可以教手机摄影和简单修图";
+  const aiOfferTitle = "分享手机摄影，记录自动化街区的日常";
   await click("#publishButton"); await until("document.querySelector('#needDialog').open && !document.querySelector('#extractNeed').disabled");
   assert.equal(await evaluate("document.querySelector('#needValue').value"), aiNeedReply.need);
   assert.match(await evaluate("document.querySelector('#needEvidence').textContent"), /希望听你分享照片背后的社区故事/);

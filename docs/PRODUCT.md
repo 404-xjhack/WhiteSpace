@@ -12,19 +12,19 @@ Delegated for this prototype: dependency-free Node.js server and plain HTML/CSS/
 
 ## Users
 
-Community members who want to find a person to do something with, share an ability, or ask for practical help. Community organizers may later facilitate safe offline activities.
+People in an imagined future where production and everyday tasks are highly automated, who want to explore meaningful ways to spend their free time, experience former human crafts and routines, or share their own experience. Community organizers may later facilitate safe offline activities.
 
 ## Product Purpose
 
-Help people describe a real need, discover a complementary person nearby, understand why the match makes sense, and take a first step together.
+Help people discover something they want to do themselves, understand how people once lived and worked, and find a complementary partner for a first shared experience. The central question is: when machines can do everything, what would you like to do with your own hands?
 
 ## Positioning
 
-Matching considers both what someone can offer and what they hope to receive from participating. It produces a small, concrete first action instead of only a similarity score.
+WriteSpace is a life exploration platform for the automation era. Matching connects an experience someone wants to try with knowledge or skills another person is willing to share, considering what both hope to receive from participating. It produces a small, concrete first action instead of only a similarity score.
 
 ## Operating Context
 
-People browse community posts, publish their own needs or offers, review suggested matches, and express interest. The prototype contains illustrative people and activities; it does not contact real users.
+People browse future-life examples, publish an experience idea or an offer to share knowledge, review suggested matches, and express interest. Examples include handmade cooking beyond automated kitchens, furniture repair after robots take over maintenance, walking through an automated neighborhood, and personal writing in an AI era. The future setting, people and activities are fictional; the prototype does not contact real users or operate real automation systems.
 
 ## Capabilities and Constraints
 
@@ -35,7 +35,7 @@ People browse community posts, publish their own needs or offers, review suggest
 
 ## Brand Commitments
 
-Name: WriteSpace 留白. The requested UI should be familiar and accessible to a broad audience.
+Name: WriteSpace 留白. The UI should be familiar and accessible to a broad audience. Its warm, everyday language invites curiosity and voluntary participation in a future with more free time.
 
 ## Evidence on Hand
 
@@ -43,7 +43,9 @@ No real user database or validated matching outcomes were supplied. All visible 
 
 ## Product Principles
 
-- Start from a specific need someone can act on.
+- Start from a specific experience someone wants to try.
+- Give each example a future context, a reason to participate personally, and concrete actions.
+- Make learning about former human life one part of exploring life in the future.
 - Explain matches in plain language.
 - Make the first offline action small and safe.
 - Let people see and revise what they share.
