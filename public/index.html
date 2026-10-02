@@ -119,7 +119,13 @@
       </form>
     </dialog>
 
-    <dialog id="detailDialog" class="dialog detail-dialog" aria-labelledby="detailTitle"><div class="dialog-header"><div><h2 id="detailTitle"></h2></div><button class="icon-button" type="button" data-close="detailDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div><div id="detailContent" class="dialog-body"></div><div class="dialog-actions"><button class="ghost-button" type="button" data-close="detailDialog">返回</button><button class="ghost-button" id="detailTimeButton" type="button" hidden>调整时间</button><button class="ghost-button" id="detailNeedButton" type="button" hidden>AI 提炼希望获得</button><button class="primary-button" id="detailMatchButton" type="button" hidden>查看或重新匹配</button><button class="primary-button" id="interestButton" type="button">我想参与</button></div></dialog>
+    <dialog id="detailDialog" class="dialog detail-dialog" aria-labelledby="detailTitle"><div class="dialog-header"><div><h2 id="detailTitle"></h2></div><button class="icon-button" type="button" data-close="detailDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div><div id="detailContent" class="dialog-body"></div><div class="dialog-actions"><button class="ghost-button danger-button" id="detailDeleteButton" type="button" hidden>删除发布</button><button class="ghost-button" id="detailTimeButton" type="button" hidden>调整时间</button><button class="ghost-button" id="detailNeedButton" type="button" hidden>AI 提炼希望获得</button><button class="primary-button" id="detailMatchButton" type="button" hidden>查看或重新匹配</button><button class="primary-button" id="interestButton" type="button">我想参与</button></div></dialog>
+
+    <dialog id="deleteDialog" class="dialog" aria-labelledby="deleteTitle" aria-describedby="deleteDescription">
+      <div class="dialog-header"><div><h2 id="deleteTitle">删除这条发布？</h2><p id="deletePostTitle"></p></div><button class="icon-button" type="button" data-close="deleteDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div>
+      <div class="dialog-body"><p id="deleteDescription" class="form-hint">删除后无法恢复。这条发布及其匹配记录将从当前浏览器移除。</p><p id="deleteError" class="form-error" role="alert" hidden></p></div>
+      <div class="dialog-actions"><button id="cancelDelete" class="ghost-button" type="button" data-close="deleteDialog" autofocus>取消</button><button id="confirmDelete" class="primary-button danger-button" type="button">确认删除</button></div>
+    </dialog>
 
     <dialog id="needDialog" class="dialog" aria-labelledby="needTitle">
       <form id="needForm" novalidate>
