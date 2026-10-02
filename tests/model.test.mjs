@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { validateDraft, validateSchedule, displayTime, normalizedPost, uniqueCategories, postTags, formatPublished, localMatch, matchPost, assessCandidate, eligibleForAI, matchFingerprint, MATCH_VERSION, timeCompatibility } from "../public/model.js";
+import { validateDraft, validateSchedule, displayTime, normalizedPost, uniqueCategories, postTags, formatPublished, localMatch, matchPost, assessCandidate, eligibleForAI, matchFingerprint, MATCH_VERSION, timeCompatibility, needExtractionInput, needExtractionKey, validExtractedNeed, hasAINeed, LEGACY_OFFER_NEED } from "../public/model.js";
 
 const seed = JSON.parse(await readFile(new URL("../public/data.json", import.meta.url), "utf8"));
 const values = { type: "need", title: "修椅", description: "帮修", timeMode: "weekly", weekday: "0", start: "09:00", end: "11:00", location: "社区共享工坊", participantMode: "negotiable" };
@@ -150,4 +150,23 @@ test("Actual reported date: October 10 is Saturday; October 11 overlaps Chen's S
   assert.equal(timeCompatibility({ ...saturday, schedule }, seed[2]), "overlap");
   assert.equal(matchPost({ ...saturday, schedule }, seed).matches[0].id, "p3");
   assert.ok(validateSchedule({ timeMode: "negotiable" }, "need").errors.timeMode);
+});
+test("Need extraction input contains only bounded offer title/description; default wishes stay empty", () => {
+  const post = make({ type: "offer", title: "摄影", description: "我会拍照，希望听邻居讲社区故事" }).data;
+  assert.equal(post.need, "");
+  assert.deepEqual(needExtractionInput({ ...post, age: "27岁", role: "邻居" }), { type: "offer", title: post.title, description: post.description });
+  for (const input of [null, { ...post, type: "need" }, { ...post, title: " " }, { ...post, description: "文".repeat(321) }]) assert.equal(needExtractionInput(input), null);
+  assert.equal(needExtractionKey(post), needExtractionKey({ ...post, location: "其他地点", categories: ["test"] }));
+  assert.notEqual(needExtractionKey(post), needExtractionKey({ ...post, description: "其他说明" }));
+});
+test("AI need provenance requires actual quoted evidence, matching input and unchanged confirmed text", () => {
+  const post = { type: "offer", title: "摄影", description: "我会拍照，希望听邻居讲社区故事" };
+  const result = { need: "听邻居讲社区故事", evidence: "希望听邻居讲社区故事" };
+  assert.equal(validExtractedNeed(post, result), true);
+  assert.equal(validExtractedNeed(post, { need: "", evidence: "" }), true);
+  for (const invalid of [{ ...result, evidence: "不存在的原文" }, { ...result, evidence: "" }, { ...result, need: "文".repeat(161) }, { ...result, need: "" }, { ...result, need: LEGACY_OFFER_NEED }]) assert.equal(validExtractedNeed(post, invalid), false);
+  const confirmed = { ...post, need: result.need, needSummary: { ...result, source: "ai", inputKey: needExtractionKey(post) } };
+  assert.equal(hasAINeed(confirmed), true);
+  assert.equal(hasAINeed({ ...confirmed, need: "自己填写的愿望" }), false);
+  assert.equal(hasAINeed({ ...confirmed, description: "新的说明" }), false);
 });

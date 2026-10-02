@@ -2,6 +2,7 @@
 export const CATEGORIES = ["社区生活", "生活手艺", "亲子共学", "旧物新生", "学习交流", "数码互助"];
 export const LOCATIONS = ["春和社区活动室", "社区共享工坊", "社区图书角", "春和社区周边"];
 export const LIMITS = { title: 48, description: 320, category: 30, categories: 6, time: 40, location: 40 };
+export const LEGACY_OFFER_NEED = "寻找适合的分享对象，具体交流方式见说明";
 const weekdays = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 
 export function cleanCategory(value) {
@@ -24,6 +25,27 @@ export function postCategories(post) {
 
 export function postTags(post) {
   return uniqueCategories([...postCategories(post), ...(Array.isArray(post.tags) ? post.tags : [])]);
+}
+
+export function needExtractionInput(raw) {
+  if (!raw || raw.type !== "offer" || typeof raw.title !== "string" || !raw.title.trim() || raw.title.length > LIMITS.title
+    || typeof raw.description !== "string" || !raw.description.trim() || raw.description.length > LIMITS.description) return null;
+  return { type: "offer", title: raw.title.trim(), description: raw.description.trim() };
+}
+export function needExtractionKey(post) {
+  const input = needExtractionInput(post);
+  return input ? JSON.stringify({ version: "need-v1", ...input }) : "";
+}
+export function validExtractedNeed(input, result) {
+  if (!result || typeof result.need !== "string" || typeof result.evidence !== "string" || result.need.length > 160 || result.evidence.length > 160) return false;
+  const need = result.need.trim(); const evidence = result.evidence.trim();
+  if (need === LEGACY_OFFER_NEED) return false;
+  return need ? Boolean(evidence) && [input.title, input.description].some((text) => text.includes(evidence)) : evidence === "";
+}
+export function hasAINeed(post) {
+  const summary = post.needSummary;
+  return summary?.source === "ai" && summary.inputKey === needExtractionKey(post) && summary.need === post.need
+    && validExtractedNeed(post, summary);
 }
 
 function validDate(value) {
@@ -126,7 +148,7 @@ export function validateDraft(values, selectedCategories) {
     errors, profile,
     data: { type, title, description, categories, category: categories[0], tags: categories, schedule, time: schedule ? formatSchedule(schedule) : "", location, participants, participantSettings,
       role: profile.role, age: profile.agePublic && profile.age ? `${profile.age}岁` : "",
-      offer: type === "offer" ? title : "一起参与、提供自己的时间和经验", need: type === "offer" ? "寻找适合的分享对象，具体交流方式见说明" : title }
+      offer: type === "offer" ? title : "一起参与、提供自己的时间和经验", need: type === "offer" ? "" : title }
   };
 }
 

@@ -49,6 +49,10 @@ html.modal-open,html.modal-open body{overflow:hidden}
 .match-context-actions{display:flex;flex-wrap:wrap;gap:18px}
 #schedulePostTitle{overflow-wrap:anywhere}
 .schedule-preview{font-size:13px;line-height:1.7;background:var(--green-soft);color:var(--green-dark);padding:10px 12px;border-radius:8px;overflow-wrap:anywhere}
+.need-description{font-size:13px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere;background:#f5f8f3;border-radius:8px;padding:12px}
+.need-status{font-size:12px;line-height:1.7;color:var(--muted)}
+.need-source{font-weight:400;font-size:10px;margin-left:6px;color:var(--green)}
+#needEvidence,#needPostTitle{overflow-wrap:anywhere;line-height:1.7}
 #moreMatches{font-size:12px;margin-top:10px}
 .candidate-source{display:inline-block;font-size:10px;color:#79613f;background:#f7efe4;border-radius:4px;padding:3px 6px;margin-top:9px}
 #matchPanel,#feedTitle{scroll-margin-top:90px}

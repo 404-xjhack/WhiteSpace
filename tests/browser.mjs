@@ -152,10 +152,15 @@ try {
   await click('[name="type"][value="offer"]');
   await set("#postTitle", "摄影"); await set("#postDescription", "教拍照"); await set("#categoryPicker", "数码互助"); await click("#addCategory");
   await click("#profileSection summary"); assert.equal(await evaluate("document.querySelector('#profileAge').value"), "27"); await click("#agePublic");
-  await set("#participantMode", "exact"); await set("#participantCount", "3"); await click("#publishButton"); await readyMatch("摄影");
+  await set("#participantMode", "exact"); await set("#participantCount", "3"); await click("#publishButton");
+  await until("document.querySelector('#needDialog').open && !document.querySelector('#extractNeed').disabled");
+  assert.match(await evaluate("document.querySelector('#needStatus').textContent"), /尚未配置/);
+  await click("#saveNeed"); await readyMatch("摄影");
   posts = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))");
   const photoId = posts[0].id;
   assert.equal(posts[0].age, ""); assert.equal(posts[0].time, "时间可协商"); assert.equal(posts[0].location, "地点可协商"); assert.equal(posts[0].participants, "3人");
+  assert.equal(posts[0].need, "");
+  await click(`[data-post-id="${photoId}"]`); assert.match(await evaluate("document.querySelector('#detailContent').textContent"), /希望获得未说明/); await click('#detailDialog [data-close="detailDialog"]');
   await click(`[data-post-id="${repairId}"]`); await click("#detailMatchButton"); await readyMatch("修椅");
   await click(`[data-post-id="${photoId}"]`); await click("#detailMatchButton"); await readyMatch("摄影"); await reload(); await readyMatch("摄影");
   passed("U01/U08: capability sharing permits negotiation; each historical post restores its own match");
@@ -304,7 +309,9 @@ try {
   const broadTitle = "分享手工、木工、写作和手机摄影";
   await set("#postTitle", broadTitle); await set("#postDescription", "我会包饺子、修家具、写作和拍照，希望一起练习");
   await set("#categoryPicker", "other"); await set("#customCategory", "test"); await click("#addCategory");
-  await click("#publishButton"); await readyMatch(broadTitle);
+  await click("#publishButton");
+  await until("document.querySelector('#needDialog').open && !document.querySelector('#extractNeed').disabled");
+  await click("#saveNeed"); await readyMatch(broadTitle);
   assert.equal(await evaluate("document.querySelectorAll('.match-card').length"), 3);
   assert.equal(await evaluate("document.querySelector('#moreMatches').hidden"), false);
   await click("#moreMatches"); assert.ok(await evaluate("document.querySelectorAll('.match-card').length > 3"));
@@ -318,7 +325,13 @@ try {
   passed("Full candidate list expands and folds on mobile without discarding results after the first three");
 
   let aiReplyMatches = [{ id: "p3", score: 90, reason: "陈师傅提供木工维修和指导，符合修椅子的需求。", first_step: "先沟通椅子损坏情况，确认时间地点和分工。" }];
-  aiMock = http.createServer((_req, res) => { res.setHeader("content-type", "application/json"); res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ matches: aiReplyMatches }) } }] })); });
+  let aiNeedReply = { need: "听邻居分享照片背后的社区故事", evidence: "也希望听你分享照片背后的社区故事" };
+  aiMock = http.createServer(async (req, res) => {
+    let body = ""; for await (const chunk of req) body += chunk;
+    const payload = JSON.parse(body);
+    const result = payload.messages[0].content.includes("内容提炼助手") ? aiNeedReply : { matches: aiReplyMatches };
+    res.setHeader("content-type", "application/json"); res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify(result) } }] }));
+  });
   await new Promise((resolve) => aiMock.listen(0, "127.0.0.1", resolve));
   aiApp = await startServer({ AI_API_KEY: "test-only-placeholder", AI_API_URL: `http://127.0.0.1:${aiMock.address().port}` });
   await connection.send("Page.navigate", { url: aiApp.url }); await until("document.querySelectorAll('.post-card').length === 6");
@@ -335,6 +348,65 @@ try {
   await click('[data-match-id="p3"]'); assert.match(await evaluate("document.querySelector('#detailContent').textContent"), /陈师傅/);
   await click('#detailDialog [data-close="detailDialog"]');
   passed("An empty AI recommendation keeps local candidates available with truthful per-card source labels");
+
+  await click("#openCreateTop"); await click('.form-examples summary'); await click('[data-example="photo"]');
+  const aiOfferTitle = "我可以教手机摄影和简单修图";
+  await click("#publishButton"); await until("document.querySelector('#needDialog').open && !document.querySelector('#extractNeed').disabled");
+  assert.equal(await evaluate("document.querySelector('#needValue').value"), aiNeedReply.need);
+  assert.match(await evaluate("document.querySelector('#needEvidence').textContent"), /希望听你分享照片背后的社区故事/);
+  await assertModal("#needDialog", false);
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1')).length"), 1);
+  await click('#needDialog [data-close="needDialog"]'); await until("document.querySelector('#createDialog').open");
+  assert.equal(await evaluate("document.querySelector('#postTitle').value"), aiOfferTitle);
+  await click("#publishButton"); await until("document.querySelector('#needDialog').open && !document.querySelector('#extractNeed').disabled");
+  const needShot = await connection.send("Page.captureScreenshot", { format: "png" });
+  await writeFile(path.join(root, ".tmp", "need-extraction-mobile.png"), Buffer.from(needShot.data, "base64"));
+  await click("#saveNeed"); await readyMatch(aiOfferTitle);
+  const aiOffer = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0]");
+  assert.equal(aiOffer.need, aiNeedReply.need); assert.equal(aiOffer.needSummary.source, "ai");
+  await reload(); await readyMatch(aiOfferTitle); await click(`[data-post-id="${aiOffer.id}"]`);
+  assert.equal(await evaluate("document.querySelector('.need-source').textContent"), "AI 提炼");
+  assert.match(await evaluate("document.querySelector('#detailContent').textContent"), /听邻居分享照片背后的社区故事/);
+  passed("Offer publishing: AI extraction → evidence preview → cancel/resume → confirm → detail and reload");
+
+  await click("#detailNeedButton"); await until("document.querySelector('#needDialog').open && !document.querySelector('#extractNeed').disabled");
+  await set("#needValue", "希望邻居分享搬家经验"); await click("#saveNeed"); await readyMatch(aiOfferTitle);
+  const manualOffer = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0]");
+  assert.equal(manualOffer.id, aiOffer.id); assert.equal(manualOffer.createdAt, aiOffer.createdAt); assert.equal(manualOffer.needSummary.source, "manual");
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1')).length"), 2);
+  const { need: _aiNeed, needSummary: _aiSummary, ...aiFields } = aiOffer;
+  const { need: _manualNeed, needSummary: _manualSummary, ...manualFields } = manualOffer;
+  assert.deepEqual(manualFields, aiFields);
+  await click(`[data-post-id="${aiOffer.id}"]`); assert.equal(await evaluate("document.querySelector('.need-source')"), null);
+  await click('#detailDialog [data-close="detailDialog"]');
+  await evaluate("window.__realNeedFetch=window.fetch; window.fetch=async(...args)=>{const response=await window.__realNeedFetch(...args); if(args[0]==='/api/extract-need') await new Promise(resolve=>window.__releaseNeed=resolve); return response;}");
+  await click(`[data-post-id="${aiOffer.id}"]`); await click("#detailNeedButton"); await until("typeof window.__releaseNeed === 'function'");
+  assert.equal(await evaluate("document.querySelector('#saveNeed').disabled"), true);
+  await set("#needValue", "手动填写不能被晚返回的 AI 覆盖");
+  assert.equal(await evaluate("document.querySelector('#saveNeed').disabled"), false);
+  await evaluate("window.__releaseNeed(); window.fetch=window.__realNeedFetch"); await pause(150);
+  assert.equal(await evaluate("document.querySelector('#needValue').value"), "手动填写不能被晚返回的 AI 覆盖");
+  await click('#needDialog [data-close="needDialog"]');
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0].need"), manualOffer.need);
+  passed("Existing offer: regenerate/edit preserves post identity; cancelled edits and late AI responses cannot overwrite manual text");
+
+  aiNeedReply = { need: "", evidence: "" };
+  await click(`[data-post-id="${aiOffer.id}"]`); await click("#detailNeedButton"); await until("document.querySelector('#needDialog').open && !document.querySelector('#extractNeed').disabled");
+  assert.equal(await evaluate("document.querySelector('#needValue').value"), "");
+  assert.match(await evaluate("document.querySelector('#needStatus').textContent"), /没有|未.*明确诉求/);
+  await click("#saveNeed"); await readyMatch(aiOfferTitle);
+  await click(`[data-post-id="${aiOffer.id}"]`); assert.match(await evaluate("document.querySelector('#detailContent').textContent"), /未说明/); await click('#detailDialog [data-close="detailDialog"]');
+  await connection.send("Network.setBlockedURLs", { urls: ["*/api/extract-need"] });
+  await click(`[data-post-id="${aiOffer.id}"]`); await click("#detailNeedButton"); await until("document.querySelector('#needDialog').open && !document.querySelector('#extractNeed').disabled");
+  assert.match(await evaluate("document.querySelector('#needStatus').textContent"), /未连接/);
+  await set("#needValue", "手动补充社区故事交流"); await click("#saveNeed"); await readyMatch(aiOfferTitle);
+  await connection.send("Network.setBlockedURLs", { urls: [] });
+  await evaluate("(() => { const posts=JSON.parse(localStorage.getItem('writespace.posts.v1')); posts[0].need='寻找适合的分享对象，具体交流方式见说明'; delete posts[0].needSummary; localStorage.setItem('writespace.posts.v1',JSON.stringify(posts)); })()");
+  await reload(); await readyMatch(aiOfferTitle); await click(`[data-post-id="${aiOffer.id}"]`);
+  assert.match(await evaluate("document.querySelector('#detailContent').textContent"), /未说明/);
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0].need"), "");
+  await click('#detailDialog [data-close="detailDialog"]');
+  passed("Unstated expectations stay empty; offline extraction permits manual save; legacy canned wishes are removed");
   assert.deepEqual(errors, [], "No uncaught browser exceptions");
   console.log(`Browser checks passed: ${checks.length}; no uncaught exceptions.`);
 } catch (error) {

@@ -90,7 +90,22 @@
       </form>
     </dialog>
 
-    <dialog id="detailDialog" class="dialog detail-dialog" aria-labelledby="detailTitle"><div class="dialog-header"><div><h2 id="detailTitle"></h2></div><button class="icon-button" type="button" data-close="detailDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div><div id="detailContent" class="dialog-body"></div><div class="dialog-actions"><button class="ghost-button" type="button" data-close="detailDialog">返回</button><button class="ghost-button" id="detailTimeButton" type="button" hidden>调整时间</button><button class="primary-button" id="detailMatchButton" type="button" hidden>查看或重新匹配</button><button class="primary-button" id="interestButton" type="button">我想参与</button></div></dialog>
+    <dialog id="detailDialog" class="dialog detail-dialog" aria-labelledby="detailTitle"><div class="dialog-header"><div><h2 id="detailTitle"></h2></div><button class="icon-button" type="button" data-close="detailDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div><div id="detailContent" class="dialog-body"></div><div class="dialog-actions"><button class="ghost-button" type="button" data-close="detailDialog">返回</button><button class="ghost-button" id="detailTimeButton" type="button" hidden>调整时间</button><button class="ghost-button" id="detailNeedButton" type="button" hidden>AI 提炼希望获得</button><button class="primary-button" id="detailMatchButton" type="button" hidden>查看或重新匹配</button><button class="primary-button" id="interestButton" type="button">我想参与</button></div></dialog>
+
+    <dialog id="needDialog" class="dialog" aria-labelledby="needTitle">
+      <form id="needForm" novalidate>
+        <div class="dialog-header"><div><h2 id="needTitle">确认希望获得</h2><p id="needPostTitle"></p></div><button class="icon-button" type="button" data-close="needDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div>
+        <div class="dialog-body">
+          <p class="form-hint">AI 从你的说明中提炼希望获得的东西，请核对后保存；可以修改或留空。</p>
+          <p id="needDescription" class="need-description"></p>
+          <label class="form-field">希望获得 <span>最多 160 字</span><textarea id="needValue" name="need" maxlength="160" rows="3" placeholder="说明中没有明确诉求时可留空"></textarea></label>
+          <button id="extractNeed" class="secondary-button" type="button">AI 重新提炼</button>
+          <p id="needStatus" class="need-status" role="status"></p><p id="needEvidence" class="form-hint" hidden></p>
+          <p id="needError" class="form-error" role="alert" hidden></p>
+        </div>
+        <div class="dialog-actions"><button class="ghost-button" type="button" data-close="needDialog">取消</button><button id="saveNeed" class="primary-button" type="submit">确认并发布</button></div>
+      </form>
+    </dialog>
 
     <dialog id="scheduleDialog" class="dialog" aria-labelledby="scheduleTitle">
       <form id="scheduleForm" novalidate>

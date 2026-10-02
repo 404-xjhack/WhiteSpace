@@ -1,4 +1,4 @@
-import { cleanCategory, postTags, validateDraft, validateSchedule, normalizeSchedule, formatSchedule, displayTime, formatPublished, matchPost, matchFingerprint, MATCH_VERSION } from "./model.js";
+import { cleanCategory, postTags, validateDraft, validateSchedule, normalizeSchedule, formatSchedule, displayTime, formatPublished, matchPost, matchFingerprint, MATCH_VERSION, LEGACY_OFFER_NEED, needExtractionInput, needExtractionKey, validExtractedNeed, hasAINeed } from "./model.js";
 
 const $ = (selector) => document.querySelector(selector);
 const postList = $("#postList");
@@ -7,6 +7,8 @@ const detailDialog = $("#detailDialog");
 const createForm = $("#createForm");
 const scheduleDialog = $("#scheduleDialog");
 const scheduleForm = $("#scheduleForm");
+const needDialog = $("#needDialog");
+const needForm = $("#needForm");
 const toast = $("#toast");
 const storagePosts = "writespace.posts.v1";
 const storageInterest = "writespace.interest.v1";
@@ -18,6 +20,8 @@ function readSaved(key, fallback) {
 }
 const savedPosts = readSaved(storagePosts, []);
 let myPosts = Array.isArray(savedPosts) ? savedPosts.filter((post) => post && typeof post.id === "string" && post.id.startsWith("mine-") && typeof post.title === "string" && typeof post.description === "string") : [];
+const hadLegacyNeeds = myPosts.some((post) => post.type === "offer" && post.need === LEGACY_OFFER_NEED);
+myPosts = myPosts.map((post) => post.type === "offer" && post.need === LEGACY_OFFER_NEED ? { ...post, need: "" } : post);
 const savedInterest = readSaved(storageInterest, []);
 let interestedIds = new Set(Array.isArray(savedInterest) ? savedInterest.filter((id) => typeof id === "string") : []);
 let profile = readSaved(storageProfile, {});
@@ -37,6 +41,10 @@ let displayedMatchData = null;
 let matchesExpanded = false;
 let schedulePostId = null;
 let scheduleAttempted = false;
+let needContext = null;
+let needResult = null;
+let needController = null;
+let needVersion = 0;
 let formAttempted = false;
 let categoryError = "";
 let toastTimer;
@@ -91,10 +99,88 @@ function setFilter(next) {
   });
   renderPosts();
 }
-function syncDialogLock() { document.documentElement.classList.toggle("modal-open", createDialog.open || detailDialog.open || scheduleDialog.open); }
+function syncDialogLock() { document.documentElement.classList.toggle("modal-open", createDialog.open || detailDialog.open || scheduleDialog.open || needDialog.open); }
 function openDialog(dialog) { if (!dialog.open) dialog.showModal(); syncDialogLock(); }
 function closeDialog(dialog) { dialog.close(); syncDialogLock(); }
-for (const dialog of [createDialog, detailDialog, scheduleDialog]) dialog.addEventListener("close", syncDialogLock);
+for (const dialog of [createDialog, detailDialog, scheduleDialog, needDialog]) dialog.addEventListener("close", syncDialogLock);
+
+const needFallbackMessages = {
+  unconfigured: "AI 尚未配置，可自行补充或留空，留空将显示“未说明”。",
+  timeout: "AI 提炼超时，可重试、自行补充或留空。",
+  upstream: "AI 暂时不可用，可重试、自行补充或留空。",
+  invalid_response: "AI 未返回可核对的提炼结果，可重试、自行补充或留空。",
+  network: "未连接到提炼服务，可重试、自行补充或留空。"
+};
+function cancelNeedExtraction() {
+  needVersion++; needController?.abort(); needController = null;
+  $("#extractNeed").disabled = false; $("#extractNeed").textContent = "AI 重新提炼";
+  $("#saveNeed").disabled = false;
+}
+async function extractNeed() {
+  const context = needContext; if (!context) return;
+  cancelNeedExtraction(); const version = needVersion;
+  const controller = new AbortController(); needController = controller;
+  const timer = setTimeout(() => controller.abort(), 22000);
+  $("#extractNeed").disabled = true; $("#extractNeed").textContent = "正在提炼…";
+  $("#saveNeed").disabled = true;
+  $("#needStatus").textContent = "正在根据你的说明提炼希望获得…";
+  $("#needEvidence").hidden = true;
+  try {
+    const input = needExtractionInput(context.post);
+    const response = await fetch("/api/extract-need", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ post: input }), signal: controller.signal });
+    if (!response.ok) throw new Error("network");
+    const data = await response.json();
+    if (version !== needVersion || needContext !== context || !needDialog.open) return;
+    if (data.inputKey !== needExtractionKey(context.post)) throw new Error("invalid_response");
+    if (data.source !== "ai") throw new Error(data.fallbackReason || "invalid_response");
+    if (!validExtractedNeed(input, data)) throw new Error("invalid_response");
+    needResult = { ...data, extractedAt: new Date().toISOString() }; $("#needValue").value = data.need;
+    $("#needStatus").textContent = data.need ? "AI 已提炼，请核对或修改后保存。" : "AI 未在说明中找到明确诉求。可以留空，或自行补充。";
+    $("#needEvidence").textContent = data.evidence ? `依据的原文：${data.evidence}` : "";
+    $("#needEvidence").hidden = !data.evidence;
+  } catch (error) {
+    if (version !== needVersion || needContext !== context || !needDialog.open) return;
+    $("#needStatus").textContent = needFallbackMessages[error.name === "AbortError" ? "timeout" : error.message] || needFallbackMessages.network;
+  } finally {
+    clearTimeout(timer);
+    if (version === needVersion) { needController = null; $("#extractNeed").disabled = false; $("#extractNeed").textContent = "AI 重新提炼"; $("#saveNeed").disabled = false; }
+  }
+}
+function openNeedEditor(context) {
+  cancelNeedExtraction(); needContext = context;
+  needResult = hasAINeed(context.post) ? context.post.needSummary : null;
+  $("#needTitle").textContent = context.kind === "create" ? "确认希望获得" : "提炼希望获得";
+  $("#needPostTitle").textContent = context.post.title;
+  $("#needDescription").textContent = context.post.description;
+  $("#needValue").value = context.post.need || "";
+  $("#needError").hidden = true; $("#needValue").removeAttribute("aria-invalid");
+  $("#saveNeed").textContent = context.kind === "create" ? "确认并发布" : "保存并重新匹配";
+  openDialog(needDialog); extractNeed();
+}
+needDialog.addEventListener("close", () => {
+  const context = needContext; needContext = null; cancelNeedExtraction();
+  if (context?.kind === "create") openDialog(createDialog);
+});
+$("#extractNeed").addEventListener("click", extractNeed);
+$("#needValue").addEventListener("input", () => {
+  cancelNeedExtraction(); needResult = null; $("#needEvidence").hidden = true;
+  $("#needStatus").textContent = "已修改，保存后将使用你填写的希望获得。";
+  $("#needError").hidden = true; $("#needValue").removeAttribute("aria-invalid");
+});
+needForm.addEventListener("submit", (event) => {
+  event.preventDefault(); const context = needContext; if (!context) return;
+  const value = $("#needValue").value.trim();
+  if (value.length > 160) { $("#needError").textContent = "希望获得最多 160 字。"; $("#needError").hidden = false; $("#needValue").setAttribute("aria-invalid", "true"); $("#needValue").focus(); return; }
+  const summary = needResult?.need === value ? { ...needResult, confirmedAt: new Date().toISOString() } : { source: "manual" };
+  needContext = null; closeDialog(needDialog); cancelNeedExtraction();
+  if (context.kind === "create") publishDraft({ ...context.post, need: value, needSummary: summary }, context.profile);
+  else {
+    const index = myPosts.findIndex((post) => post.id === context.post.id); if (index < 0) return;
+    const post = { ...myPosts[index], need: value, needSummary: summary };
+    myPosts[index] = post; save(storagePosts, myPosts); delete matchState.byPost[post.id]; renderPosts();
+    showToast("希望获得已保存，正在重新匹配。"); runMatch(post);
+  }
+});
 
 function syncScheduleFields() {
   const mode = scheduleForm.elements.timeMode.value;
@@ -227,6 +313,7 @@ function fillExample(example) {
 }
 function openCreate() {
   createForm.reset(); selectedCategories = []; categoryError = ""; formAttempted = false;
+  $(".form-examples").open = false;
   $("#profileRole").value = typeof profile.role === "string" ? profile.role : ""; $("#profileAge").value = Number.isInteger(profile.age) ? profile.age : "";
   $("#agePublic").checked = profile.agePublic === true; $("#profileSummary").textContent = profile.role || "社区成员"; $("#profileSection").open = false;
   renderCategories(); syncType(); updateErrors(); openDialog(createDialog); $("#postTitle").focus();
@@ -235,12 +322,13 @@ function showDetail(post) {
   currentDetail = post; $("#detailTitle").textContent = post.title;
   $("#detailContent").innerHTML = `<div class="detail-person">${avatar(post)}<div><strong>${escapeHtml(post.name || "我")}</strong><small>${escapeHtml(personLine(post))} · <span data-published-id="${escapeHtml(post.id)}">${escapeHtml(formatPublished(post))}</span></small></div></div>
     <p class="detail-description">${escapeHtml(post.description)}</p><div class="post-tags">${tagHtml(post)}</div>
-    <div class="detail-grid"><div><span>${post.type === "offer" ? "可以分享" : "可以带来"}</span><strong>${escapeHtml(post.offer || "愿意一起参与")}</strong></div><div><span>希望获得</span><strong>${escapeHtml(post.need || "一起把这件事做好")}</strong></div></div>
+    <div class="detail-grid"><div><span>${post.type === "offer" ? "可以分享" : "可以带来"}</span><strong>${escapeHtml(post.offer || "愿意一起参与")}</strong></div><div><span>希望获得${hasAINeed(post) ? '<small class="need-source">AI 提炼</small>' : ""}</span><strong>${escapeHtml(post.need || "未说明")}</strong></div></div>
     <div class="detail-info"><span>${icon("place")}${escapeHtml(post.location || "地点待确认")}</span><span>${icon("time")}${escapeHtml(displayTime(post))}</span><span>参与人数：${escapeHtml(post.participants || "协商决定")}</span></div><p class="detail-footnote">演示资料 · 参与意向仅保存在当前浏览器，不会发送给真实用户。</p>`;
   const mine = isMine(post); $("#interestButton").hidden = mine; $("#interestButton").disabled = false;
   $("#interestButton").textContent = interestedIds.has(post.id) ? "取消参与意向" : "我想参与";
   $("#detailMatchButton").hidden = !mine; $("#detailMatchButton").textContent = cachedMatch(post) ? "查看上次匹配" : "寻找匹配";
   $("#detailTimeButton").hidden = !mine;
+  $("#detailNeedButton").hidden = !mine || post.type !== "offer";
   openDialog(detailDialog);
 }
 const fallbackMessages = {
@@ -343,6 +431,7 @@ $("#detailMatchButton").addEventListener("click", () => { if (!currentDetail || 
 $("#rerunMatch").addEventListener("click", () => { if (matchingPost) runMatch(matchingPost); });
 $("#editMatchTime").addEventListener("click", () => { if (matchingPost) openSchedule(matchingPost); });
 $("#detailTimeButton").addEventListener("click", () => { if (currentDetail && isMine(currentDetail)) { const post = currentDetail; closeDialog(detailDialog); openSchedule(post); } });
+$("#detailNeedButton").addEventListener("click", () => { if (currentDetail && isMine(currentDetail) && currentDetail.type === "offer") { const post = currentDetail; closeDialog(detailDialog); openNeedEditor({ kind: "edit", post }); } });
 $("#resetDemo").addEventListener("click", () => {
   cancelMatch(); myPosts = []; interestedIds = new Set(); matchingPost = null; currentDetail = null; profile = {}; matchState = { byPost: {} };
   displayedMatchData = null; displayedMatches = []; matchesExpanded = false;
@@ -350,14 +439,19 @@ $("#resetDemo").addEventListener("click", () => {
   $("#searchInput").value = ""; $("#matchResults").hidden = true; $("#matchLoading").hidden = true; $("#matchWelcome").hidden = false;
   setFilter("all"); window.scrollTo({ top: 0, behavior: "smooth" }); showToast("演示内容、资料和匹配记录已重置。");
 });
-createForm.addEventListener("submit", (event) => {
-  event.preventDefault(); formAttempted = true; if ($("#categoryPicker").value && !addCategory()) { updateErrors(true); return; }
-  const { data, profile: nextProfile, errors } = updateErrors(true); if (Object.keys(errors).length) return;
+function publishDraft(data, nextProfile) {
   const post = { ...data, id: `mine-${crypto.randomUUID()}`, name: "我", avatar: "我", color: "self", createdAt: new Date().toISOString() };
   myPosts.unshift(post); profile = nextProfile; save(storageProfile, profile); save(storagePosts, myPosts); closeDialog(createDialog);
   $("#searchInput").value = ""; setFilter("all"); showToast("发布成功！正在寻找适合一起做的人。"); runMatch(post);
+}
+createForm.addEventListener("submit", (event) => {
+  event.preventDefault(); formAttempted = true; if ($("#categoryPicker").value && !addCategory()) { updateErrors(true); return; }
+  const { data, profile: nextProfile, errors } = updateErrors(true); if (Object.keys(errors).length) return;
+  if (data.type === "offer") { closeDialog(createDialog); openNeedEditor({ kind: "create", post: data, profile: nextProfile }); }
+  else publishDraft(data, nextProfile);
 });
 async function init() {
+  if (hadLegacyNeeds) save(storagePosts, myPosts);
   try { const response = await fetch("/data.json"); if (!response.ok) throw new Error("data_failed"); const data = await response.json(); if (!Array.isArray(data)) throw new Error("data_failed"); seedPosts = data; }
   catch { showToast("示例社区内容载入失败，你的发布仍可查看，请刷新重试。"); }
   renderPosts(); const lastPost = myPosts.find((post) => post.id === matchState.lastPostId); if (lastPost && !restoreMatch(lastPost)) runMatch(lastPost);
