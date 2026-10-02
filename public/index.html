@@ -100,6 +100,7 @@
           <div id="scheduleDateFields" hidden><label class="form-field">活动日期<input id="scheduleDate" name="date" type="date" /></label></div>
           <div id="scheduleWeeklyFields" hidden><label class="form-field">每周活动日<select id="scheduleWeekday" name="weekday"><option value="">选择星期</option><option value="1">周一</option><option value="2">周二</option><option value="3">周三</option><option value="4">周四</option><option value="5">周五</option><option value="6">周六</option><option value="0">周日</option></select></label></div>
           <div id="scheduleClockFields" class="form-row" hidden><label class="form-field">开始时间<input id="scheduleStart" name="start" type="time" /></label><label class="form-field">结束时间<input id="scheduleEnd" name="end" type="time" /></label></div>
+          <p id="schedulePreview" class="schedule-preview" role="status"></p>
           <p class="form-hint">保存后将为这条发布重新匹配。</p><p id="scheduleError" class="form-error" role="alert" hidden></p>
         </div>
         <div class="dialog-actions"><button class="ghost-button" type="button" data-close="scheduleDialog">取消</button><button class="primary-button" id="saveSchedule" type="submit">保存并重新匹配</button></div>

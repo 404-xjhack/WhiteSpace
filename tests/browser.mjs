@@ -248,13 +248,16 @@ try {
   await click("#editMatchTime"); await until("document.querySelector('#scheduleDialog').open");
   await assertModal("#scheduleDialog", false);
   assert.equal(await evaluate("document.querySelector('#scheduleWeekday').value"), "0");
+  assert.match(await evaluate("document.querySelector('#schedulePreview').textContent"), /每周日 09:00–11:00/);
   assert.equal(await evaluate("document.querySelector('#scheduleNegotiable').disabled"), true);
   await set("#scheduleMode", "date"); await set("#scheduleDate", "2026-10-10"); await set("#scheduleEnd", "08:00");
   await click("#saveSchedule");
   assert.equal(await evaluate("document.querySelector('#scheduleDialog').open"), true);
   assert.match(await evaluate("document.querySelector('#scheduleError').textContent"), /结束时间/);
   assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0]"), originalRepair);
-  await set("#scheduleEnd", "11:00"); await click("#saveSchedule"); await readyMatch(reportedTitle);
+  await set("#scheduleEnd", "11:00");
+  assert.match(await evaluate("document.querySelector('#schedulePreview').textContent"), /2026-10-10（周六）/);
+  await click("#saveSchedule"); await readyMatch(reportedTitle);
   assert.match(await evaluate("document.querySelector('#matchingPostConditions').textContent"), /2026-10-10（周六）/);
   assert.equal(await evaluate("document.querySelectorAll('.match-card').length"), 0);
   assert.match(await evaluate("document.querySelector('#matchDiagnostics').textContent"), /周六.*陈师傅.*每周日/);
@@ -262,7 +265,9 @@ try {
   assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0].schedule.date"), "2026-10-10");
   await click(`[data-post-id="${reportedId}"]`); await click("#detailTimeButton");
   assert.equal(await evaluate("document.querySelector('#scheduleDate').value"), "2026-10-10");
-  await set("#scheduleDate", "2026-10-11"); await click("#saveSchedule"); await readyMatch(reportedTitle);
+  await set("#scheduleDate", "2026-10-11");
+  assert.match(await evaluate("document.querySelector('#schedulePreview').textContent"), /2026-10-11（周日）/);
+  await click("#saveSchedule"); await readyMatch(reportedTitle);
   assert.equal(await evaluate("document.querySelector('[data-match-id=\"p3\"]') !== null"), true);
   assert.match(await evaluate("document.querySelector('#matchingPostConditions').textContent"), /2026-10-11（周日）/);
   const editedRepair = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0]");
@@ -275,6 +280,12 @@ try {
   assert.equal(await evaluate("document.documentElement.classList.contains('modal-open')"), false);
   const repairShot = await connection.send("Page.captureScreenshot", { format: "png" });
   await writeFile(path.join(root, ".tmp", "matching-repair-mobile.png"), Buffer.from(repairShot.data, "base64"));
+  await click("#editMatchTime"); await set("#scheduleMode", "weekly"); await set("#scheduleWeekday", "0");
+  assert.match(await evaluate("document.querySelector('#schedulePreview').textContent"), /每周日 09:00–11:00/);
+  await click("#saveSchedule"); await readyMatch(reportedTitle);
+  assert.match(await evaluate("document.querySelector('#matchingPostConditions').textContent"), /每周日 09:00–11:00/);
+  assert.equal(await evaluate("document.querySelector('[data-match-id=\"p3\"]') !== null"), true);
+  assert.match(await evaluate("document.querySelector('#toast').textContent"), /已保存时间：每周日/);
   passed("Actual date: Saturday conflict → adjust original post to Sunday → Chen card; invalid/cancelled edits preserve data");
 
   await evaluate("(() => { const cache=JSON.parse(localStorage.getItem('writespace.matches.v1')); delete cache.byPost[cache.lastPostId]; localStorage.setItem('writespace.matches.v1',JSON.stringify(cache)); })()");

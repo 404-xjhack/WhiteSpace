@@ -110,6 +110,8 @@ function checkSchedule(focus = false) {
   for (const key of Object.keys(errors)) scheduleForm.elements.namedItem(key)?.setAttribute("aria-invalid", "true");
   $("#scheduleError").textContent = Object.values(errors).join(" ");
   $("#scheduleError").hidden = Object.keys(errors).length === 0;
+  $("#schedulePreview").textContent = result.schedule && Object.keys(result.errors).length === 0
+    ? `你选择的时间：${displayTime({ schedule: result.schedule })}` : "填写有效时间后，可在这里核对日期和星期。";
   if (focus) scheduleForm.elements.namedItem(Object.keys(errors)[0])?.focus();
   return result;
 }
@@ -137,7 +139,7 @@ scheduleForm.addEventListener("submit", (event) => {
   if (index < 0) return;
   const post = { ...myPosts[index], schedule, time: formatSchedule(schedule) };
   myPosts[index] = post; save(storagePosts, myPosts); delete matchState.byPost[post.id];
-  closeDialog(scheduleDialog); renderPosts(); showToast("活动时间已更新，正在重新匹配。"); runMatch(post);
+  closeDialog(scheduleDialog); renderPosts(); showToast(`已保存时间：${displayTime(post)}，正在重新匹配。`); runMatch(post);
 });
 scheduleDialog.addEventListener("close", () => { schedulePostId = null; });
 
