@@ -14,7 +14,7 @@
 
 ## 工程结构
 
-- 根目录 `dumpling-house.html`：独立入口；服务端仅为它增加精确静态路由，不开放项目根目录。
+- `public/dumpling-house.html`：独立入口；沿用服务端的 public 静态路由，不开放项目根目录。
 - `public/experiences/dumpling/`：`data.js` 工艺与工具内容、`state.js` 学习状态、`main.js` 界面与嵌入协议、`models.js` 程序化模型、`renderer.js` 渲染和相机、`styles.css` 独立样式。
 - `vendor/`：原页面使用的 Three.js **0.170.0**、对应 OrbitControls 与 MIT 许可证；运行时不连接 CDN。
 
