@@ -58,7 +58,7 @@
             <div class="match-panel-heading"><span class="match-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 12h5l3-7 3 14 3-7h2"/></svg></span><div><h2 id="matchTitle">为你找到合适的人</h2><p>说出需求，再看看谁能与你互补</p></div></div>
             <div id="matchWelcome" class="match-welcome"><div class="welcome-people" aria-hidden="true"><span>我</span><i></i><span>你</span></div><h3>一次好的匹配，<br />从彼此的需要开始。</h3><p>使用右上角“发布内容”分享想法，我们会说明匹配理由，并给出容易开始的共同动作。已有内容可从“我的发布”详情继续匹配。</p></div>
             <div id="matchLoading" class="match-loading" hidden><div class="skeleton-line wide"></div><div class="skeleton-line"></div><div class="skeleton-card"></div><div class="skeleton-card"></div><p>正在寻找互补需求，并整理可执行的第一步…</p></div>
-            <div id="matchResults" class="match-results" hidden><div class="match-context"><span>根据你的发布</span><strong id="matchingPostTitle"></strong><p id="matchingPostConditions" class="match-conditions"></p><button id="rerunMatch" type="button">重新匹配</button></div><div class="match-source"><span id="matchSource"></span><small id="matchSourceDetail"></small></div><div id="matchList" class="match-list"></div><button id="moreMatches" class="ghost-button full" type="button" aria-expanded="false" hidden>查看其他候选</button><p id="matchDiagnostics" class="match-diagnostics" hidden></p></div>
+            <div id="matchResults" class="match-results" hidden><div class="match-context"><span>根据你的发布</span><strong id="matchingPostTitle"></strong><p id="matchingPostConditions" class="match-conditions"></p><div class="match-context-actions"><button id="rerunMatch" type="button">重新匹配</button><button id="editMatchTime" type="button">调整活动时间</button></div></div><div class="match-source"><span id="matchSource"></span><small id="matchSourceDetail"></small></div><div id="matchList" class="match-list"></div><button id="moreMatches" class="ghost-button full" type="button" aria-expanded="false" hidden>查看其他候选</button><p id="matchDiagnostics" class="match-diagnostics" hidden></p></div>
           </div>
           <div class="safety-note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v5c0 5 3.2 8.5 8 10 4.8-1.5 8-5 8-10V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg><div><strong>线下见面，从公共空间开始</strong><p>原型中的“参与”只模拟表达意向。真实产品上线前会加入双方同意、身份与活动安全机制。</p></div></div>
         </aside>
@@ -90,7 +90,21 @@
       </form>
     </dialog>
 
-    <dialog id="detailDialog" class="dialog detail-dialog" aria-labelledby="detailTitle"><div class="dialog-header"><div><h2 id="detailTitle"></h2></div><button class="icon-button" type="button" data-close="detailDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div><div id="detailContent" class="dialog-body"></div><div class="dialog-actions"><button class="ghost-button" type="button" data-close="detailDialog">返回</button><button class="primary-button" id="detailMatchButton" type="button" hidden>查看或重新匹配</button><button class="primary-button" id="interestButton" type="button">我想参与</button></div></dialog>
+    <dialog id="detailDialog" class="dialog detail-dialog" aria-labelledby="detailTitle"><div class="dialog-header"><div><h2 id="detailTitle"></h2></div><button class="icon-button" type="button" data-close="detailDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div><div id="detailContent" class="dialog-body"></div><div class="dialog-actions"><button class="ghost-button" type="button" data-close="detailDialog">返回</button><button class="ghost-button" id="detailTimeButton" type="button" hidden>调整时间</button><button class="primary-button" id="detailMatchButton" type="button" hidden>查看或重新匹配</button><button class="primary-button" id="interestButton" type="button">我想参与</button></div></dialog>
+
+    <dialog id="scheduleDialog" class="dialog" aria-labelledby="scheduleTitle">
+      <form id="scheduleForm" novalidate>
+        <div class="dialog-header"><div><h2 id="scheduleTitle">调整活动时间</h2><p id="schedulePostTitle"></p></div><button class="icon-button" type="button" data-close="scheduleDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div>
+        <div class="dialog-body">
+          <label class="form-field">时间安排<select id="scheduleMode" name="timeMode"><option value="">选择时间安排</option><option value="date">具体日期与时间段</option><option value="weekly">每周固定时间</option><option value="negotiable" id="scheduleNegotiable">时间可协商</option></select></label>
+          <div id="scheduleDateFields" hidden><label class="form-field">活动日期<input id="scheduleDate" name="date" type="date" /></label></div>
+          <div id="scheduleWeeklyFields" hidden><label class="form-field">每周活动日<select id="scheduleWeekday" name="weekday"><option value="">选择星期</option><option value="1">周一</option><option value="2">周二</option><option value="3">周三</option><option value="4">周四</option><option value="5">周五</option><option value="6">周六</option><option value="0">周日</option></select></label></div>
+          <div id="scheduleClockFields" class="form-row" hidden><label class="form-field">开始时间<input id="scheduleStart" name="start" type="time" /></label><label class="form-field">结束时间<input id="scheduleEnd" name="end" type="time" /></label></div>
+          <p class="form-hint">保存后将为这条发布重新匹配。</p><p id="scheduleError" class="form-error" role="alert" hidden></p>
+        </div>
+        <div class="dialog-actions"><button class="ghost-button" type="button" data-close="scheduleDialog">取消</button><button class="primary-button" id="saveSchedule" type="submit">保存并重新匹配</button></div>
+      </form>
+    </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </body>

@@ -58,7 +58,7 @@ test("AI: HTTP errors and timeout retain usable recommendations", async (t) => {
 });
 test("Reported input: custom test label retains Chen through HTTP with displayable candidate and cache context", async (t) => {
   const app = await startServer(); t.after(() => app.close());
-  const sample = { ...post, id: "mine-reported", title: "想找人一起修好一把旧椅子", description: "旧椅子的靠背松了，希望一起修好", categories: ["旧物新生", "test"], tags: ["旧物新生", "test"] };
+  const sample = { ...post, id: "mine-reported", title: "想找人一起修好一把旧椅子", description: "家里有把用了很多年的木椅，靠背松了。不想直接扔掉，希望和会木工的邻居一起修，也想学一点基础维修。", categories: ["旧物新生", "test"], tags: ["旧物新生", "test"] };
   const response = await request(app.url, { post: sample }); assert.equal(response.status, 200);
   const data = await response.json(); assert.equal(data.matches[0].candidate.name, "陈师傅");
   assert.equal(data.algorithmVersion, MATCH_VERSION); assert.equal(data.inputFingerprint, matchFingerprint(sample)); assert.equal(data.postId, sample.id);

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { validateDraft, normalizedPost, uniqueCategories, postTags, formatPublished, localMatch, matchPost, assessCandidate, eligibleForAI, matchFingerprint, MATCH_VERSION, timeCompatibility } from "../public/model.js";
+import { validateDraft, validateSchedule, displayTime, normalizedPost, uniqueCategories, postTags, formatPublished, localMatch, matchPost, assessCandidate, eligibleForAI, matchFingerprint, MATCH_VERSION, timeCompatibility } from "../public/model.js";
 
 const seed = JSON.parse(await readFile(new URL("../public/data.json", import.meta.url), "utf8"));
 const values = { type: "need", title: "修椅", description: "帮修", timeMode: "weekly", weekday: "0", start: "09:00", end: "11:00", location: "社区共享工坊", participantMode: "negotiable" };
@@ -137,4 +137,17 @@ test("Cache identity follows matching input, not profile display metadata", () =
   assert.equal(matchFingerprint(post), matchFingerprint({ ...post, role: "不同身份", age: "27岁" }));
   assert.notEqual(matchFingerprint(post), matchFingerprint({ ...post, description: "需要工具" }));
   assert.notEqual(matchFingerprint(post), matchFingerprint({ ...post, categories: [...post.categories, "test"] }));
+});
+test("Actual reported date: October 10 is Saturday; October 11 overlaps Chen's Sunday availability", () => {
+  const saturday = make({ timeMode: "date", date: "2026-10-10" }, ["旧物新生", "test"]).data;
+  assert.equal(displayTime(saturday), "2026-10-10（周六） 09:00–11:00");
+  assert.equal(timeCompatibility(saturday, seed[2]), "conflict");
+  const excluded = matchPost(saturday, seed);
+  assert.equal(excluded.summary.timeConflicts[0].name, "陈师傅");
+  assert.equal(excluded.criteria.time, displayTime(saturday));
+  const { schedule, errors } = validateSchedule({ timeMode: "date", date: "2026-10-11", start: "09:00", end: "11:00" }, "need");
+  assert.deepEqual(errors, {});
+  assert.equal(timeCompatibility({ ...saturday, schedule }, seed[2]), "overlap");
+  assert.equal(matchPost({ ...saturday, schedule }, seed).matches[0].id, "p3");
+  assert.ok(validateSchedule({ timeMode: "negotiable" }, "need").errors.timeMode);
 });

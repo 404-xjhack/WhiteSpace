@@ -244,6 +244,39 @@ try {
   assert.equal(await evaluate("document.querySelector('[data-match-id=\"p3\"]') !== null"), true);
   passed("Version and input changes invalidate stale/empty cache; time conflicts identify Chen and the actual day");
 
+  const originalRepair = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0]");
+  await click("#editMatchTime"); await until("document.querySelector('#scheduleDialog').open");
+  await assertModal("#scheduleDialog", false);
+  assert.equal(await evaluate("document.querySelector('#scheduleWeekday').value"), "0");
+  assert.equal(await evaluate("document.querySelector('#scheduleNegotiable').disabled"), true);
+  await set("#scheduleMode", "date"); await set("#scheduleDate", "2026-10-10"); await set("#scheduleEnd", "08:00");
+  await click("#saveSchedule");
+  assert.equal(await evaluate("document.querySelector('#scheduleDialog').open"), true);
+  assert.match(await evaluate("document.querySelector('#scheduleError').textContent"), /结束时间/);
+  assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0]"), originalRepair);
+  await set("#scheduleEnd", "11:00"); await click("#saveSchedule"); await readyMatch(reportedTitle);
+  assert.match(await evaluate("document.querySelector('#matchingPostConditions').textContent"), /2026-10-10（周六）/);
+  assert.equal(await evaluate("document.querySelectorAll('.match-card').length"), 0);
+  assert.match(await evaluate("document.querySelector('#matchDiagnostics').textContent"), /周六.*陈师傅.*每周日/);
+  await click("#editMatchTime"); await set("#scheduleDate", "2026-10-11"); await click('#scheduleDialog [data-close="scheduleDialog"]');
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0].schedule.date"), "2026-10-10");
+  await click(`[data-post-id="${reportedId}"]`); await click("#detailTimeButton");
+  assert.equal(await evaluate("document.querySelector('#scheduleDate').value"), "2026-10-10");
+  await set("#scheduleDate", "2026-10-11"); await click("#saveSchedule"); await readyMatch(reportedTitle);
+  assert.equal(await evaluate("document.querySelector('[data-match-id=\"p3\"]') !== null"), true);
+  assert.match(await evaluate("document.querySelector('#matchingPostConditions').textContent"), /2026-10-11（周日）/);
+  const editedRepair = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0]");
+  const { time: _oldTime, schedule: _oldSchedule, ...originalFields } = originalRepair;
+  const { time: _newTime, schedule: _newSchedule, ...editedFields } = editedRepair;
+  assert.deepEqual(editedFields, originalFields);
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1')).length"), 1);
+  await reload(); await readyMatch(reportedTitle);
+  assert.equal(await evaluate("document.querySelector('[data-match-id=\"p3\"]') !== null"), true);
+  assert.equal(await evaluate("document.documentElement.classList.contains('modal-open')"), false);
+  const repairShot = await connection.send("Page.captureScreenshot", { format: "png" });
+  await writeFile(path.join(root, ".tmp", "matching-repair-mobile.png"), Buffer.from(repairShot.data, "base64"));
+  passed("Actual date: Saturday conflict → adjust original post to Sunday → Chen card; invalid/cancelled edits preserve data");
+
   await evaluate("(() => { const cache=JSON.parse(localStorage.getItem('writespace.matches.v1')); delete cache.byPost[cache.lastPostId]; localStorage.setItem('writespace.matches.v1',JSON.stringify(cache)); })()");
   await connection.send("Network.setBlockedURLs", { urls: ["*/data.json"] });
   await connection.send("Page.reload"); await readyMatch(reportedTitle);
@@ -268,6 +301,9 @@ try {
   await writeFile(path.join(root, ".tmp", "matching-mobile.png"), Buffer.from(matchingShot.data, "base64"));
   assert.equal(await evaluate("document.documentElement.scrollWidth > innerWidth+1"), false);
   await click("#moreMatches"); assert.equal(await evaluate("document.querySelectorAll('.match-card').length"), 3);
+  await click("#editMatchTime"); assert.equal(await evaluate("document.querySelector('#scheduleNegotiable').disabled"), false);
+  await set("#scheduleMode", "negotiable"); await click("#saveSchedule"); await readyMatch(broadTitle);
+  assert.equal(await evaluate("document.querySelectorAll('.match-card').length"), 3);
   passed("Full candidate list expands and folds on mobile without discarding results after the first three");
 
   let aiReplyMatches = [{ id: "p3", score: 90, reason: "陈师傅提供木工维修和指导，符合修椅子的需求。", first_step: "先沟通椅子损坏情况，确认时间地点和分工。" }];

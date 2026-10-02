@@ -51,6 +51,30 @@ export function formatSchedule(schedule) {
   return `${day} ${schedule.start}–${schedule.end}`;
 }
 
+export function displayTime(post) {
+  const schedule = normalizeSchedule(post.schedule);
+  if (!schedule) return post.time || "时间待确认";
+  if (schedule.mode !== "date") return formatSchedule(schedule);
+  const weekday = weekdays[new Date(`${schedule.date}T00:00:00Z`).getUTCDay()];
+  return `${schedule.date}（${weekday}） ${schedule.start}–${schedule.end}`;
+}
+
+export function validateSchedule(values, type) {
+  const errors = {};
+  let schedule = null;
+  if (values.timeMode === "negotiable" && type === "offer") schedule = { mode: "negotiable" };
+  else if (["date", "weekly"].includes(values.timeMode)) {
+    const raw = { mode: values.timeMode, date: values.date || "", days: [Number(values.weekday)], start: values.start || "", end: values.end || "" };
+    if (raw.mode === "date" && !validDate(raw.date)) errors.date = "请选择有效的活动日期。";
+    if (raw.mode === "weekly" && (values.weekday === "" || !/^[0-6]$/.test(String(values.weekday)))) errors.weekday = "请选择每周的活动日。";
+    if (!validClock(raw.start)) errors.start = "请选择开始时间。";
+    if (!validClock(raw.end)) errors.end = "请选择结束时间。";
+    else if (validClock(raw.start) && raw.end <= raw.start) errors.end = "结束时间必须晚于开始时间。";
+    schedule = normalizeSchedule(raw);
+  } else errors.timeMode = type === "offer" ? "请选择交流时间或时间可协商。" : "请选择活动时间安排。";
+  return { schedule, errors };
+}
+
 export function validateDraft(values, selectedCategories) {
   const errors = {};
   const type = values.type === "offer" ? "offer" : "need";
@@ -66,17 +90,8 @@ export function validateDraft(values, selectedCategories) {
   if (!categories.length) errors.category = "请至少添加一个分类。";
   else if (categories.length > LIMITS.categories || categories.some((value) => value.length > LIMITS.category)) errors.category = "最多添加 6 个分类，每项最多 30 字。";
 
-  let schedule = null;
-  if (values.timeMode === "negotiable" && type === "offer") schedule = { mode: "negotiable" };
-  else if (["date", "weekly"].includes(values.timeMode)) {
-    const raw = { mode: values.timeMode, date: values.date || "", days: [Number(values.weekday)], start: values.start || "", end: values.end || "" };
-    if (raw.mode === "date" && !validDate(raw.date)) errors.date = "请选择有效的活动日期。";
-    if (raw.mode === "weekly" && (values.weekday === "" || !/^[0-6]$/.test(String(values.weekday)))) errors.weekday = "请选择每周的活动日。";
-    if (!validClock(raw.start)) errors.start = "请选择开始时间。";
-    if (!validClock(raw.end)) errors.end = "请选择结束时间。";
-    else if (validClock(raw.start) && raw.end <= raw.start) errors.end = "结束时间必须晚于开始时间。";
-    schedule = normalizeSchedule(raw);
-  } else errors.timeMode = type === "offer" ? "请选择交流时间或时间可协商。" : "请选择活动时间安排。";
+  const { schedule, errors: scheduleErrors } = validateSchedule(values, type);
+  Object.assign(errors, scheduleErrors);
 
   let location = String(values.location || "").trim();
   if (location === "other") {
@@ -259,15 +274,14 @@ export function matchPost(post, candidates) {
     const evidence = assessCandidate(post, candidate);
     if (!evidence.relevant) continue;
     if (evidence.availability === "conflict") {
-      timeConflicts.push({ id: candidate.id, name: candidate.name, time: candidate.time });
+      timeConflicts.push({ id: candidate.id, name: candidate.name, time: displayTime(candidate) });
       continue;
     }
     matches.push({ id: candidate.id, score: rankScore(evidence), ...explainMatch(post, candidate, evidence), evidence, candidate });
   }
   matches.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
-  const schedule = normalizeSchedule(post.schedule);
   return { algorithmVersion: MATCH_VERSION, matches,
-    criteria: { time: schedule ? formatSchedule(schedule) : post.time, location: post.location },
+    criteria: { time: displayTime(post), location: post.location },
     summary: { considered, timeConflicts, emptyReason: matches.length ? null : timeConflicts.length ? "time_conflict" : considered ? "no_content_match" : "no_candidates" } };
 }
 

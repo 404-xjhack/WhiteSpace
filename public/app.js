@@ -1,10 +1,12 @@
-import { cleanCategory, postTags, validateDraft, formatPublished, matchPost, matchFingerprint, MATCH_VERSION } from "./model.js";
+import { cleanCategory, postTags, validateDraft, validateSchedule, normalizeSchedule, formatSchedule, displayTime, formatPublished, matchPost, matchFingerprint, MATCH_VERSION } from "./model.js";
 
 const $ = (selector) => document.querySelector(selector);
 const postList = $("#postList");
 const createDialog = $("#createDialog");
 const detailDialog = $("#detailDialog");
 const createForm = $("#createForm");
+const scheduleDialog = $("#scheduleDialog");
+const scheduleForm = $("#scheduleForm");
 const toast = $("#toast");
 const storagePosts = "writespace.posts.v1";
 const storageInterest = "writespace.interest.v1";
@@ -33,6 +35,8 @@ let matchVersion = 0;
 let displayedMatches = [];
 let displayedMatchData = null;
 let matchesExpanded = false;
+let schedulePostId = null;
+let scheduleAttempted = false;
 let formAttempted = false;
 let categoryError = "";
 let toastTimer;
@@ -71,7 +75,7 @@ function renderPosts() {
   postList.innerHTML = visible.map((post) => `<article class="post-card">
     <div class="post-meta">${avatar(post)}<div class="author-lines"><strong>${escapeHtml(post.name || "我")} <span class="type-label ${post.type === "need" ? "need" : ""}">${post.type === "need" ? "想找人" : "我能帮忙"}</span></strong><span>${escapeHtml(personLine(post))}</span></div><span class="post-age" data-published-id="${escapeHtml(post.id)}">${escapeHtml(formatPublished(post))}</span></div>
     <h3>${escapeHtml(post.title)}</h3><p class="post-description">${escapeHtml(post.description)}</p><div class="post-tags">${tagHtml(post)}</div>
-    <div class="post-footer"><span class="post-foot-item">${icon("place")}${escapeHtml(post.location || "地点待确认")}</span><span class="post-foot-item">${icon("time")}${escapeHtml(post.time || "时间待确认")}</span><button type="button" class="post-card-action" data-post-id="${escapeHtml(post.id)}">查看详情 →</button></div></article>`).join("");
+    <div class="post-footer"><span class="post-foot-item">${icon("place")}${escapeHtml(post.location || "地点待确认")}</span><span class="post-foot-item">${icon("time")}${escapeHtml(displayTime(post))}</span><button type="button" class="post-card-action" data-post-id="${escapeHtml(post.id)}">查看详情 →</button></div></article>`).join("");
   $("#emptyState").hidden = visible.length > 0;
 }
 function refreshPublished() {
@@ -87,10 +91,55 @@ function setFilter(next) {
   });
   renderPosts();
 }
-function syncDialogLock() { document.documentElement.classList.toggle("modal-open", createDialog.open || detailDialog.open); }
+function syncDialogLock() { document.documentElement.classList.toggle("modal-open", createDialog.open || detailDialog.open || scheduleDialog.open); }
 function openDialog(dialog) { if (!dialog.open) dialog.showModal(); syncDialogLock(); }
 function closeDialog(dialog) { dialog.close(); syncDialogLock(); }
-for (const dialog of [createDialog, detailDialog]) dialog.addEventListener("close", syncDialogLock);
+for (const dialog of [createDialog, detailDialog, scheduleDialog]) dialog.addEventListener("close", syncDialogLock);
+
+function syncScheduleFields() {
+  const mode = scheduleForm.elements.timeMode.value;
+  $("#scheduleDateFields").hidden = mode !== "date";
+  $("#scheduleWeeklyFields").hidden = mode !== "weekly";
+  $("#scheduleClockFields").hidden = !["date", "weekly"].includes(mode);
+}
+function checkSchedule(focus = false) {
+  const post = myPosts.find((post) => post.id === schedulePostId);
+  const result = validateSchedule(Object.fromEntries(new FormData(scheduleForm)), post?.type);
+  const errors = scheduleAttempted ? result.errors : {};
+  scheduleForm.querySelectorAll("[aria-invalid]").forEach((element) => element.removeAttribute("aria-invalid"));
+  for (const key of Object.keys(errors)) scheduleForm.elements.namedItem(key)?.setAttribute("aria-invalid", "true");
+  $("#scheduleError").textContent = Object.values(errors).join(" ");
+  $("#scheduleError").hidden = Object.keys(errors).length === 0;
+  if (focus) scheduleForm.elements.namedItem(Object.keys(errors)[0])?.focus();
+  return result;
+}
+function openSchedule(post) {
+  if (!isMine(post)) return;
+  schedulePostId = post.id; scheduleAttempted = false; scheduleForm.reset();
+  const schedule = normalizeSchedule(post.schedule);
+  const offer = post.type === "offer";
+  $("#schedulePostTitle").textContent = post.title;
+  $("#scheduleNegotiable").hidden = !offer; $("#scheduleNegotiable").disabled = !offer;
+  scheduleForm.elements.timeMode.value = schedule?.mode || "";
+  scheduleForm.elements.date.value = schedule?.date || "";
+  scheduleForm.elements.weekday.value = schedule?.days?.[0] ?? "";
+  scheduleForm.elements.start.value = schedule?.start || "";
+  scheduleForm.elements.end.value = schedule?.end || "";
+  syncScheduleFields(); checkSchedule(); openDialog(scheduleDialog);
+}
+scheduleForm.addEventListener("change", () => { syncScheduleFields(); checkSchedule(); });
+scheduleForm.addEventListener("input", () => { if (scheduleAttempted) checkSchedule(); });
+scheduleForm.addEventListener("submit", (event) => {
+  event.preventDefault(); scheduleAttempted = true;
+  const { schedule, errors } = checkSchedule(true);
+  if (Object.keys(errors).length || !schedule) return;
+  const index = myPosts.findIndex((post) => post.id === schedulePostId);
+  if (index < 0) return;
+  const post = { ...myPosts[index], schedule, time: formatSchedule(schedule) };
+  myPosts[index] = post; save(storagePosts, myPosts); delete matchState.byPost[post.id];
+  closeDialog(scheduleDialog); renderPosts(); showToast("活动时间已更新，正在重新匹配。"); runMatch(post);
+});
+scheduleDialog.addEventListener("close", () => { schedulePostId = null; });
 
 function renderCategories() {
   $("#selectedCategories").innerHTML = selectedCategories.map((category, index) => `<button class="selected-category" type="button" data-remove-category="${index}" aria-label="移除分类：${escapeHtml(category)}">${escapeHtml(category)} <span aria-hidden="true">×</span></button>`).join("");
@@ -185,10 +234,11 @@ function showDetail(post) {
   $("#detailContent").innerHTML = `<div class="detail-person">${avatar(post)}<div><strong>${escapeHtml(post.name || "我")}</strong><small>${escapeHtml(personLine(post))} · <span data-published-id="${escapeHtml(post.id)}">${escapeHtml(formatPublished(post))}</span></small></div></div>
     <p class="detail-description">${escapeHtml(post.description)}</p><div class="post-tags">${tagHtml(post)}</div>
     <div class="detail-grid"><div><span>${post.type === "offer" ? "可以分享" : "可以带来"}</span><strong>${escapeHtml(post.offer || "愿意一起参与")}</strong></div><div><span>希望获得</span><strong>${escapeHtml(post.need || "一起把这件事做好")}</strong></div></div>
-    <div class="detail-info"><span>${icon("place")}${escapeHtml(post.location || "地点待确认")}</span><span>${icon("time")}${escapeHtml(post.time || "时间待确认")}</span><span>参与人数：${escapeHtml(post.participants || "协商决定")}</span></div><p class="detail-footnote">演示资料 · 参与意向仅保存在当前浏览器，不会发送给真实用户。</p>`;
+    <div class="detail-info"><span>${icon("place")}${escapeHtml(post.location || "地点待确认")}</span><span>${icon("time")}${escapeHtml(displayTime(post))}</span><span>参与人数：${escapeHtml(post.participants || "协商决定")}</span></div><p class="detail-footnote">演示资料 · 参与意向仅保存在当前浏览器，不会发送给真实用户。</p>`;
   const mine = isMine(post); $("#interestButton").hidden = mine; $("#interestButton").disabled = false;
   $("#interestButton").textContent = interestedIds.has(post.id) ? "取消参与意向" : "我想参与";
   $("#detailMatchButton").hidden = !mine; $("#detailMatchButton").textContent = cachedMatch(post) ? "查看上次匹配" : "寻找匹配";
+  $("#detailTimeButton").hidden = !mine;
   openDialog(detailDialog);
 }
 const fallbackMessages = {
@@ -234,12 +284,12 @@ function renderMatches(data) {
     used.add(entry.id); return true;
   });
   $("#matchLoading").hidden = true; $("#matchWelcome").hidden = true; $("#matchResults").hidden = false; $("#matchingPostTitle").textContent = matchingPost.title;
-  $("#matchingPostConditions").textContent = `${data.criteria?.time || matchingPost.time || "时间待确认"} · ${data.criteria?.location || matchingPost.location || "地点待确认"}`;
+  $("#matchingPostConditions").textContent = `${displayTime(matchingPost)} · ${data.criteria?.location || matchingPost.location || "地点待确认"}`;
   const source = $("#matchSource"); source.textContent = data.source === "ai" ? "AI 匹配" : "本地规则匹配"; source.classList.toggle("local", data.source !== "ai");
   const explanation = data.source === "ai" ? "AI 整理推荐；其他本地内容候选可展开查看，时间地点仍需双方确认" : fallbackMessages[data.fallbackReason] || "优先比较实际需求与帮助，标签仅作辅助";
   $("#matchSourceDetail").textContent = `${explanation}${data.savedAt ? ` · 生成于 ${new Date(data.savedAt).toLocaleString("zh-CN")}` : ""}`;
   const conflicts = Array.isArray(data.summary?.timeConflicts) ? data.summary.timeConflicts : [];
-  $("#matchDiagnostics").textContent = conflicts.length ? `另有内容相关但时间冲突的发布：${conflicts.map((item) => `${item.name || "社区成员"}（${item.time || "时间待确认"}）`).join("；")}。` : "";
+  $("#matchDiagnostics").textContent = conflicts.length ? `以下发布与你的时间（${displayTime(matchingPost)}）不重合：${conflicts.map((item) => `${item.name || "社区成员"}（${item.time || "时间待确认"}）`).join("；")}。` : "";
   $("#matchDiagnostics").hidden = conflicts.length === 0;
   renderMatchList();
 }
@@ -289,6 +339,8 @@ $("#interestButton").addEventListener("click", () => {
 });
 $("#detailMatchButton").addEventListener("click", () => { if (!currentDetail || !isMine(currentDetail)) return; const post = currentDetail; closeDialog(detailDialog); if (restoreMatch(post)) $("#matchPanel").scrollIntoView({ behavior: "smooth", block: "start" }); else runMatch(post); });
 $("#rerunMatch").addEventListener("click", () => { if (matchingPost) runMatch(matchingPost); });
+$("#editMatchTime").addEventListener("click", () => { if (matchingPost) openSchedule(matchingPost); });
+$("#detailTimeButton").addEventListener("click", () => { if (currentDetail && isMine(currentDetail)) { const post = currentDetail; closeDialog(detailDialog); openSchedule(post); } });
 $("#resetDemo").addEventListener("click", () => {
   cancelMatch(); myPosts = []; interestedIds = new Set(); matchingPost = null; currentDetail = null; profile = {}; matchState = { byPost: {} };
   displayedMatchData = null; displayedMatches = []; matchesExpanded = false;
