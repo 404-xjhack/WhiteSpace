@@ -76,14 +76,19 @@ async function wheel(selector, deltaY) {
   await pause(180);
 }
 async function reload() { await connection.send("Page.reload"); await until("document.querySelectorAll('.post-card').length >= 6"); }
-async function readyMatch(title) { await until(`!document.querySelector('#matchResults').hidden && document.querySelector('#matchingPostTitle').textContent === ${JSON.stringify(title)}`); }
+async function readyMatch(title) { await until(`document.querySelector('#matchResults')?.hidden === false && document.querySelector('#matchingPostTitle')?.textContent === ${JSON.stringify(title)}`); }
 function passed(label) { checks.push(label); console.log(`PASS ${label}`); }
 
 async function assertModal(selector, expectScroll) {
-  const layout = await evaluate(`(() => { const dialog = document.querySelector(${JSON.stringify(selector)}); const body = dialog.querySelector('.dialog-body'); const actions = dialog.querySelector('.dialog-actions').getBoundingClientRect(); body.scrollTop = body.scrollHeight; return {outerScroll:dialog.scrollHeight > dialog.clientHeight+2, innerScroll:body.scrollHeight > body.clientHeight+2, bottom:body.scrollTop+body.clientHeight >= body.scrollHeight-2, actionsVisible:actions.top >= 0 && actions.bottom <= innerHeight+1, locked:getComputedStyle(document.documentElement).overflowY === 'hidden', wide:document.documentElement.scrollWidth > innerWidth+1}; })()`);
+  const layout = await evaluate(`(() => { const dialog = document.querySelector(${JSON.stringify(selector)}); const body = dialog.querySelector('.dialog-body'); const actions = dialog.querySelector('.dialog-actions').getBoundingClientRect(); body.scrollTop = body.scrollHeight; return {outerScroll:dialog.scrollHeight > dialog.clientHeight+2, innerScroll:body.scrollHeight > body.clientHeight+2, bottom:body.scrollTop+body.clientHeight >= body.scrollHeight-2, actionsVisible:actions.top >= 0 && actions.bottom <= innerHeight+1, locked:getComputedStyle(document.documentElement).overflowY === 'hidden', wide:document.documentElement.scrollWidth > innerWidth+1,bar:getComputedStyle(body,'::-webkit-scrollbar').width,padding:getComputedStyle(body).paddingRight,margin:getComputedStyle(body).marginRight,thumb:getComputedStyle(body,'::-webkit-scrollbar-thumb').borderRadius,track:getComputedStyle(body,'::-webkit-scrollbar-track').backgroundColor}; })()`);
   assert.equal(layout.outerScroll, false, "Modal outer container must not scroll");
   if (expectScroll) assert.equal(layout.innerScroll, true, "Long body can scroll");
   assert.equal(layout.bottom, true); assert.equal(layout.actionsVisible, true); assert.equal(layout.locked, true); assert.equal(layout.wide, false);
+  const nearEdge = selector === "#createDialog" || selector === "#detailDialog";
+  assert.equal(layout.bar, "6px");
+  assert.equal(layout.padding, nearEdge ? await evaluate("innerWidth<=420 ? '11px' : '19px'") : "6px");
+  assert.equal(layout.margin, nearEdge ? "8px" : await evaluate("innerWidth<=420 ? '13px' : '21px'"));
+  assert.equal(layout.thumb, "999px"); assert.equal(layout.track, "rgba(0, 0, 0, 0)");
 }
 
 try {
@@ -188,10 +193,15 @@ try {
   for (const size of [{ width: 1280, height: 800 }, { width: 375, height: 667 }, { width: 320, height: 568 }]) {
     await connection.send("Emulation.setDeviceMetricsOverride", { ...size, deviceScaleFactor: 1, mobile: false });
     await click("#openCreateTop"); await click("#profileSection summary"); await assertModal("#createDialog", true);
+    const createScrollShot = await connection.send("Page.captureScreenshot", { format: "png" });
+    await writeFile(path.join(root, ".tmp", "scrollbar-create-" + size.width + ".png"), Buffer.from(createScrollShot.data, "base64"));
     await set("#timeMode", "date"); await set("#postDate", "2026-10-04"); await set("#postStart", "09:00"); await set("#postEnd", "11:00");
     await click('#createDialog [data-close="createDialog"]');
     await evaluate(`(() => { const posts=JSON.parse(localStorage.getItem('writespace.posts.v1')); posts.find(p=>p.id===${JSON.stringify(repairId)}).description=('长说明'+String.fromCharCode(10)).repeat(80); localStorage.setItem('writespace.posts.v1',JSON.stringify(posts)); })()`);
-    await reload(); await click(`[data-post-id="${repairId}"]`); await assertModal("#detailDialog", true); await click('#detailDialog [data-close="detailDialog"]');
+    await reload(); await click(`[data-post-id="${repairId}"]`); await assertModal("#detailDialog", true);
+    const detailScrollShot = await connection.send("Page.captureScreenshot", { format: "png" });
+    await writeFile(path.join(root, ".tmp", "scrollbar-detail-" + size.width + ".png"), Buffer.from(detailScrollShot.data, "base64"));
+    await click('#detailDialog [data-close="detailDialog"]');
     assert.equal(await evaluate("document.documentElement.classList.contains('modal-open')"), false);
   }
   await connection.send("Emulation.setDeviceMetricsOverride", { width: 375, height: 667, deviceScaleFactor: 1, mobile: false });
@@ -336,8 +346,9 @@ try {
   for (const [width, height] of [[1280, 800], [900, 600]]) {
     await connection.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
     await evaluate("document.querySelector('.feed-section').scrollTop=0; document.querySelector('.match-column').scrollTop=0");
-    const layout = await evaluate("(() => { const feed=document.querySelector('.feed-section'), match=document.querySelector('.match-column'), button=document.querySelector('#moreMatches'), rect=match.getBoundingClientRect(), buttonRect=button.getBoundingClientRect(); return {feedScrollable:feed.scrollHeight>feed.clientHeight+2,matchScrollable:match.scrollHeight>match.clientHeight+2,top:rect.top,bottom:rect.bottom,buttonVisible:!button.hidden && buttonRect.top>=rect.top && buttonRect.bottom<=rect.bottom,buttonAboveList:buttonRect.bottom<=document.querySelector('#matchList').getBoundingClientRect().top+1,wide:document.documentElement.scrollWidth>innerWidth+1,height:innerHeight}; })()");
+    const layout = await evaluate("(() => { const feed=document.querySelector('.feed-section'), match=document.querySelector('.match-column'), button=document.querySelector('#moreMatches'), rect=match.getBoundingClientRect(), buttonRect=button.getBoundingClientRect(); return {feedScrollable:feed.scrollHeight>feed.clientHeight+2,matchScrollable:match.scrollHeight>match.clientHeight+2,top:rect.top,bottom:rect.bottom,buttonVisible:!button.hidden && buttonRect.top>=rect.top && buttonRect.bottom<=rect.bottom,buttonAboveList:buttonRect.bottom<=document.querySelector('#matchList').getBoundingClientRect().top+1,wide:document.documentElement.scrollWidth>innerWidth+1,height:innerHeight,padding:getComputedStyle(feed).paddingRight,margin:getComputedStyle(feed).marginRight}; })()");
     assert.equal(layout.feedScrollable, true); assert.equal(layout.matchScrollable, true);
+    assert.equal(layout.padding, "6px"); assert.equal(layout.margin, "-6px");
     assert.ok(layout.top >= 76 && layout.bottom <= height + 1); assert.equal(layout.wide, false);
     assert.equal(layout.buttonVisible, true); assert.equal(layout.buttonAboveList, true);
     await wheel(".match-column", 350); await until("document.querySelector('.match-column').scrollTop>0");
@@ -369,14 +380,19 @@ try {
 
   let aiReplyMatches = [{ id: "p3", score: 90, reason: "陈师傅提供木工维修和指导，符合修椅子的需求。", first_step: "先沟通椅子损坏情况，确认时间地点和分工。" }];
   let aiNeedReply = { need: "听邻居分享照片背后的社区故事", evidence: "也希望听你分享照片背后的社区故事" };
+  let aiExperienceReply = [{ id: "p5", reason: "赵老师愿意提供表达反馈，可讨论一起写家书。", steps: ["阅读赵老师的家书交流说明。", "先确认是否支持短时参与与现有材料。", "交流前读给自己听，确认想分享的内容。"] }];
+  let aiExperienceMode = "success";
   aiMock = http.createServer(async (req, res) => {
     let body = ""; for await (const chunk of req) body += chunk;
     const payload = JSON.parse(body);
-    const result = payload.messages[0].content.includes("内容提炼助手") ? aiNeedReply : { matches: aiReplyMatches };
+    const experienceRequest = payload.messages[0].content.includes("社区发布推荐助手");
+    if (experienceRequest && aiExperienceMode === "timeout") return;
+    if (experienceRequest && aiExperienceMode === "upstream") { res.writeHead(503); res.end(); return; }
+    const result = experienceRequest ? { recommendations: aiExperienceReply } : payload.messages[0].content.includes("内容提炼助手") ? aiNeedReply : { matches: aiReplyMatches };
     res.setHeader("content-type", "application/json"); res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify(result) } }] }));
   });
   await new Promise((resolve) => aiMock.listen(0, "127.0.0.1", resolve));
-  aiApp = await startServer({ AI_API_KEY: "test-only-placeholder", AI_API_URL: `http://127.0.0.1:${aiMock.address().port}` });
+  aiApp = await startServer({ AI_API_KEY: "test-only-placeholder", AI_API_URL: `http://127.0.0.1:${aiMock.address().port}`, AI_TIMEOUT_MS: "500" });
   await connection.send("Page.navigate", { url: aiApp.url }); await until("document.querySelectorAll('.post-card').length === 6");
   await click("#openCreateTop"); await click('.form-examples summary'); await click('[data-example="repair"]');
   await set("#postTitle", reportedTitle); await set("#postDescription", reportedDescription); await click("#publishButton"); await readyMatch(reportedTitle);
@@ -458,6 +474,174 @@ try {
   assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0].need"), "");
   await click('#detailDialog [data-close="detailDialog"]');
   passed("Unstated expectations stay empty; offline extraction permits manual save; legacy canned wishes are removed");
+
+  // Recommend existing others' publications, then reuse their detail and interest controls.
+  await connection.send("Page.navigate", { url: app.url }); await until("document.querySelectorAll('.post-card').length >= 6");
+  await click("#resetDemo");
+  await evaluate("document.querySelector('#openToday').focus()");
+  await connection.send("Input.dispatchKeyEvent", { type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13, text: "\r" });
+  await connection.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+  await until("document.querySelector('#todayDialog').open");
+  assert.equal(await evaluate("document.activeElement.id"), "todayTimePreference");
+  assert.equal(await evaluate("document.querySelector('#todayTimePreference').value"), "medium");
+  assert.equal(await evaluate("document.querySelector('#todayParticipants').value"), "1");
+  assert.equal(await evaluate("document.querySelector('#todayTheme').value"), "all");
+  assert.deepEqual(await evaluate("[...document.querySelector('#todayTimePreference').options].map(option=>option.value)"), ["short", "medium", "long"]);
+  assert.match(await evaluate("document.querySelector('.today-time-hint').textContent"), /自行选择/);
+  await click("#todayForm .today-options summary");
+  const plannerNotes = "想安静记录木椅的磨损。<b>不添购</b>";
+  await set("#todayNotes", plannerNotes); await set("#todayTheme", "旧物新生"); await click("#recommendToday");
+  await until("!document.querySelector('#recommendToday').disabled && document.querySelectorAll('.today-card').length===1");
+  assert.equal(await evaluate("document.querySelector('#todaySource').textContent"), "本地发布筛选");
+  assert.match(await evaluate("document.querySelector('#todayNotesWarning').textContent"), /文字限制请向发布者确认/);
+  assert.equal(await evaluate("document.querySelector('#todayNotesWarning b')"), null);
+  assert.match(await evaluate("document.querySelector('.today-card').textContent"), /陈师傅/);
+  assert.equal(await evaluate("document.querySelector('.today-card h3').textContent"), "机器人接管维修后，一起体验木工修家具");
+  assert.match(await evaluate("document.querySelector('.today-card').textContent"), /每周日 09:00–12:00/);
+  assert.equal(await evaluate("document.querySelector('[data-today-create]')"), null);
+  await click('[data-experience-id="p3"] details summary');
+  assert.equal(await evaluate("document.querySelector('[data-experience-id=\"p3\"] details').open"), true);
+  assert.match(await evaluate("document.querySelector('.today-card ul').textContent"), /未说明单次参与时长/);
+  assert.match(await evaluate("document.querySelector('.today-card ul').textContent"), /未说明完整材料要求/);
+  assert.ok(await evaluate("document.querySelectorAll('.today-card ol li').length>=3"));
+  const plannerSavedAt = await evaluate("JSON.parse(localStorage.getItem('writespace.today.v1')).result.generatedAt");
+  await click('[data-today-interest="p3"]');
+  assert.equal(await evaluate("document.querySelector('[data-today-interest=\"p3\"]').textContent"), "取消参与意向");
+  assert.equal(await evaluate("document.querySelector('[data-today-interest=\"p3\"]').getAttribute('aria-pressed')"), "true");
+  await click('[data-today-post="p3"]'); await until("document.querySelector('#detailDialog').open");
+  assert.match(await evaluate("document.querySelector('#detailContent').textContent"), /陈师傅/);
+  assert.equal(await evaluate("document.querySelector('#interestButton').textContent"), "取消参与意向");
+  await click("#interestButton");
+  await click('#detailDialog [data-close="detailDialog"]'); await click("#openToday");
+  assert.equal(await evaluate("document.querySelector('[data-today-interest=\"p3\"]').textContent"), "我想参与");
+  await click('[data-today-interest="p3"]'); await click('#todayDialog [data-close="todayDialog"]');
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1')).length"), 0);
+  await reload();
+  await evaluate("window.__todayFetch=window.fetch; window.__todayRequests=0; window.fetch=(...args)=>{if(args[0]==='/api/recommend-experiences')window.__todayRequests++;return window.__todayFetch(...args);}");
+  await click("#openToday");
+  assert.equal(await evaluate("window.__todayRequests"), 0);
+  assert.equal(await evaluate("document.querySelector('#todayNotes').value"), plannerNotes);
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.today.v1')).result.generatedAt"), plannerSavedAt);
+  assert.equal(await evaluate("document.querySelector('[data-today-interest=\"p3\"]').textContent"), "取消参与意向");
+  await evaluate("window.fetch=window.__todayFetch");
+  passed("Today: keyboard entry → conditions → original publication → suggestions → interest/cancel/rejoin → refresh without publishing or re-request");
+
+  await set("#todayParticipants", "0"); await click("#recommendToday");
+  assert.match(await evaluate("document.querySelector('#todayError').textContent"), /1–50/);
+  assert.equal(await evaluate("document.activeElement.id"), "todayParticipants");
+  await set("#todayParticipants", "1");
+  assert.equal(await evaluate("document.querySelector('#todayError').hidden"), true);
+  assert.equal(await evaluate("document.querySelector('#todayParticipants').hasAttribute('aria-invalid')"), false);
+  await set("#todayTheme", "数码互助"); await set("#todayNotes", "");
+  assert.equal(await evaluate("document.querySelector('#todayResults').hidden"), true);
+  if (!(await evaluate("document.querySelector('#todayForm .today-options').open"))) await click("#todayForm .today-options summary");
+  await click('#todayForm [name="noPurchase"]'); await click("#recommendToday");
+  await until("!document.querySelector('#recommendToday').disabled && !document.querySelector('#todayResults').hidden");
+  assert.equal(await evaluate("document.querySelectorAll('.today-card').length"), 0);
+  assert.match(await evaluate("document.querySelector('#todayList').textContent"), /没有符合已知条件/);
+  await click('#todayMaterials [value="phone"]'); await click("#recommendToday");
+  await until("!document.querySelector('#recommendToday').disabled && document.querySelectorAll('.today-card').length===1");
+  assert.equal(await evaluate("document.querySelector('.today-card h3').textContent"), "自动影像之外，用手机摄影记录未来日常");
+  await set("#todayParticipants", "2"); await click("#recommendToday");
+  await until("!document.querySelector('#recommendToday').disabled && document.querySelectorAll('.today-card').length===1");
+  assert.match(await evaluate("document.querySelector('.today-card').textContent"), /参与条件需确认/);
+  await set("#todayParticipants", "6"); await click("#recommendToday");
+  await until("!document.querySelector('#recommendToday').disabled && !document.querySelector('#todayResults').hidden");
+  assert.equal(await evaluate("document.querySelectorAll('.today-card').length"), 0);
+  await set("#todayParticipants", "2"); await click('#todayForm [name="indoorsOnly"]'); await click("#recommendToday");
+  await until("!document.querySelector('#recommendToday').disabled && !document.querySelector('#todayResults').hidden");
+  assert.equal(await evaluate("document.querySelectorAll('.today-card').length"), 0);
+  await click('#todayForm [name="indoorsOnly"]');
+  passed("Today: solo joins group posts, invalid party count, materials/travel/capacity conflicts and explicit empty results");
+
+  await evaluate("window.__heldTodayFetch=window.fetch; window.__heldTodayCount=0; window.fetch=async(...args)=>{const response=await window.__heldTodayFetch(...args);if(args[0]==='/api/recommend-experiences' && ++window.__heldTodayCount===1)await new Promise(resolve=>window.__releaseToday=resolve);return response;}");
+  await click("#recommendToday"); await until("typeof window.__releaseToday==='function'");
+  await set("#todayTimePreference", "short");
+  assert.equal(await evaluate("document.querySelector('#recommendToday').disabled"), false);
+  await click("#recommendToday"); await until("!document.querySelector('#recommendToday').disabled && !document.querySelector('#todayResults').hidden");
+  await evaluate("window.__releaseToday();window.fetch=window.__heldTodayFetch"); await pause(150);
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.today.v1')).result.criteria.timePreference"), "short");
+  await evaluate("window.__closedTodayFetch=window.fetch;window.fetch=async(...args)=>{const response=await window.__closedTodayFetch(...args);if(args[0]==='/api/recommend-experiences')await new Promise(resolve=>window.__releaseClosedToday=resolve);return response;}");
+  await click("#recommendToday"); await until("typeof window.__releaseClosedToday==='function'");
+  await connection.send("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+  await connection.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+  await until("!document.querySelector('#todayDialog').open");
+  await click("#resetDemo");
+  await evaluate("window.__releaseClosedToday();window.fetch=window.__closedTodayFetch"); await pause(150);
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.today.v1')).result"), null);
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.today.v1')).criteria.timePreference"), "medium");
+  await click("#openToday"); assert.equal(await evaluate("document.querySelector('#todayResults').hidden"), true);
+  await connection.send("Network.setBlockedURLs", { urls: ["*/api/recommend-experiences"] });
+  await click("#recommendToday"); await until("!document.querySelector('#recommendToday').disabled && document.querySelectorAll('.today-card').length===3");
+  assert.match(await evaluate("document.querySelector('#todaySourceDetail').textContent"), /未连接/);
+  assert.ok(await evaluate("[...document.querySelectorAll('.today-card')].every(card=>/^p[1-6]$/.test(card.dataset.experienceId))"));
+  await connection.send("Network.setBlockedURLs", { urls: [] });
+  passed("Today: changed conditions, Escape and reset reject late replies; network failure filters loaded original publications");
+
+  for (const [width, height] of [[1280, 800], [375, 667], [320, 568]]) {
+    await connection.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
+    await assertModal("#todayDialog", true);
+    const controlsFit = await evaluate("[...document.querySelectorAll('.today-card-actions button')].every(b=>{const r=b.getBoundingClientRect();return r.width>0 && r.left>=0 && r.right<=innerWidth+1})");
+    assert.equal(controlsFit, true);
+    await click('[data-experience-id="p3"] details summary');
+    await click('[data-today-post="p3"]'); await assertModal("#detailDialog", false);
+    await click('#detailDialog [data-close="detailDialog"]'); await click("#openToday");
+    const todayShot = await connection.send("Page.captureScreenshot", { format: "png" });
+    await writeFile(path.join(root, ".tmp", "today-" + width + ".png"), Buffer.from(todayShot.data, "base64"));
+    await evaluate("document.querySelector('.today-card').scrollIntoView({block:'start',behavior:'instant'})");
+    const todayResultShot = await connection.send("Page.captureScreenshot", { format: "png" });
+    await writeFile(path.join(root, ".tmp", "today-results-" + width + ".png"), Buffer.from(todayResultShot.data, "base64"));
+  }
+  await click('#todayDialog [data-close="todayDialog"]');
+  await evaluate("(() => {const state=JSON.parse(localStorage.getItem('writespace.today.v1'));state.criteria.theme='学习交流';delete state.criteria.timePreference;state.criteria.minutes=60;state.result.version='old';localStorage.setItem('writespace.today.v1',JSON.stringify(state));})()");
+  await reload(); await click("#openToday");
+  assert.equal(await evaluate("document.querySelector('#todayTheme').value"), "学习交流");
+  assert.equal(await evaluate("document.querySelector('#todayTimePreference').value"), "long");
+  assert.equal(await evaluate("document.querySelector('#todayResults').hidden"), true);
+  await click('#todayDialog [data-close="todayDialog"]'); await evaluate("localStorage.setItem('writespace.today.v1','{broken')");
+  await reload(); await click("#openToday");
+  assert.equal(await evaluate("document.querySelector('#todayTheme').value"), "all");
+  assert.equal(await evaluate("document.querySelector('#todayResults').hidden"), true);
+  await click('#todayDialog [data-close="todayDialog"]');
+  assert.equal(await evaluate("document.documentElement.classList.contains('modal-open')"), false);
+  passed("Today: 1280/375/320 px cards and original details stay reachable; old and corrupt caches recover");
+
+  await connection.send("Page.navigate", { url: aiApp.url }); await until("document.querySelectorAll('.post-card').length>=6");
+  await click("#openToday"); await set("#todayTheme", "学习交流"); await click("#recommendToday");
+  await until("!document.querySelector('#recommendToday').disabled && document.querySelectorAll('.today-card').length===1");
+  assert.equal(await evaluate("document.querySelector('#todaySource').textContent"), "AI 筛选推荐");
+  assert.match(await evaluate("document.querySelector('.today-card').textContent"), /赵老师/);
+  await click('.today-card details summary');
+  assert.match(await evaluate("document.querySelector('.today-card ol').textContent"), /读给自己听/);
+  await click('[data-today-post="p5"]');
+  assert.match(await evaluate("document.querySelector('#detailContent').textContent"), /赵老师/);
+  await click('#detailDialog [data-close="detailDialog"]'); await click("#openToday");
+  aiExperienceMode = "timeout";
+  await click("#recommendToday"); await until("!document.querySelector('#recommendToday').disabled && !document.querySelector('#todayResults').hidden");
+  assert.equal(await evaluate("document.querySelector('#todaySource').textContent"), "本地发布筛选");
+  assert.match(await evaluate("document.querySelector('#todaySourceDetail').textContent"), /超时/);
+  aiExperienceMode = "upstream";
+  await click("#recommendToday"); await until("!document.querySelector('#recommendToday').disabled && !document.querySelector('#todayResults').hidden");
+  assert.match(await evaluate("document.querySelector('#todaySourceDetail').textContent"), /暂不可用/);
+  aiExperienceMode = "success"; const validExperienceReply = aiExperienceReply;
+  aiExperienceReply = [{ ...aiExperienceReply[0], id: "invented" }];
+  await click("#recommendToday"); await until("!document.querySelector('#recommendToday').disabled && !document.querySelector('#todayResults').hidden");
+  assert.match(await evaluate("document.querySelector('#todaySourceDetail').textContent"), /无效/);
+  await click('#todayDialog [data-close="todayDialog"]');
+  aiExperienceReply = validExperienceReply;
+  await connection.send("Network.setBlockedURLs", { urls: ["*/data.json"] });
+  await connection.send("Page.reload");
+  await until("document.querySelector('#toast').textContent.includes('载入失败')");
+  await click("#openToday"); await click("#recommendToday");
+  await until("!document.querySelector('#recommendToday').disabled && document.querySelectorAll('.today-card').length===1");
+  assert.equal(await evaluate("document.querySelector('#todaySource').textContent"), "AI 筛选推荐");
+  await click('[data-today-post="p5"]'); await until("document.querySelector('#detailDialog').open");
+  assert.match(await evaluate("document.querySelector('#detailContent').textContent"), /赵老师/);
+  await click("#interestButton");
+  assert.ok(await evaluate("JSON.parse(localStorage.getItem('writespace.interest.v1')).includes('p5')"));
+  await click('#detailDialog [data-close="detailDialog"]');
+  await connection.send("Network.setBlockedURLs", { urls: [] });
+  passed("Today AI: original facts with suggestions; timeout, gateway and invented ids fall back; API snapshots support detail and interest when feed fails");
   assert.deepEqual(errors, [], "No uncaught browser exceptions");
   console.log(`Browser checks passed: ${checks.length}; no uncaught exceptions.`);
 } catch (error) {
