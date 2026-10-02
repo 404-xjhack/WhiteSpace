@@ -15,3 +15,34 @@
 .form-field>span,.form-hint,.detail-person small,.detail-footnote,.match-source small,.match-context span,.prompt-examples>span,.data-note,.post-age,.author-lines span,.result-count,.match-panel-heading p,.safety-note p{color:#5e6a60}
 .search-field input::placeholder,.form-field input::placeholder,.form-field textarea::placeholder{color:#5e6a60}
 .detail-grid span,.match-first-step strong{color:#526157}
+
+/* A modal has one scrolling body; its header and actions stay reachable. */
+html.modal-open,html.modal-open body{overflow:hidden}
+.dialog{max-height:min(92dvh,800px);overflow:hidden}
+.dialog[open]{display:flex;flex-direction:column}
+.dialog form{display:flex;flex-direction:column;min-height:0;max-height:inherit}
+.dialog-header,.dialog-actions{flex-shrink:0}
+.dialog-body{flex:1 1 auto;min-height:0;max-height:none;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.dialog-actions{flex-wrap:wrap}
+.form-field b{font-weight:inherit}
+.form-field textarea{max-height:240px}
+.form-field [aria-invalid="true"]{border-color:var(--danger)}
+.form-field .field-error{display:block;color:var(--danger);font-size:12px;font-weight:400;margin:7px 0 0}
+.category-controls{display:flex;gap:8px;align-items:stretch;margin-top:9px}
+.category-controls select{margin:0;min-width:0;flex:1}
+.category-controls button{flex-shrink:0}
+.category-field label>span{font-size:11px;font-weight:400;color:var(--muted)}
+.selected-categories{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.selected-category{border:1px solid #c6ddcb;background:var(--green-soft);border-radius:6px;color:var(--green-dark);padding:6px 9px;font-size:12px;overflow-wrap:anywhere}
+.selected-category span{margin-left:7px}
+.form-examples,.profile-section{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:20px;font-size:12px}
+.form-examples summary,.profile-section summary{cursor:pointer;color:var(--green-dark);font-weight:650}
+.profile-section summary span{color:var(--muted);font-weight:400;margin-left:5px;overflow-wrap:anywhere}
+.profile-section .form-hint{margin:12px 0 16px;line-height:1.7}
+.checkbox-field{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:12px}
+.checkbox-field input{accent-color:var(--green);width:16px;height:16px}
+.detail-description{white-space:pre-wrap;overflow-wrap:anywhere}
+.post-card h3,.dialog-header h2,.match-context strong,.match-card h3,.detail-person small,.post-foot-item{overflow-wrap:anywhere}
+.post-foot-item{min-width:0}
+#matchPanel,#feedTitle{scroll-margin-top:90px}
+@media(max-width:420px){.dialog{max-height:95dvh}.dialog-actions{gap:8px}.dialog-actions .primary-button,.dialog-actions .ghost-button{font-size:12px;padding:0 12px}.category-controls button{padding:0 12px}.detail-grid{grid-template-columns:1fr}}

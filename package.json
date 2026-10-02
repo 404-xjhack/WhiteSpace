@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "node server.mjs",
-    "start": "node server.mjs"
+    "start": "node server.mjs",
+    "check": "node --check server.mjs && node --check public/app.js && node --check public/model.js",
+    "test": "node --test tests/model.test.mjs tests/api.test.mjs",
+    "test:browser": "node tests/browser.mjs"
   },
   "engines": {
     "node": ">=18"

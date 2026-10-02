@@ -28,7 +28,7 @@
         <div class="header-location"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-5.2 7-11a7 7 0 1 0-14 0c0 5.8 7 11 7 11Z"/><circle cx="12" cy="10" r="2.2"/></svg><span>春和社区</span><span class="demo-badge">演示社区</span></div>
         <nav class="header-actions" aria-label="主导航">
           <button class="header-link" id="myPostsButton" type="button">我的发布 <span id="myPostCount" hidden>0</span></button>
-          <button class="primary-button" id="openCreateTop" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>发布需求</button>
+          <button class="primary-button" id="openCreateTop" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>发布内容</button>
         </nav>
       </div>
     </header>
@@ -39,7 +39,6 @@
           <h1 id="pageTitle">找到愿意一起做的人</h1>
           <p>有些事，一个人能完成；有人一起，会更有意思。从一个具体的需要开始。</p>
         </div>
-        <button class="intro-action" id="openCreateIntro" type="button">说说你想做什么 <span aria-hidden="true">→</span></button>
       </section>
 
       <div class="main-grid">
@@ -57,7 +56,7 @@
         <aside class="match-column" aria-labelledby="matchTitle">
           <div class="match-panel" id="matchPanel">
             <div class="match-panel-heading"><span class="match-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 12h5l3-7 3 14 3-7h2"/></svg></span><div><h2 id="matchTitle">为你找到合适的人</h2><p>说出需求，再看看谁能与你互补</p></div></div>
-            <div id="matchWelcome" class="match-welcome"><div class="welcome-people" aria-hidden="true"><span>我</span><i></i><span>你</span></div><h3>一次好的匹配，<br />从彼此的需要开始。</h3><p>发布后，我们会说明匹配理由，并给出一个容易开始的共同动作。</p><button class="primary-button full" id="openCreatePanel" type="button">发布需求，试试匹配</button><div class="prompt-examples"><span>不知道怎么写？试试</span><button class="example-button" data-example="food" type="button">想带孩子体验手工包饺子 <span>↗</span></button><button class="example-button" data-example="repair" type="button">想找人一起修旧椅子 <span>↗</span></button></div></div>
+            <div id="matchWelcome" class="match-welcome"><div class="welcome-people" aria-hidden="true"><span>我</span><i></i><span>你</span></div><h3>一次好的匹配，<br />从彼此的需要开始。</h3><p>使用右上角“发布内容”分享想法，我们会说明匹配理由，并给出容易开始的共同动作。已有内容可从“我的发布”详情继续匹配。</p></div>
             <div id="matchLoading" class="match-loading" hidden><div class="skeleton-line wide"></div><div class="skeleton-line"></div><div class="skeleton-card"></div><div class="skeleton-card"></div><p>正在寻找互补需求，并整理可执行的第一步…</p></div>
             <div id="matchResults" class="match-results" hidden><div class="match-context"><span>根据你的发布</span><strong id="matchingPostTitle"></strong><button id="rerunMatch" type="button">重新匹配</button></div><div class="match-source"><span id="matchSource"></span><small id="matchSourceDetail"></small></div><div id="matchList" class="match-list"></div></div>
           </div>
@@ -66,9 +65,32 @@
       </div>
     </main>
 
-    <dialog id="createDialog" class="dialog create-dialog" aria-labelledby="createTitle"><form id="createForm" novalidate><div class="dialog-header"><div><h2 id="createTitle">发布一个需求</h2><p>写具体一点，更容易找到愿意一起做的人。</p></div><button class="icon-button" type="button" data-close="createDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div><div class="dialog-body"><fieldset class="type-selector"><legend>你现在想要</legend><label><input type="radio" name="type" value="need" checked /><span>找人一起做</span></label><label><input type="radio" name="type" value="offer" /><span>分享我会的</span></label></fieldset><label class="form-field">标题 <span>一句话说明想做的事</span><input id="postTitle" name="title" maxlength="48" placeholder="例如：想找邻居一起修好一把旧椅子" required /></label><label class="form-field">具体说说 <span>你希望怎样一起做？</span><textarea id="postDescription" name="description" maxlength="320" rows="4" placeholder="说说背景、你能提供什么，以及希望对方参与什么…" required></textarea></label><div class="form-row"><label class="form-field">时间<input id="postTime" name="time" maxlength="40" placeholder="例如：周末下午" required /></label><label class="form-field">地点<input id="postLocation" name="location" maxlength="40" placeholder="例如：社区活动室" required /></label></div><label class="form-field">分类<select id="postCategory" name="category"><option>社区生活</option><option>生活手艺</option><option>亲子共学</option><option>旧物新生</option><option>学习交流</option><option>数码互助</option></select></label><p class="form-hint">演示版会保存在当前浏览器，其他人暂时看不到。</p><p id="formError" class="form-error" role="alert" hidden></p></div><div class="dialog-actions"><button class="ghost-button" type="button" data-close="createDialog">取消</button><button class="primary-button" type="submit">发布并寻找匹配</button></div></form></dialog>
+    <dialog id="createDialog" class="dialog create-dialog" aria-labelledby="createTitle">
+      <form id="createForm" novalidate>
+        <div class="dialog-header"><div><h2 id="createTitle">发布内容</h2><p id="createSubtitle">描述想完成的事情和需要怎样的伙伴。</p></div><button class="icon-button" type="button" data-close="createDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div>
+        <div class="dialog-body">
+          <fieldset class="type-selector"><legend>你现在想要</legend><label><input type="radio" name="type" value="need" checked /><span>找人一起做</span></label><label><input type="radio" name="type" value="offer" /><span>分享我会的</span></label></fieldset>
+          <details class="form-examples"><summary>不知道怎么写？填写一个示例</summary><button class="example-button" data-example="food" type="button">带孩子体验手工包饺子 ↗</button><button class="example-button" data-example="repair" type="button">一起修旧椅子 ↗</button><button class="example-button" data-example="photo" type="button">分享手机摄影技能 ↗</button></details>
+          <label class="form-field"><b id="titleLabel">标题</b> <span id="titleHint">一句话说明想做的事</span><input id="postTitle" name="title" maxlength="48" placeholder="例如：想找邻居一起修好一把旧椅子" required /></label>
+          <label class="form-field"><b id="descriptionLabel">具体说说</b> <span id="descriptionHint">需要怎样的伙伴？</span><textarea id="postDescription" name="description" maxlength="320" rows="4" placeholder="说说想完成什么、你能带来什么，以及希望谁参与…" required></textarea></label>
+          <div class="form-field category-field"><label for="categoryPicker">主题分类 <span>可添加多个；同时作为新发布的标签，最多 6 项</span></label><div class="category-controls"><select id="categoryPicker" name="category"><option value="">选择分类后添加</option><option>社区生活</option><option>生活手艺</option><option>亲子共学</option><option>旧物新生</option><option>学习交流</option><option>数码互助</option><option value="other">其他（自定义）</option></select><button id="addCategory" class="secondary-button" type="button">添加</button></div><input id="customCategory" name="customCategory" maxlength="30" placeholder="填写其他分类名称，最多 30 字" aria-label="其他分类名称" hidden /><div id="selectedCategories" class="selected-categories" aria-live="polite"></div></div>
+          <label class="form-field"><b id="timeLabel">活动时间</b><select id="timeMode" name="timeMode"><option value="">选择时间安排</option><option value="date">具体日期与时间段</option><option value="weekly">每周固定时间</option><option value="negotiable" id="negotiableTime" disabled hidden>时间可协商</option></select></label>
+          <div id="dateFields" hidden><label class="form-field">活动日期<input id="postDate" name="date" type="date" /></label></div>
+          <div id="weeklyFields" hidden><label class="form-field">每周活动日<select id="postWeekday" name="weekday"><option value="">选择星期</option><option value="1">周一</option><option value="2">周二</option><option value="3">周三</option><option value="4">周四</option><option value="5">周五</option><option value="6">周六</option><option value="0">周日</option></select></label></div>
+          <div id="clockFields" class="form-row" hidden><label class="form-field">开始时间<input id="postStart" name="start" type="time" /></label><label class="form-field">结束时间<input id="postEnd" name="end" type="time" /></label></div>
+          <label class="form-field"><b id="locationLabel">活动地点</b><select id="postLocation" name="location"><option value="">选择社区地点</option><option>春和社区活动室</option><option>社区共享工坊</option><option>社区图书角</option><option>春和社区周边</option><option value="other">其他地点</option><option value="negotiable" id="negotiableLocation" disabled hidden>地点可协商</option></select></label>
+          <label id="locationOtherField" class="form-field" hidden>其他地点<input id="locationOther" name="locationOther" maxlength="40" placeholder="填写社区内的地点或补充说明" /></label>
+          <label class="form-field">参与人数 <span>包含发布者；填写总人数，不区分人员组成</span><select id="participantMode" name="participantMode"><option value="negotiable">协商决定</option><option value="exact">明确人数</option><option value="range">人数范围</option></select></label>
+          <div id="exactParticipants" hidden><label class="form-field">总人数<input id="participantCount" name="participantCount" type="number" min="1" max="50" step="1" /></label></div>
+          <div id="rangeParticipants" class="form-row" hidden><label class="form-field">最少人数<input id="participantMin" name="participantMin" type="number" min="1" max="50" step="1" /></label><label class="form-field">最多人数<input id="participantMax" name="participantMax" type="number" min="1" max="50" step="1" /></label></div>
+          <details id="profileSection" class="profile-section"><summary>我的演示资料 <span id="profileSummary">社区成员</span></summary><p class="form-hint">只保存在本浏览器，用于后续发布；不是真实账号。身份说明随发布展示。</p><label class="form-field">社区身份或关系说明 <span>选填</span><input id="profileRole" name="role" maxlength="40" placeholder="例如：新搬来的邻居、退休木工" /></label><label class="form-field">个人年龄 <span>选填，默认不公开</span><input id="profileAge" name="age" type="number" min="1" max="120" step="1" /></label><label class="checkbox-field"><input id="agePublic" name="agePublic" type="checkbox" />在本次发布中公开年龄</label></details>
+          <p class="form-hint">演示内容保存在当前浏览器，其他人暂时看不到。</p><p id="formError" class="form-error" role="alert" hidden></p>
+        </div>
+        <div class="dialog-actions"><button class="ghost-button" type="button" data-close="createDialog">取消</button><button class="primary-button" id="publishButton" type="submit">发布并寻找匹配</button></div>
+      </form>
+    </dialog>
 
-    <dialog id="detailDialog" class="dialog detail-dialog" aria-labelledby="detailTitle"><div class="dialog-header"><div><h2 id="detailTitle"></h2></div><button class="icon-button" type="button" data-close="detailDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div><div id="detailContent" class="dialog-body"></div><div class="dialog-actions"><button class="ghost-button" type="button" data-close="detailDialog">返回</button><button class="primary-button" id="interestButton" type="button">我想参与</button></div></dialog>
+    <dialog id="detailDialog" class="dialog detail-dialog" aria-labelledby="detailTitle"><div class="dialog-header"><div><h2 id="detailTitle"></h2></div><button class="icon-button" type="button" data-close="detailDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div><div id="detailContent" class="dialog-body"></div><div class="dialog-actions"><button class="ghost-button" type="button" data-close="detailDialog">返回</button><button class="primary-button" id="detailMatchButton" type="button" hidden>查看或重新匹配</button><button class="primary-button" id="interestButton" type="button">我想参与</button></div></dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </body>
