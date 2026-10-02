@@ -60,7 +60,7 @@ html.modal-open,html.modal-open body{overflow:hidden}
   .page-shell{height:calc(100dvh - 76px);display:flex;flex-direction:column;padding-bottom:24px}
   .page-intro{flex:0 0 auto}
   .main-grid{flex:1 1 auto;min-height:0;align-items:stretch}
-  .feed-section,.match-column{min-height:0;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable;--scroll-thumb:#bdcfc3;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) transparent}
+  .feed-section,.match-column{min-height:0;margin-right:-6px;padding-right:6px;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable;--scroll-thumb:#bdcfc3;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) transparent}
   .feed-section:is(:hover,:focus-within),.match-column:is(:hover,:focus-within){--scroll-thumb:#789a85}
   @supports selector(::-webkit-scrollbar){
     .feed-section,.match-column{scrollbar-width:auto;scrollbar-color:auto}
