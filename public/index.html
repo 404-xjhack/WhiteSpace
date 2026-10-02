@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f8f8f4" />
+    <meta name="description" content="留白 WriteSpace · 找到愿意一起做的人" />
+    <title>留白 WriteSpace · 社区需求匹配</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <!--
+    THESIS: 让社区成员从一件想一起做的事出发，看到互补的人与可执行的第一步。
+    OWN-WORLD: 温暖的纸白底、深墨色文字、克制的绿与杏色；熟悉的社区信息产品语言。
+    STORY: 浏览真实需求的演示资料，发布自己的需求，理解匹配理由，表达参与意向。
+    FIRST VIEWPORT: 顶部导航和紧凑的任务引导，下方左侧需求列表、右侧匹配工作区；发布入口始终可见。
+    FORM: Operate，用户指定大众化社区工作台；事后记录的概念种子 32cf1aa9（降级运行，未用于选择形式）。
+    FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+    -->
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="/" aria-label="留白 WriteSpace 首页">
+          <span class="brand-mark" aria-hidden="true"><span></span><span></span></span>
+          <span class="brand-text"><strong>留白</strong><small>WriteSpace</small></span>
+        </a>
+        <div class="header-location"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-5.2 7-11a7 7 0 1 0-14 0c0 5.8 7 11 7 11Z"/><circle cx="12" cy="10" r="2.2"/></svg><span>春和社区</span><span class="demo-badge">演示社区</span></div>
+        <nav class="header-actions" aria-label="主导航">
+          <button class="header-link" id="myPostsButton" type="button">我的发布 <span id="myPostCount" hidden>0</span></button>
+          <button class="primary-button" id="openCreateTop" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>发布需求</button>
+        </nav>
+      </div>
+    </header>
+
+    <main class="page-shell">
+      <section class="page-intro" aria-labelledby="pageTitle">
+        <div>
+          <h1 id="pageTitle">找到愿意一起做的人</h1>
+          <p>有些事，一个人能完成；有人一起，会更有意思。从一个具体的需要开始。</p>
+        </div>
+        <button class="intro-action" id="openCreateIntro" type="button">说说你想做什么 <span aria-hidden="true">→</span></button>
+      </section>
+
+      <div class="main-grid">
+        <section class="feed-section" aria-labelledby="feedTitle">
+          <div class="section-heading"><div><h2 id="feedTitle">社区里的新需求</h2><p>看看附近的人正在寻找什么，也分享你能带来的东西。</p></div><span id="resultCount" class="result-count"></span></div>
+          <div class="feed-controls">
+            <label class="search-field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><span class="sr-only">搜索需求</span><input id="searchInput" type="search" placeholder="搜索活动、技能或地点" autocomplete="off" /></label>
+            <div class="filter-row" role="group" aria-label="筛选发布类型"><button class="filter-chip is-active" data-filter="all" type="button" aria-pressed="true">全部</button><button class="filter-chip" data-filter="need" type="button" aria-pressed="false">想找人</button><button class="filter-chip" data-filter="offer" type="button" aria-pressed="false">我能帮忙</button><button class="filter-chip" data-filter="mine" type="button" aria-pressed="false">我的发布</button></div>
+          </div>
+          <div id="postList" class="post-list" aria-live="polite"></div>
+          <div id="emptyState" class="empty-state" hidden><div class="empty-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M7 13h34v25H7zM14 20h20M14 27h14"/></svg></div><h3>暂时没有找到相关内容</h3><p>换个关键词，或者把你的想法发布出来。</p><button class="secondary-button" id="emptyCreate" type="button">发布一个需求</button></div>
+          <p class="data-note">页面中的人物和内容均为演示数据；目前不会联系真实邻居。<button type="button" id="resetDemo" class="reset-link">重置演示</button></p>
+        </section>
+
+        <aside class="match-column" aria-labelledby="matchTitle">
+          <div class="match-panel" id="matchPanel">
+            <div class="match-panel-heading"><span class="match-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 12h5l3-7 3 14 3-7h2"/></svg></span><div><h2 id="matchTitle">为你找到合适的人</h2><p>说出需求，再看看谁能与你互补</p></div></div>
+            <div id="matchWelcome" class="match-welcome"><div class="welcome-people" aria-hidden="true"><span>我</span><i></i><span>你</span></div><h3>一次好的匹配，<br />从彼此的需要开始。</h3><p>发布后，我们会说明匹配理由，并给出一个容易开始的共同动作。</p><button class="primary-button full" id="openCreatePanel" type="button">发布需求，试试匹配</button><div class="prompt-examples"><span>不知道怎么写？试试</span><button class="example-button" data-example="food" type="button">想带孩子体验手工包饺子 <span>↗</span></button><button class="example-button" data-example="repair" type="button">想找人一起修旧椅子 <span>↗</span></button></div></div>
+            <div id="matchLoading" class="match-loading" hidden><div class="skeleton-line wide"></div><div class="skeleton-line"></div><div class="skeleton-card"></div><div class="skeleton-card"></div><p>正在寻找互补需求，并整理可执行的第一步…</p></div>
+            <div id="matchResults" class="match-results" hidden><div class="match-context"><span>根据你的发布</span><strong id="matchingPostTitle"></strong><button id="rerunMatch" type="button">重新匹配</button></div><div class="match-source"><span id="matchSource"></span><small id="matchSourceDetail"></small></div><div id="matchList" class="match-list"></div></div>
+          </div>
+          <div class="safety-note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v5c0 5 3.2 8.5 8 10 4.8-1.5 8-5 8-10V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg><div><strong>线下见面，从公共空间开始</strong><p>原型中的“参与”只模拟表达意向。真实产品上线前会加入双方同意、身份与活动安全机制。</p></div></div>
+        </aside>
+      </div>
+    </main>
+
+    <dialog id="createDialog" class="dialog create-dialog" aria-labelledby="createTitle"><form id="createForm" novalidate><div class="dialog-header"><div><h2 id="createTitle">发布一个需求</h2><p>写具体一点，更容易找到愿意一起做的人。</p></div><button class="icon-button" type="button" data-close="createDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div><div class="dialog-body"><fieldset class="type-selector"><legend>你现在想要</legend><label><input type="radio" name="type" value="need" checked /><span>找人一起做</span></label><label><input type="radio" name="type" value="offer" /><span>分享我会的</span></label></fieldset><label class="form-field">标题 <span>一句话说明想做的事</span><input id="postTitle" name="title" maxlength="48" placeholder="例如：想找邻居一起修好一把旧椅子" required /></label><label class="form-field">具体说说 <span>你希望怎样一起做？</span><textarea id="postDescription" name="description" maxlength="320" rows="4" placeholder="说说背景、你能提供什么，以及希望对方参与什么…" required></textarea></label><div class="form-row"><label class="form-field">时间<input id="postTime" name="time" maxlength="40" placeholder="例如：周末下午" required /></label><label class="form-field">地点<input id="postLocation" name="location" maxlength="40" placeholder="例如：社区活动室" required /></label></div><label class="form-field">分类<select id="postCategory" name="category"><option>社区生活</option><option>生活手艺</option><option>亲子共学</option><option>旧物新生</option><option>学习交流</option><option>数码互助</option></select></label><p class="form-hint">演示版会保存在当前浏览器，其他人暂时看不到。</p><p id="formError" class="form-error" role="alert" hidden></p></div><div class="dialog-actions"><button class="ghost-button" type="button" data-close="createDialog">取消</button><button class="primary-button" type="submit">发布并寻找匹配</button></div></form></dialog>
+
+    <dialog id="detailDialog" class="dialog detail-dialog" aria-labelledby="detailTitle"><div class="dialog-header"><div><h2 id="detailTitle"></h2></div><button class="icon-button" type="button" data-close="detailDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div><div id="detailContent" class="dialog-body"></div><div class="dialog-actions"><button class="ghost-button" type="button" data-close="detailDialog">返回</button><button class="primary-button" id="interestButton" type="button">我想参与</button></div></dialog>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

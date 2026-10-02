@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-02T03:11:13Z",
+  "title": "Design System: WriteSpace 留白",
+  "extensions": {
+    "colorMeta": {
+      "bg": { "role": "neutral", "displayName": "纸白", "tonalRamp": ["#242820", "#3b4035", "#555b4e", "#727a6b", "#919b89", "#b4bdab", "#d8dfd1", "#f8f8f4"] },
+      "surface": { "role": "neutral", "displayName": "纯白", "tonalRamp": ["#262626", "#404040", "#595959", "#757575", "#949494", "#b8b8b8", "#dedede", "#ffffff"] },
+      "surface-2": { "role": "neutral", "displayName": "浅灰绿", "tonalRamp": ["#202a22", "#37463a", "#506252", "#708073", "#92a095", "#b7c4b8", "#dbe5dc", "#f2f5f0"] },
+      "ink": { "role": "neutral", "displayName": "深墨", "tonalRamp": ["#1d2924", "#34463b", "#4d6455", "#69806f", "#8b9d8f", "#aebcaf", "#d3dbd2", "#f2f5f0"] },
+      "muted": { "role": "neutral", "displayName": "灰绿", "tonalRamp": ["#17221b", "#304137", "#4a5b50", "#65736b", "#819187", "#a2afa5", "#cad4ca", "#eef2ee"] },
+      "line": { "role": "neutral", "displayName": "柔和分隔线", "tonalRamp": ["#1e2b21", "#39483b", "#556557", "#748376", "#98a69a", "#b9c6ba", "#e3e9e2", "#f5f7f4"] },
+      "green": { "role": "primary", "displayName": "社区绿", "tonalRamp": ["#102f24", "#1e5e49", "#28735a", "#438e70", "#68aa88", "#96c6a6", "#c4e0cc", "#e8f2eb"] },
+      "green-dark": { "role": "primary", "displayName": "深社区绿", "tonalRamp": ["#102f24", "#1e5e49", "#28735a", "#438e70", "#68aa88", "#96c6a6", "#c4e0cc", "#e8f2eb"] },
+      "green-soft": { "role": "primary", "displayName": "浅社区绿", "tonalRamp": ["#102f24", "#1e5e49", "#28735a", "#438e70", "#68aa88", "#96c6a6", "#c4e0cc", "#e8f2eb"] },
+      "danger": { "role": "tertiary", "displayName": "错误红", "tonalRamp": ["#461713", "#6d2420", "#922f29", "#b43d36", "#ce625b", "#df8f88", "#efbdb8", "#f9e6e3"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "页面主标题", "purpose": "标识当前页面任务。" },
+      "headline": { "displayName": "区块标题", "purpose": "区分信息流与匹配工作区。" },
+      "title": { "displayName": "卡片标题", "purpose": "快速扫描每条需求。" },
+      "body": { "displayName": "正文", "purpose": "说明、摘要和表单内容。" },
+      "label": { "displayName": "辅助标注", "purpose": "时间、来源和状态。" }
+    },
+    "shadows": [
+      { "name": "card-hover", "value": "0 12px 36px rgba(33,55,42,.08)", "purpose": "帖子卡片悬停反馈。" },
+      { "name": "match-panel", "value": "0 8px 30px rgba(42,70,52,.04)", "purpose": "匹配工作区的轻微分层。" },
+      { "name": "dialog", "value": "0 26px 70px rgba(24,45,32,.24)", "purpose": "模态对话框的明显前景层。" }
+    ],
+    "motion": [
+      { "name": "control-transition", "value": "background .18s ease, transform .18s ease, border-color .18s ease", "purpose": "按钮状态变化。" },
+      { "name": "card-transition", "value": "box-shadow .2s ease, border-color .2s ease, transform .2s ease", "purpose": "帖子卡片悬停反馈。" },
+      { "name": "reduced-motion", "value": "animation-duration: .01ms; transition-duration: .01ms; scroll-behavior: auto", "purpose": "尊重 prefers-reduced-motion。" }
+    ],
+    "breakpoints": [
+      { "name": "compact-desktop", "value": "960px" },
+      { "name": "single-column", "value": "760px" },
+      { "name": "small-phone", "value": "420px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button", "kind": "button", "refersTo": "button-primary", "description": "发布和参与等主要操作。",
+      "html": "<button class=\"ds-btn-primary\">发布需求</button>",
+      "css": ".ds-btn-primary{min-height:40px;padding:0 17px;border:1px solid transparent;border-radius:9px;background:var(--green,#28735a);color:#fff;font:650 14px 'Noto Sans SC','PingFang SC','Microsoft YaHei',system-ui,sans-serif;cursor:pointer;transition:background .18s ease,transform .18s ease}.ds-btn-primary:hover{background:var(--green-dark,#1e5e49);transform:translateY(-1px)}.ds-btn-primary:focus-visible{outline:3px solid #8bc5a8;outline-offset:3px}.ds-btn-primary:active{transform:translateY(0)}"
+    },
+    {
+      "name": "Secondary Button", "kind": "button", "refersTo": "button-secondary", "description": "低一级但仍明确的操作。",
+      "html": "<button class=\"ds-btn-secondary\">发布一个需求</button>",
+      "css": ".ds-btn-secondary{min-height:40px;padding:0 17px;border:1px solid transparent;border-radius:9px;background:var(--green-soft,#e8f2eb);color:var(--green,#28735a);font:650 14px 'Noto Sans SC','PingFang SC','Microsoft YaHei',system-ui,sans-serif;cursor:pointer;transition:background .18s ease}.ds-btn-secondary:hover{background:#dbeadd}.ds-btn-secondary:focus-visible{outline:3px solid #8bc5a8;outline-offset:3px}.ds-btn-secondary:active{background:#cfe3d3}"
+    },
+    {
+      "name": "Ghost Button", "kind": "button", "refersTo": "button-ghost", "description": "对话框中的取消或返回操作。",
+      "html": "<button class=\"ds-btn-ghost\">取消</button>",
+      "css": ".ds-btn-ghost{min-height:40px;padding:0 17px;border:1px solid var(--line,#e3e9e2);border-radius:9px;background:#fff;color:var(--ink,#1d2924);font:650 14px 'Noto Sans SC','PingFang SC','Microsoft YaHei',system-ui,sans-serif;cursor:pointer;transition:background .18s ease}.ds-btn-ghost:hover{background:var(--surface-2,#f2f5f0)}.ds-btn-ghost:focus-visible{outline:3px solid #8bc5a8;outline-offset:3px}.ds-btn-ghost:active{background:#e6eee7}"
+    },
+    {
+      "name": "Search Field", "kind": "input", "refersTo": "search-field", "description": "信息流顶部的搜索输入。",
+      "html": "<label class=\"ds-search\"><svg class=\"ds-search-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"10.8\" cy=\"10.8\" r=\"6.5\"/><path d=\"m16 16 4.5 4.5\"/></svg><input type=\"search\" aria-label=\"搜索需求\" placeholder=\"搜索活动、技能或地点\"></label>",
+      "css": ".ds-search{display:block;position:relative;width:320px;max-width:100%}.ds-search-icon{position:absolute;left:15px;top:50%;transform:translateY(-50%);width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;color:#85938a}.ds-search input{width:100%;height:46px;padding:0 15px 0 44px;border:1px solid var(--line,#e3e9e2);border-radius:10px;background:#fff;color:var(--ink,#1d2924);font:13px 'Noto Sans SC','PingFang SC','Microsoft YaHei',system-ui,sans-serif;outline:none}.ds-search input:focus{border-color:#89b99d;box-shadow:0 0 0 3px #e4f2e8}.ds-search input:focus-visible{outline:3px solid #8bc5a8;outline-offset:3px}.ds-search input::placeholder{color:#5e6a60}"
+    },
+    {
+      "name": "Filter Chip", "kind": "chip", "description": "需求类型筛选及当前状态。",
+      "html": "<div class=\"ds-chip-row\"><button class=\"ds-chip ds-active\" aria-pressed=\"true\">全部</button><button class=\"ds-chip\" aria-pressed=\"false\">想找人</button></div>",
+      "css": ".ds-chip-row{display:flex;gap:8px}.ds-chip{padding:7px 13px;border:1px solid transparent;border-radius:7px;background:transparent;color:#5e6e63;font:13px 'Noto Sans SC','PingFang SC','Microsoft YaHei',system-ui,sans-serif;cursor:pointer}.ds-chip:hover{background:#edf2eb}.ds-chip.ds-active{background:#e3efe6;color:var(--green-dark,#1e5e49);font-weight:700}.ds-chip:focus-visible{outline:3px solid #8bc5a8;outline-offset:3px}.ds-chip:active{background:#dbeadd}"
+    },
+    {
+      "name": "Post Card", "kind": "card", "refersTo": "post-card", "description": "信息流中的社区需求摘要。",
+      "html": "<article class=\"ds-post\"><div class=\"ds-post-author\">邻居 · 春和社区</div><h3>想找人一起修旧椅子</h3><p>周末在社区活动室，想和懂木工的邻居一起试试。</p><span class=\"ds-post-tag\">旧物新生</span></article>",
+      "css": ".ds-post{max-width:410px;padding:20px 21px 18px;border:1px solid var(--line,#e3e9e2);border-radius:14px;background:var(--surface,#fff);color:var(--ink,#1d2924);font-family:'Noto Sans SC','PingFang SC','Microsoft YaHei',system-ui,sans-serif;transition:box-shadow .2s ease,border-color .2s ease,transform .2s ease}.ds-post:hover{box-shadow:0 12px 36px rgba(33,55,42,.08);border-color:#d2dfd4;transform:translateY(-1px)}.ds-post:focus-within{outline:3px solid #8bc5a8;outline-offset:3px}.ds-post-author{font-size:11px;color:#5e6a60}.ds-post h3{font-size:16px;line-height:1.5;margin:15px 0 7px}.ds-post p{font-size:13px;line-height:1.7;color:#56645a;margin:0 0 14px}.ds-post-tag{display:inline-block;padding:4px 7px;border-radius:5px;background:#f4f6f3;color:#68766d;font-size:11px}"
+    },
+    {
+      "name": "Header Navigation", "kind": "nav", "description": "品牌与发布入口共处的粘性页头。",
+      "html": "<nav class=\"ds-nav\" aria-label=\"主导航\"><strong>留白 <small>WriteSpace</small></strong><button>发布需求</button></nav>",
+      "css": ".ds-nav{display:flex;align-items:center;justify-content:space-between;gap:24px;max-width:520px;min-height:76px;padding:0 28px;border-bottom:1px solid var(--line,#e3e9e2);background:#fff;font-family:'Noto Sans SC','PingFang SC','Microsoft YaHei',system-ui,sans-serif;color:var(--ink,#1d2924)}.ds-nav strong{font-size:20px}.ds-nav small{font-size:10px;color:#7b8880;font-weight:400}.ds-nav button{min-height:40px;padding:0 17px;border:0;border-radius:9px;background:var(--green,#28735a);color:#fff;font-family:inherit;font-size:14px;font-weight:650;cursor:pointer}.ds-nav button:hover{background:var(--green-dark,#1e5e49)}.ds-nav button:focus-visible{outline:3px solid #8bc5a8;outline-offset:3px}.ds-nav button:active{background:#184c3b}"
+    }
+  ],
+  "narrative": {
+    "northStar": "温暖的社区工作台",
+    "overview": "页面借用熟悉的社区信息产品语言，让发布、浏览和理解匹配都容易上手。温暖的纸白背景承载信息，深墨色正文保持阅读清晰，克制的绿突出操作与匹配状态。整体密度偏紧凑，卡片和留白让不同任务仍然容易分辨。",
+    "keyCharacteristics": [
+      "清晰的中文无衬线层级与易扫读的信息卡片。",
+      "绿色主操作、浅绿状态和少量暖色人物标记。",
+      "桌面双栏、窄屏单栏的社区工作区。"
+    ],
+    "rules": [
+      { "name": "The Action Green Rule", "body": "绿色标识可执行的操作和选中状态；大面积阅读区域保持中性。", "section": "colors" },
+      { "name": "The Quiet Surface Rule", "body": "普通内容保持平稳；升起效果主要反馈悬停或突出对话框。", "section": "elevation" }
+    ],
+    "dos": [
+      "**Do** 保持清晰的操作层级，让绿色主按钮和浅绿选中态延续现有用法。",
+      "**Do** 保留可见的键盘焦点、文字提示和减少动态效果的媒体查询。",
+      "**Do** 在窄屏用单栏顺序呈现匹配区与信息流。"
+    ],
+    "donts": [
+      "**Don't** 把演示内容或匹配结果视觉上包装成已验证的真实邻里关系。",
+      "**Don't** 用阴影替代边框和留白来区分每一层内容。"
+    ]
+  }
+}
