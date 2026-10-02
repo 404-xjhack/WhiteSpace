@@ -93,10 +93,14 @@ export function buildShop(scene) {
   for(let x=-6;x<=6;x+=1)box(shop,material(0xb5aa94),.013,.003,10,x,.013,0);
   for(let z=-5;z<=5;z+=1)box(shop,material(0xb5aa94),12,.003,.013,0,.013,z);
   box(shell,wall,12,3.6,.15,0,1.8,-5);box(shell,wall,.15,3.6,10,-6,1.8,0);box(shell,wall,.15,3.6,10,6,1.8,0);
+  const windowBottom=.72,windowTop=3.6,windowWidth=3.8,windowHeight=windowTop-windowBottom;
   for(const side of [-1,1]){
-    box(shell,wall,3.8,.7,.18,side*4.1,.35,5);box(shell,darkWood,.13,3.7,.2,side*2.2,1.85,5);
-    for(let i=0;i<4;i++)box(shell,darkWood,.045,1.9,.09,side*(2.8+i*.8),1.85,5);
-    for(let i=0;i<3;i++)box(shell,darkWood,3.6,.045,.09,side*4.1,1.0+i*.7,5);
+    box(shell,wall,windowWidth,.7,.18,side*4.1,.35,5);
+    for(const x of [2.2,5.98])box(shell,darkWood,.13,3.7,.2,side*x,1.85,5);
+    box(shell,darkWood,windowWidth,.10,.2,side*4.1,windowBottom,5);
+    // Bars overlap the sill, header and posts so the facade remains connected without the roof.
+    for(let i=0;i<4;i++)box(shell,darkWood,.045,windowHeight,.09,side*(4.1-windowWidth/2+windowWidth*(i+1)/5),(windowBottom+windowTop)/2,5.04);
+    for(let i=0;i<3;i++)box(shell,darkWood,windowWidth,.045,.09,side*4.1,windowBottom+windowHeight*(i+1)/4,5.04);
   }
   box(shell,darkWood,12,.16,.22,0,3.62,5);box(shell,darkWood,12,.16,.22,0,3.62,-5);
   box(shell,red,5.5,.6,.14,0,3.2,5.12);textPlane(shell,"手工饺子工坊",5,.5,0,3.2,5.2);
