@@ -19,9 +19,13 @@ function bowl(p, radius, x = 0, y = 0, z = 0, mat = porcelain) {
 }
 function plate(p, x, y, z, radius = .44) { return lathe(p, [[0,0],[radius*.65,0],[radius,.045],[radius,.075],[radius*.75,.04],[0,.03]], porcelain,x,y,z); }
 function textPlane(p, text, w, h, x,y,z, color = "#efe4cc", background = "#6b4936") {
-  const canvas = document.createElement("canvas"); canvas.width = 768; canvas.height = 192;
-  const ctx = canvas.getContext("2d"); ctx.fillStyle = background; ctx.fillRect(0,0,768,192); ctx.fillStyle = color;
-  ctx.font = "600 55px Microsoft YaHei, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(text,384,96,720);
+  const canvas = document.createElement("canvas"); canvas.height = 192; canvas.width = Math.round(canvas.height * w / h);
+  const ctx = canvas.getContext("2d"); ctx.fillStyle = background; ctx.fillRect(0,0,canvas.width,canvas.height); ctx.fillStyle = color;
+  // Match the plane's aspect ratio; fit long text by reducing its font uniformly.
+  let fontSize = Math.round(canvas.height * .7);
+  const setFont = () => { ctx.font = `600 ${fontSize}px "Microsoft YaHei", sans-serif`; }; setFont();
+  fontSize = Math.floor(fontSize * Math.min(1, canvas.width * .9 / ctx.measureText(text).width)); setFont();
+  ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(text,canvas.width/2,canvas.height/2);
   const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
   const item = mesh(p, new THREE.PlaneGeometry(w,h), new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide}),x,y,z); return item;
 }
@@ -88,7 +92,7 @@ export function buildShop(scene) {
     for(let i=0;i<3;i++)box(shell,darkWood,3.6,.045,.09,side*4.1,1.0+i*.7,5);
   }
   box(shell,darkWood,12,.16,.22,0,3.62,5);box(shell,darkWood,12,.16,.22,0,3.62,-5);
-  box(shell,red,5.5,.6,.14,0,3.2,5.12);textPlane(shell,"手 工 饺 子 工 坊",5,.5,0,3.2,5.2);
+  box(shell,red,5.5,.6,.14,0,3.2,5.12);textPlane(shell,"手工饺子工坊",5,.5,0,3.2,5.2);
   box(shop,darkWood,5.4,1.05,.08,0,2.18,-4.9);textPlane(shop,"和面 → 制馅 → 分剂",4.9,.38,0,2.38,-4.84);textPlane(shop,"擀皮 → 包合 → 煮制",4.9,.38,0,1.97,-4.84);
   for(const side of [-1,1]){
     const panel=box(roof,tile,12.6,.15,5.7,0,4.05,side*2.6);panel.rotation.x=side*.18;

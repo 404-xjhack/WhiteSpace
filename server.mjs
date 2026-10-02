@@ -162,9 +162,8 @@ const server = http.createServer(async (req, res) => {
     let pathname;
     try { pathname = decodeURIComponent(url.pathname); } catch { return send(res, 400, { error: "路径无效。" }); }
     if (pathname === "/") pathname = "/index.html";
-    const isDumplingEntry = pathname === "/dumpling-house.html";
-    const filePath = isDumplingEntry ? path.join(root, "dumpling-house.html") : path.resolve(publicDir, `.${pathname}`);
-    if (!isDumplingEntry && !filePath.startsWith(publicDir + path.sep)) return send(res, 403, { error: "无法访问此路径。" });
+    const filePath = path.resolve(publicDir, `.${pathname}`);
+    if (!filePath.startsWith(publicDir + path.sep)) return send(res, 403, { error: "无法访问此路径。" });
     let file;
     try { file = await readFile(filePath); } catch { return send(res, 404, { error: "页面不存在。" }); }
     res.writeHead(200, { "content-type": mime[path.extname(filePath)] || "application/octet-stream", "x-content-type-options": "nosniff", "cache-control": "no-cache" });
