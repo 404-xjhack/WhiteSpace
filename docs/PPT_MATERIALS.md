@@ -247,7 +247,7 @@ WriteSpace「留白」是一个面向社区成员的需求与技能互助匹配�
 - `npm test`：29 项规则与 HTTP/AI 接口测试通过。
 - `npm run test:browser`：20 组独立 Chromium 浏览器流程通过，无未捕获页面异常。
 - 浏览器覆盖发布、参与撤销、刷新恢复、时间冲突、请求延迟、AI/网络回退，以及 1280、375、320 像素布局。
-- 测试中的 AI 成功与异常由本地模拟网关验证。README 与 `problems1.md` 另有真实 TokenDance 网关验证记录；本次整理没有额外调用真实 AI 服务。
+- 测试中的 AI 成功与异常由本地模拟网关验证。[README](../README.md) 与[问题清单与优化说明](problems1.md)另有真实 TokenDance 网关验证记录；本次整理没有额外调用真实 AI 服务。
 
 注意：README 中的浏览器流程数仍写作 19；本次当前工作区实际运行结果为 20，新增覆盖桌面双栏独立滚动和候选展开入口。
 
@@ -265,14 +265,14 @@ WriteSpace「留白」是一个面向社区成员的需求与技能互助匹配�
 
 ### 主要资料来源
 
-- `README.md`：定位、功能、启动、演示流程与限制。
-- `PRODUCT.md`：目标用户、产品目的与产品原则。
-- `DESIGN.md`：品牌视觉、桌面与移动端布局。
+- [README.md](../README.md)：定位、功能、启动、演示流程与限制。
+- [PRODUCT.md](PRODUCT.md)：目标用户、产品目的与产品原则。
+- [DESIGN.md](DESIGN.md)：品牌视觉、桌面与移动端布局。
 - `server.mjs`：AI 配置、代理、接口和失败回退。
 - `public/model.js`：校验、诉求依据、时间兼容和匹配逻辑。
 - `public/app.js`、`public/index.html`：实际用户入口、本地存储与交互。
 - `public/data.json`：演示人物、技能、需求与时间地点。
-- `tests/`、`problems1.md`：测试覆盖与既有验证记录。
+- `tests/`、[problems1.md](problems1.md)：测试覆盖与既有验证记录。
 
 ## 七、制作 PPT 时的视觉建议
 
