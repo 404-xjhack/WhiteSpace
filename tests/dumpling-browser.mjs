@@ -19,7 +19,13 @@ async function evaluate(expression){const result=await cdp.send('Runtime.evaluat
 async function until(expression){const end=Date.now()+15000;while(Date.now()<end){if(await evaluate(expression))return;await pause(80);}throw new Error(`Condition failed: ${expression}`);}
 async function navigate(url){await cdp.send('Page.navigate',{url});await until("document.querySelector('#viewport')?.dataset.renderer && document.querySelector('#loading').hidden");await pause(550);}
 async function click(selector){await evaluate(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({block:'center',behavior:'instant'})`);await pause(70);const r=await evaluate(`(()=>{const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2,w:r.width,h:r.height}})()`);assert.ok(r.w&&r.h,selector);await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,x:r.x,y:r.y});await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,x:r.x,y:r.y});await pause(50);}
-async function shot(name){await pause(650);const s=await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:true});await writeFile(path.join(root,'.tmp',name),Buffer.from(s.data,'base64'));}
+async function experienceClick(selector){
+  await evaluate(`document.querySelector('#dumplingExperience').contentDocument.querySelector(${JSON.stringify(selector)}).scrollIntoView({block:'center',behavior:'instant'})`);await pause(70);
+  const point=await evaluate(`(()=>{const frame=document.querySelector('#dumplingExperience'),outer=frame.getBoundingClientRect(),inner=frame.contentDocument.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return{x:outer.x+inner.x+inner.width/2,y:outer.y+inner.y+inner.height/2,w:inner.width,h:inner.height}})()`);
+  assert.ok(point.w&&point.h,selector);
+  await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,x:point.x,y:point.y});await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,x:point.x,y:point.y});await pause(50);
+}
+async function shot(name,fullPage=true){await pause(650);const s=await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:fullPage});await writeFile(path.join(root,'.tmp',name),Buffer.from(s.data,'base64'));}
 async function stored(){return evaluate("JSON.parse(localStorage.getItem('writespace.experience.dumpling.v1'))");}
 async function step(id){await click(`[data-step="${id}"]`);await pause(480);}
 async function drag(kind,touch=false,valid=true){
@@ -91,7 +97,44 @@ try{
   await click('#action');await evaluate('scrollTo(0,0)');await shot('dumpling-mobile-375.png');assert.equal(await evaluate('document.documentElement.scrollWidth>innerWidth'),false);
   passed('Tablet/mobile layout, actual touch rolling and keyboard button alternative');
   await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});await cdp.send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
-  await cdp.send('Page.navigate',{url:app.url+'/'});await until("document.querySelector('#postList')");
+  await cdp.send('Page.navigate',{url:app.url+'/'});await until("document.querySelectorAll('.post-card').length===6");
+  await click('[data-post-id="p3"]');assert.equal(await evaluate("document.querySelector('#openDumplingExperience')"),null);await click('#detailDialog [data-close]');
+  await click('[data-post-id="p1"]');await shot('dumpling-entry-desktop.png');await click('#openDumplingExperience');
+  await until("document.querySelector('#experienceStatus').textContent.includes('六步已体验完成')");
+  const embedded="document.querySelector('#dumplingExperience').contentWindow";
+  assert.equal(await evaluate(`${embedded}.document.querySelector('#viewport').dataset.renderer`),'webgl');
+  assert.equal(await evaluate("document.querySelector('#detailDialog').open"),false);
+  for(const invalid of ["origin:'https://wrong.example',source:"+embedded,"origin:location.origin,source:window"]){
+    await evaluate(`window.dispatchEvent(new MessageEvent('message',{${invalid},data:{version:1,experienceId:'dumpling-house',type:'exit'}}))`);
+    assert.equal(await evaluate("document.querySelector('#experienceDialog').open"),true);
+  }
+  await shot('dumpling-embedded-desktop.png');await click('#experienceDialog [data-close]');
+  await until("document.querySelector('#detailDialog').open && !document.querySelector('#dumplingExperience')");
+  assert.equal(await evaluate('document.activeElement.id'),'openDumplingExperience');
+  await cdp.send('Emulation.setDeviceMetricsOverride',{width:375,height:667,deviceScaleFactor:1,mobile:false});await shot('dumpling-entry-mobile.png',false);
+  await click('#openDumplingExperience');await until("document.querySelector('#experienceStatus').textContent.includes('六步已体验完成')");
+  const hostLayout=await evaluate(`(()=>{const r=document.querySelector('#experienceDialog [data-close]').getBoundingClientRect();return{wide:document.documentElement.scrollWidth>innerWidth,childWide:${embedded}.document.documentElement.scrollWidth>${embedded}.innerWidth,backVisible:r.top>=0&&r.bottom<=innerHeight,locked:document.documentElement.classList.contains('modal-open')}})()`);
+  assert.deepEqual(hostLayout,{wide:false,childWide:false,backVisible:true,locked:true});
+  await evaluate(`${embedded}.postMessage({version:1,experienceId:'dumpling-house',type:'reset'},location.origin)`);await until("document.querySelector('#experienceStatus').textContent.includes('0 / 6')");
+  for(const [id,count]of [['dough',3],['filling',2],['portion',2],['roll',4],['wrap',3],['cook',4]]){
+    await experienceClick(`[data-step="${id}"]`);for(let i=0;i<count;i++)await experienceClick('#action');
+    if(id==='dough')await until("document.querySelector('#experienceStatus').textContent.includes('1 / 6')");
+  }
+  await until("document.querySelector('#experienceStatus').textContent.includes('六步已体验完成')");
+  await cdp.send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27,nativeVirtualKeyCode:27});await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27,nativeVirtualKeyCode:27});
+  await until(`!${embedded}.document.querySelector('#summary-dialog').open`);assert.equal(await evaluate("document.querySelector('#experienceDialog').open"),true);
+  await evaluate(`${embedded}.scrollTo(0,0)`);await shot('dumpling-embedded-mobile.png',false);await experienceClick('#exit');
+  await until("document.querySelector('#detailDialog').open && !document.querySelector('#dumplingExperience')");
+  assert.match(await evaluate("document.querySelector('#detailContent').textContent"),/王阿姨/);
+  assert.equal(await evaluate("document.querySelector('#interestButton').textContent"),'我想参与');
+  assert.equal(await evaluate("localStorage.getItem('writespace.interest.v1')"),null);
+  await click('#openDumplingExperience');await until("document.querySelector('#experienceStatus').textContent.includes('六步已体验完成')");
+  await evaluate(`${embedded}.document.querySelector('#guide-mode').focus()`);
+  await cdp.send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27,nativeVirtualKeyCode:27});await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27,nativeVirtualKeyCode:27});
+  await until("document.querySelector('#detailDialog').open && !document.querySelector('#dumplingExperience')");
+  await click('#detailDialog [data-close]');assert.equal(await evaluate("document.documentElement.classList.contains('modal-open')"),false);
+  passed('Aunt Wang detail → embedded WebGL six-step flow: mobile, progress restore, validated messages, return/exit/Esc, cleanup and unchanged participation');
+  await cdp.send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
   await evaluate("window.sceneMessages=[];window.addEventListener('message',e=>{if(e.data?.experienceId==='dumpling-house')sceneMessages.push(e.data)});const frame=document.createElement('iframe');frame.id='scene-frame';frame.title='工坊';frame.style='width:900px;height:700px;border:0';frame.sandbox='allow-scripts allow-same-origin allow-pointer-lock';frame.src='/dumpling-house.html?embed=1';document.body.prepend(frame);");
   await until("sceneMessages.some(m=>m.type==='ready')");
   const frame="document.querySelector('#scene-frame').contentWindow";

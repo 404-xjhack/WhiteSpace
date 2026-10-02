@@ -103,6 +103,11 @@ $('drag-tool').addEventListener('pointerup',e=>{
 for(const name of ['pointercancel','lostpointercapture'])$('drag-tool').addEventListener(name,cancelDrag);
 $('drag-tool').addEventListener('click',e=>{if(e.detail===0)act();});
 window.addEventListener('blur',cancelDrag);document.addEventListener('visibilitychange',()=>{if(document.hidden)cancelDrag();});
+window.addEventListener('keydown',event=>{
+  if(embedded&&event.key==='Escape'&&!event.defaultPrevented&&mode!=='walk'&&!document.pointerLockElement&&!document.querySelector('dialog[open]')){
+    event.preventDefault();emit('exit');
+  }
+});
 window.addEventListener('message',event=>{
   if(window.parent===window||event.source!==window.parent||event.origin!==location.origin)return;
   const message=event.data;if(!message||message.version!==1||message.experienceId!==EXPERIENCE_ID)return;
