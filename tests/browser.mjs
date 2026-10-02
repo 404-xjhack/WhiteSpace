@@ -84,8 +84,10 @@ async function assertModal(selector, expectScroll) {
   assert.equal(layout.outerScroll, false, "Modal outer container must not scroll");
   if (expectScroll) assert.equal(layout.innerScroll, true, "Long body can scroll");
   assert.equal(layout.bottom, true); assert.equal(layout.actionsVisible, true); assert.equal(layout.locked, true); assert.equal(layout.wide, false);
-  assert.equal(layout.bar, "6px"); assert.equal(layout.padding, "6px");
-  assert.equal(layout.margin, await evaluate("innerWidth<=420 ? '13px' : '21px'"));
+  const nearEdge = selector === "#createDialog" || selector === "#detailDialog";
+  assert.equal(layout.bar, "6px");
+  assert.equal(layout.padding, nearEdge ? await evaluate("innerWidth<=420 ? '11px' : '19px'") : "6px");
+  assert.equal(layout.margin, nearEdge ? "8px" : await evaluate("innerWidth<=420 ? '13px' : '21px'"));
   assert.equal(layout.thumb, "999px"); assert.equal(layout.track, "rgba(0, 0, 0, 0)");
 }
 

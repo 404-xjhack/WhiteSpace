@@ -64,9 +64,10 @@ html.modal-open,html.modal-open body{overflow:hidden}
   .feed-section:is(:hover,:focus-within),.match-column:is(:hover,:focus-within){--scroll-thumb:#789a85}
   .match-column{position:static}
 }
-/* Match the homepage's 6px content clearance and slim, inset scrollbars in all modals. */
+/* Reuse the homepage's slim scrollbars and keep modal content aligned. */
 .dialog{--dialog-body-inset:27px}
 .dialog-body{margin-right:calc(var(--dialog-body-inset) - 6px);padding-right:6px;--scroll-thumb:#bdcfc3;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) transparent}
+#createDialog .dialog-body,#detailDialog .dialog-body{margin-right:8px;padding-right:calc(var(--dialog-body-inset) - 8px)}
 .dialog-body:is(:hover,:focus-within){--scroll-thumb:#789a85}
 @supports selector(::-webkit-scrollbar){
   .feed-section,.match-column,.dialog-body{scrollbar-width:auto;scrollbar-color:auto}
