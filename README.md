@@ -25,9 +25,16 @@
 2. 在项目目录运行 `npm run dev`。
 3. 打开 `http://localhost:4317`。
 
-AI 请求由 `server.mjs` 代理，密钥不会发到浏览器。默认模型名为 `gpt-4o-mini`，默认接口为 `.env.example` 中的 Chat Completions 兼容网关。没有密钥、超时、网关不可用或返回异常时，界面会明确标记为“本地规则匹配”并说明原因。
+AI 请求由 `server.mjs` 代理，密钥不会发到浏览器。默认使用 TokenDance（词元跳动）的 `deepseek-v4-flash`，接口为 `https://tokendance.space/gateway/v1/chat/completions`，参考[平台快速入门](https://tokendance.space/docs/quickstart)。AI 匹配和“希望获得”提炼共用这份配置。没有密钥、超时、网关不可用或返回异常时，匹配界面会明确标记为“本地规则匹配”并说明原因。
 
-配置必须写入被 Git 忽略的 `.env`，`.env.example` 只保留空密钥示例。`AI_API_URL` 为完整的 Chat Completions 请求地址。当前已验证 DeepSeek：使用 `https://api.deepseek.com/chat/completions` 与 `deepseek-flash`，参考[官方调用文档](https://api-docs.deepseek.com/zh-cn/)。服务对 DeepSeek 使用非思考模式和 JSON 输出，保持短请求的响应速度；更换配置后重启服务。
+配置必须写入被 Git 忽略的 `.env`，`.env.example` 只保留空密钥示例。`AI_API_URL` 为完整的 Chat Completions 请求地址。按[平台文档](https://tokendance.space/docs/quickstart)创建 TokenDance 的 API Key，填入 `.env` 的 `AI_API_KEY`；DeepSeek 官网密钥不能用于这个网关。模型 ID 使用平台[公开模型目录](https://tokendance.space/gateway/v1/models)中的 `deepseek-v4-flash`。更换配置后重启服务。
+
+```dotenv
+AI_API_URL=https://tokendance.space/gateway/v1/chat/completions
+AI_API_KEY=
+AI_MODEL=deepseek-v4-flash
+PORT=4317
+```
 
 “希望获得”提炼使用同一网关，只发送个人分享的类型、标题和详细说明，不发送年龄、身份或地点。只提炼明确写出的诉求，并要求返回可在原文找到的连续片段；没有明确诉求时返回空值。发布前可核对依据、修改或留空，确认后才保存。AI 失败时提示原因，仍可手动填写或留空发布；不将固定文案或本地推测标记为 AI 结果。历史分享可从详情点击“AI 提炼希望获得”，保存后为原发布重新匹配，其他原字段保留。
 
@@ -59,7 +66,7 @@ npm run test:browser
 
 前两项检查源码语法与核心规则／HTTP 接口。浏览器检查需要 Node.js 22+ 及已安装的 Chrome、Edge 或 Chromium，可通过 `BROWSER_PATH` 指定浏览器可执行文件。测试使用独立浏览器资料与临时端口，覆盖发布、撤销参与、刷新恢复、请求串用、网络回退及 1280/375/320 像素布局，不触碰个人浏览器资料；截图保存在 Git 忽略的 `.tmp/`。当前通过 29 项规则／接口测试与 19 组浏览器流程，包含完整的“修旧椅子 + test + 周日 09:00–11:00”、旧空缓存更新、时间冲突说明、社区列表加载失败时显示接口人选，以及展开更多候选。另覆盖原发布的周六 2026-10-10 与陈师傅周日安排冲突，调整为 2026-10-11 后显示推荐；非法或取消的修改不影响原记录。AI 提炼覆盖原文依据、无明确诉求、修改确认、历史发布、刷新恢复、旧文案清理、超时和断网回退，以及晚返回的 AI 结果不覆盖手动文本。
 
-本轮 B01–B07、U01–U09 的实现及验证记录见 `problems1.md` 末尾。AI 成功、异常和超时使用本地模拟网关测试；现已使用用户授权的真实 DeepSeek 网关验证两组诉求提炼，以及修椅子 + test + 周日的 AI 匹配。更广泛的推荐质量仍需结合实际内容评估。
+本轮 B01–B07、U01–U09 的实现及验证记录见 `problems1.md` 末尾。AI 成功、异常和超时使用本地模拟网关测试；当前已使用用户授权的真实 TokenDance 网关及 `deepseek-v4-flash` 验证两组诉求提炼，以及修椅子 + test + 周日的 AI 匹配。更广泛的推荐质量仍需结合实际内容评估。
 
 ## 已知限制
 

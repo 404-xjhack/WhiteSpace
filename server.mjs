@@ -22,7 +22,7 @@ if (existsSync(path.join(root, ".env"))) {
 const PORT = Number(process.env.PORT || 4317);
 const API_URL = process.env.AI_API_URL || "https://tokendance.space/gateway/v1/chat/completions";
 const API_KEY = process.env.AI_API_KEY || "";
-const MODEL = process.env.AI_MODEL || "gpt-4o-mini";
+const MODEL = process.env.AI_MODEL || "deepseek-v4-flash";
 const AI_TIMEOUT = Math.min(18000, Math.max(100, Number(process.env.AI_TIMEOUT_MS) || 18000));
 const candidates = JSON.parse(await readFile(path.join(publicDir, "data.json"), "utf8"));
 const mime = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".json": "application/json; charset=utf-8", ".svg": "image/svg+xml" };

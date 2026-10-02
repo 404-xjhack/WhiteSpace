@@ -240,3 +240,11 @@
 真实 DeepSeek 已验证：说明“我能教手机拍照和基础修图。希望听邻居分享照片背后的社区故事。”提炼为对应的听故事诉求并附原文依据；只写摄影技能时返回空值。原“修旧椅子 + test + 每周日 09:00–11:00”接口返回 AI 来源，陈师傅为首项。更广泛的语义质量仍需结合实际内容评估。
 
 用户已在原浏览器确认：自己的历史“我能帮忙”发布点击“AI 提炼希望获得”后，成功提炼出符合详细说明的诉求。真实接口与原浏览器流程完成验证。
+
+## 九、切换到 TokenDance 的 DeepSeek V4 Flash（2026-10-02）
+
+按用户要求删除 `.env` 中原来的 DeepSeek 官网密钥并停止旧服务，切换到[TokenDance 平台](https://tokendance.space/docs/quickstart)。已查阅平台的 Chat Completions 文档及[实时模型目录](https://tokendance.space/gateway/v1/models)，确认 `deepseek-v4-flash` 支持现有协议。服务默认值、`.env.example` 和本地 `.env` 的模型一致，完整请求地址为 `https://tokendance.space/gateway/v1/chat/completions`。用户重新在本地配置 TokenDance 密钥，未输出新密钥，未提交 `.env`。
+
+保持现有服务代理及失败回退，不新增依赖。AI 匹配和诉求提炼共用新的平台配置；原直连 DeepSeek 的参数兼容分支保留，不用于当前 TokenDance 请求。
+
+验证：源码检查、29 项规则／接口测试与 19 组浏览器流程全部通过。真实 TokenDance 三组请求均成功返回 `source: "ai"`：摄影说明中明确的听社区故事诉求提炼正确且附原文依据；只有摄影技能时返回空诉求；“修旧椅子 + test + 每周日 09:00–11:00”返回陈师傅，评分 95，并说明木工能力、时间地点与需求对应。当前本地服务已使用新配置重启，端口仍为 4317。
