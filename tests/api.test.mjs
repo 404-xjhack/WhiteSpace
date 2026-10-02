@@ -4,6 +4,7 @@ import http from "node:http";
 import { startServer } from "./helpers.mjs";
 import { validateDraft, matchPost, matchFingerprint, MATCH_VERSION, needExtractionKey } from "../public/model.js";
 import { readFile } from "node:fs/promises";
+import { DEFAULT_CRITERIA, criteriaKey, filterExperiences, validRecommendationData } from "../public/experience-planner.js";
 
 const post = validateDraft({ type: "need", title: "修椅", description: "帮修", timeMode: "weekly", weekday: "0", start: "09:00", end: "11:00", location: "社区共享工坊", participantMode: "negotiable" }, ["旧物新生", "手作"]).data;
 const match = { id: "p3", score: 90, reason: "陈师傅提供木工指导，可以一起修椅子。", first_step: "先确认椅子损坏情况，再商量见面。" };
@@ -107,4 +108,74 @@ test("Need AI gateway errors and timeout do not invent fallback expectations", a
   const failed = await (await extractRequest(upstream)).json(); assert.equal(failed.source, "unavailable"); assert.equal(failed.fallbackReason, "upstream");
   const timeout = await withAI(t, () => {}, "150");
   const delayed = await (await extractRequest(timeout)).json(); assert.equal(delayed.fallbackReason, "timeout"); assert.equal(delayed.need, undefined);
+});
+
+async function recommendRequest(url, criteria = DEFAULT_CRITERIA) {
+  return fetch(`${url}/api/recommend-experiences`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ criteria }) });
+}
+function replyExperiences(res, recommendations) {
+  res.setHeader("content-type", "application/json"); res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ recommendations }) } }] }));
+}
+const experience = { id: "three-lines", reason: "十五分钟内可以写下自己的感受。", steps: ["回想今天一个瞬间。", "用纸笔或手机写三句话。", "读一遍，保留自己的表达。"] };
+
+test("Today API: no key gives browser-compatible fallback; invalid conditions fail gracefully", async (t) => {
+  const app = await startServer(); t.after(() => app.close());
+  const data = await (await recommendRequest(app.url)).json();
+  assert.equal(data.source, "local"); assert.equal(data.fallbackReason, "unconfigured");
+  assert.ok(validRecommendationData(data, DEFAULT_CRITERIA)); assert.equal(data.recommendations.length, 3);
+  assert.equal((await fetch(`${app.url}/experience-planner.js`)).status, 200);
+  for (const criteria of [null, {}, { ...DEFAULT_CRITERIA, minutes: 45 }, { ...DEFAULT_CRITERIA, participants: 0 },
+    { ...DEFAULT_CRITERIA, participants: 51 }, { ...DEFAULT_CRITERIA, notes: "文".repeat(161) }, { ...DEFAULT_CRITERIA, materials: ["unknown"] }]) {
+    const response = await recommendRequest(app.url, criteria); assert.equal(response.status, 400); assert.ok((await response.json()).error);
+  }
+});
+
+test("Today AI: receives only eligible templates, handles notes as data and retains canonical facts", async (t) => {
+  let forwarded;
+  const url = await withAI(t, async (req, res) => {
+    let body = ""; for await (const chunk of req) body += chunk;
+    forwarded = JSON.parse(JSON.parse(body).messages[1].content);
+    replyExperiences(res, [{ ...experience, minutes: 200, title: "invented", status: "ready" }]);
+  });
+  const criteria = { ...DEFAULT_CRITERIA, participants: 2, theme: "学习交流", noPurchase: true, materials: ["phone"], notes: "想安静记录" };
+  const data = await (await recommendRequest(url, criteria)).json();
+  assert.equal(data.source, "ai"); assert.equal(data.inputKey, criteriaKey(criteria));
+  assert.deepEqual(forwarded.templates.map((item) => item.id), filterExperiences(criteria).map((item) => item.id));
+  assert.equal(forwarded.criteria.notes, criteria.notes);
+  assert.equal(data.recommendations[0].title, "亲手写下三句话"); assert.equal(data.recommendations[0].minutes, 15);
+  assert.equal(data.recommendations[0].status, "coordinate"); assert.match(data.recommendations[0].firstStep, /确认/);
+  assert.ok(validRecommendationData(data, criteria));
+});
+
+test("Today API: empty filtered pool skips AI and never relaxes conditions", async (t) => {
+  let called = false;
+  const url = await withAI(t, (_req, res) => { called = true; replyExperiences(res, [experience]); });
+  const criteria = { ...DEFAULT_CRITERIA, theme: "亲子共学", participants: 1 };
+  const data = await (await recommendRequest(url, criteria)).json();
+  assert.equal(called, false); assert.equal(data.source, "local"); assert.equal(data.fallbackReason, "no_candidates");
+  assert.deepEqual(data.recommendations, []); assert.ok(data.emptyReason);
+});
+
+test("Today AI: invalid JSON, duplicate/unknown/filtered ids, empty results and invalid steps fall back", async (t) => {
+  let reply = [experience];
+  const url = await withAI(t, (_req, res) => {
+    if (reply === null) { res.end('{"choices":[{"message":{"content":"bad json"}}]}'); return; }
+    replyExperiences(res, reply);
+  });
+  const criteria = { ...DEFAULT_CRITERIA, theme: "学习交流" };
+  for (reply of [null, [], [experience, experience], [{ ...experience, id: "invented" }], [{ ...experience, id: "notice" }],
+    [{ ...experience, reason: " " }], [{ ...experience, steps: ["只有一步"] }], [{ ...experience, steps: ["文".repeat(121), "二", "三"] }]]) {
+    const data = await (await recommendRequest(url, criteria)).json();
+    assert.equal(data.source, "local"); assert.equal(data.fallbackReason, "invalid_response");
+    assert.equal(data.recommendations[0].id, "three-lines"); assert.ok(validRecommendationData(data, criteria));
+  }
+});
+
+test("Today AI: timeout and gateway failure return usable local recommendations", async (t) => {
+  const upstream = await withAI(t, (_req, res) => { res.writeHead(503); res.end(); });
+  assert.equal((await (await recommendRequest(upstream)).json()).fallbackReason, "upstream");
+  const timeout = await withAI(t, () => {}, "150");
+  const data = await (await recommendRequest(timeout)).json();
+  assert.equal(data.source, "local"); assert.equal(data.fallbackReason, "timeout");
+  assert.equal(data.recommendations.length, 3); assert.ok(validRecommendationData(data, DEFAULT_CRITERIA));
 });

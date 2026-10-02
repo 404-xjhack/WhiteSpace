@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "node server.mjs",
     "start": "node server.mjs",
-    "check": "node --check server.mjs && node --check public/app.js && node --check public/model.js && node --check public/experiences/dumpling/main.js && node --check public/experiences/dumpling/renderer.js && node --check public/experiences/dumpling/models.js && node --check public/experiences/dumpling/state.js && node --check public/experiences/dumpling/data.js",
-    "test": "node --test tests/model.test.mjs tests/api.test.mjs tests/dumpling.test.mjs",
+    "check": "node --check server.mjs && node --check public/app.js && node --check public/model.js && node --check public/experience-planner.js && node --check public/experiences/dumpling/main.js && node --check public/experiences/dumpling/renderer.js && node --check public/experiences/dumpling/models.js && node --check public/experiences/dumpling/state.js && node --check public/experiences/dumpling/data.js",
+    "test": "node --test tests/model.test.mjs tests/api.test.mjs tests/dumpling.test.mjs tests/experience-planner.test.mjs",
     "test:browser": "node tests/browser.mjs",
     "test:scene": "node tests/dumpling-browser.mjs"
   },

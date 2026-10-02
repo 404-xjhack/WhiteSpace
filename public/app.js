@@ -1,4 +1,5 @@
 import { cleanCategory, postTags, validateDraft, validateSchedule, normalizeSchedule, formatSchedule, displayTime, formatPublished, matchPost, matchFingerprint, MATCH_VERSION, LEGACY_OFFER_NEED, needExtractionInput, needExtractionKey, validExtractedNeed, hasAINeed } from "./model.js";
+import { MATERIALS, DEFAULT_CRITERIA, normalizeCriteria, criteriaKey, localRecommendations, validRecommendationData, restoreTodayState, experienceDraft } from "./experience-planner.js";
 
 const $ = (selector) => document.querySelector(selector);
 const postList = $("#postList");
@@ -11,6 +12,9 @@ const scheduleForm = $("#scheduleForm");
 const needDialog = $("#needDialog");
 const needForm = $("#needForm");
 const toast = $("#toast");
+const todayDialog = $("#todayDialog");
+const todayForm = $("#todayForm");
+const storageToday = "writespace.today.v1";
 const storagePosts = "writespace.posts.v1";
 const storageInterest = "writespace.interest.v1";
 const storageProfile = "writespace.profile.v1";
@@ -52,6 +56,9 @@ let needVersion = 0;
 let formAttempted = false;
 let categoryError = "";
 let toastTimer;
+let todayState = restoreTodayState(readSaved(storageToday, {}));
+let todayController = null;
+let todayVersion = 0;
 
 function save(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch { showToast("浏览器暂时无法保存，当前页面仍可继续体验。"); }
@@ -103,10 +110,122 @@ function setFilter(next) {
   });
   renderPosts();
 }
-function syncDialogLock() { document.documentElement.classList.toggle("modal-open", createDialog.open || detailDialog.open || scheduleDialog.open || needDialog.open || experienceDialog.open); }
+function syncDialogLock() { document.documentElement.classList.toggle("modal-open", createDialog.open || detailDialog.open || scheduleDialog.open || needDialog.open || experienceDialog.open || todayDialog.open); }
 function openDialog(dialog) { if (!dialog.open) dialog.showModal(); syncDialogLock(); }
 function closeDialog(dialog) { dialog.close(); syncDialogLock(); }
-for (const dialog of [createDialog, detailDialog, scheduleDialog, needDialog, experienceDialog]) dialog.addEventListener("close", syncDialogLock);
+for (const dialog of [createDialog, detailDialog, scheduleDialog, needDialog, experienceDialog, todayDialog]) dialog.addEventListener("close", syncDialogLock);
+
+const todayFallbackMessages = {
+  unconfigured: "AI 尚未配置，按你的条件推荐本地体验模板。", timeout: "AI 响应超时，已切换本地体验模板。",
+  upstream: "AI 服务暂不可用，已切换本地体验模板。", invalid_response: "推荐返回内容无效，已切换本地体验模板。",
+  network: "未连接到推荐服务，使用浏览器中的本地体验模板。", no_candidates: "已按全部条件筛选，没有合适的模板。"
+};
+$("#todayMaterials").innerHTML = MATERIALS.map((material) => `<label><input type="checkbox" name="materials" value="${material.id}" />${escapeHtml(material.label)}</label>`).join("");
+function fillTodayConditions() {
+  const criteria = todayState.criteria;
+  $("#todayMinutes").value = String(criteria.minutes); $("#todayParticipants").value = String(criteria.participants);
+  $("#todayTheme").value = criteria.theme; $("#todayNotes").value = criteria.notes;
+  for (const key of ["indoorsOnly", "noPurchase", "lightOnly"]) todayForm.elements[key].checked = criteria[key];
+  todayForm.querySelectorAll('[name="materials"]').forEach((input) => { input.checked = criteria.materials.includes(input.value); });
+  $("#todayError").hidden = true;
+  todayForm.querySelectorAll("[aria-invalid]").forEach((element) => element.removeAttribute("aria-invalid"));
+}
+function readTodayConditions() {
+  return normalizeCriteria({ minutes: Number($("#todayMinutes").value), participants: Number($("#todayParticipants").value),
+    theme: $("#todayTheme").value, notes: $("#todayNotes").value,
+    materials: [...todayForm.querySelectorAll('[name="materials"]:checked')].map((input) => input.value),
+    ...Object.fromEntries(["indoorsOnly", "noPurchase", "lightOnly"].map((key) => [key, todayForm.elements[key].checked])) });
+}
+function cancelToday() {
+  todayVersion++; todayController?.abort(); todayController = null;
+  $("#recommendToday").disabled = false;
+  $("#recommendToday").textContent = todayState.result ? "重新推荐" : "给我一些建议";
+}
+function renderToday() {
+  const result = todayState.result;
+  $("#todayResults").hidden = !result;
+  $("#recommendToday").textContent = result ? "重新推荐" : "给我一些建议";
+  if (!result) { $("#todayList").replaceChildren(); $("#todayStatus").textContent = "选好条件后，点击“给我一些建议”。"; return; }
+  const criteria = todayState.criteria;
+  $("#todayStatus").textContent = result.recommendations.length ? `找到 ${result.recommendations.length} 个可以尝试的体验。` : "暂时没有符合条件的体验。";
+  $("#todaySource").textContent = result.source === "ai" ? "AI 调整推荐" : "本地模板推荐";
+  $("#todaySource").classList.toggle("local", result.source === "local");
+  $("#todaySourceDetail").textContent = `${result.source === "ai" ? "根据合格模板调整步骤；准备事项、伙伴和场地仍需自行确认。" : todayFallbackMessages[result.fallbackReason] || "按你的条件筛选本地模板。"} · 生成于 ${new Date(result.generatedAt).toLocaleString("zh-CN")}`;
+  $("#todayConditions").textContent = `${criteria.minutes} 分钟内 · ${criteria.participants} 人（含自己） · ${criteria.theme === "all" ? "不限主题" : criteria.theme}${criteria.indoorsOnly ? " · 不出门" : ""}${criteria.noPurchase ? " · 不添购材料" : ""}${criteria.lightOnly ? " · 轻量活动" : ""}`;
+  $("#todayNotesWarning").hidden = !criteria.notes;
+  $("#todayNotesWarning").textContent = `你的补充：${criteria.notes}\n${result.source === "local" ? "本地模板未自动核对这些文字条件，开始前请自行确认。" : "AI 已参考补充内容，开始前仍请核对是否符合你的实际情况。"}`;
+  $("#todayList").innerHTML = result.recommendations.length ? result.recommendations.map((item) => `<article class="today-card" data-experience-id="${escapeHtml(item.id)}">
+    <div class="today-meta"><span>${item.minutes} 分钟</span><span>${item.participants} 人（含自己）</span><span class="${item.status === "ready" ? "today-ready" : ""}">${item.status === "ready" ? "可立即开始" : "需要协商"}</span></div>
+    <h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.reason)}</p>
+    <p><strong>所需材料：</strong>${escapeHtml(item.materials)}</p><ul>${item.preparations.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul>
+    <p class="today-first-step"><strong>第一步</strong>${escapeHtml(item.firstStep)}</p>
+    <details><summary>查看步骤</summary><ol>${item.steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}</ol></details>
+    <div class="today-card-actions"><button class="primary-button" type="button" data-today-create="${escapeHtml(item.id)}">找人一起</button>${item.relatedPostIds.map((id) => `<button class="ghost-button" type="button" data-today-post="${escapeHtml(id)}">查看相关发布 →</button>`).join("")}</div>
+    </article>`).join("") : `<p class="today-empty">${escapeHtml(result.emptyReason)}</p>`;
+}
+function openToday() {
+  cancelToday(); todayState = restoreTodayState(todayState); fillTodayConditions(); renderToday(); openDialog(todayDialog); $("#todayMinutes").focus();
+}
+function todayConditionsChanged() {
+  const criteria = readTodayConditions();
+  $("#todayError").hidden = true;
+  todayForm.querySelectorAll("[aria-invalid]").forEach((element) => element.removeAttribute("aria-invalid"));
+  if (criteria && criteriaKey(criteria) === criteriaKey(todayState.criteria)) return;
+  cancelToday(); todayState = { criteria: criteria || todayState.criteria, result: null }; save(storageToday, todayState); renderToday();
+}
+async function recommendToday(event) {
+  event.preventDefault(); const criteria = readTodayConditions();
+  if (!criteria) {
+    const invalidCount = !/^\d+$/.test($("#todayParticipants").value) || Number($("#todayParticipants").value) < 1 || Number($("#todayParticipants").value) > 50;
+    $("#todayError").hidden = false; $("#todayError").textContent = invalidCount ? "预计总人数须为 1–50 的整数，包含自己。" : "请检查时间、主题及补充内容（最多160字）。";
+    const field = invalidCount ? $("#todayParticipants") : $("#todayNotes"); field.setAttribute("aria-invalid", "true"); field.focus(); return;
+  }
+  cancelToday(); const version = todayVersion; const controller = new AbortController(); todayController = controller;
+  const timer = setTimeout(() => controller.abort(), 22000);
+  todayState = { criteria, result: null }; save(storageToday, todayState);
+  $("#todayError").hidden = true; $("#todayResults").hidden = true;
+  $("#todayStatus").textContent = "正在筛选合适的体验，并整理可以开始的步骤…";
+  $("#recommendToday").disabled = true; $("#recommendToday").textContent = "正在推荐…";
+  let result;
+  try {
+    const response = await fetch("/api/recommend-experiences", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ criteria }), signal: controller.signal });
+    if (!response.ok) throw new Error("network"); result = await response.json();
+    if (!validRecommendationData(result, criteria)) throw new Error("invalid_response");
+  } catch (error) {
+    if (version !== todayVersion) return;
+    result = localRecommendations(criteria, error.name === "AbortError" ? "timeout" : error.message === "invalid_response" ? "invalid_response" : "network");
+  } finally {
+    clearTimeout(timer);
+    if (todayController === controller) { todayController = null; $("#recommendToday").disabled = false; }
+  }
+  if (version !== todayVersion) return;
+  todayState = { criteria, result }; save(storageToday, todayState); renderToday();
+  $("#todayResults").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+$("#openToday").addEventListener("click", openToday);
+todayForm.addEventListener("input", todayConditionsChanged);
+todayForm.addEventListener("change", todayConditionsChanged);
+todayForm.addEventListener("submit", recommendToday);
+todayDialog.addEventListener("close", () => { cancelToday(); renderToday(); });
+$("#todayList").addEventListener("click", (event) => {
+  const related = event.target.closest("[data-today-post]");
+  if (related) {
+    const post = allPosts().find((candidate) => candidate.id === related.dataset.todayPost);
+    if (!post) { showToast("相关演示发布暂未载入，请刷新后重试。"); return; }
+    closeDialog(todayDialog); showDetail(post); return;
+  }
+  const button = event.target.closest("[data-today-create]");
+  const item = button && todayState.result?.recommendations.find((candidate) => candidate.id === button.dataset.todayCreate);
+  if (!item) return;
+  const draft = experienceDraft(item, todayState.criteria);
+  closeDialog(todayDialog); openCreate();
+  $("#postTitle").value = draft.title; $("#postDescription").value = draft.description;
+  selectedCategories = draft.categories; $("#participantMode").value = "exact"; $("#participantCount").value = String(draft.participants);
+  renderCategories(); syncType(); updateErrors();
+  $("#experienceDraftHint").hidden = false;
+  $("#experienceDraftHint").textContent = `${todayState.criteria.participants === 1 ? "找一位伙伴一起试试：已设为含你在内 2 人，可调整。" : "已带入体验内容、主题与人数，可继续修改。"} 请补充活动时间和地点后发布。完整步骤保留在“今天想怎样度过？”中。`;
+  $("#postTitle").focus();
+});
 
 function openDumplingExperience() {
   if (currentDetail?.id !== "p1" || experienceDialog.open) return;
@@ -353,6 +472,7 @@ function fillExample(example) {
 }
 function openCreate() {
   createForm.reset(); selectedCategories = []; categoryError = ""; formAttempted = false;
+  $("#experienceDraftHint").hidden = true;
   $(".form-examples").open = false;
   $("#profileRole").value = typeof profile.role === "string" ? profile.role : ""; $("#profileAge").value = Number.isInteger(profile.age) ? profile.age : "";
   $("#agePublic").checked = profile.agePublic === true; $("#profileSummary").textContent = profile.role || "社区成员"; $("#profileSection").open = false;
@@ -478,6 +598,7 @@ $("#editMatchTime").addEventListener("click", () => { if (matchingPost) openSche
 $("#detailTimeButton").addEventListener("click", () => { if (currentDetail && isMine(currentDetail)) { const post = currentDetail; closeDialog(detailDialog); openSchedule(post); } });
 $("#detailNeedButton").addEventListener("click", () => { if (currentDetail && isMine(currentDetail) && currentDetail.type === "offer") { const post = currentDetail; closeDialog(detailDialog); openNeedEditor({ kind: "edit", post }); } });
 $("#resetDemo").addEventListener("click", () => {
+  cancelToday(); todayState = { criteria: { ...DEFAULT_CRITERIA, materials: [] }, result: null }; save(storageToday, todayState); fillTodayConditions(); renderToday();
   cancelMatch(); myPosts = []; interestedIds = new Set(); matchingPost = null; currentDetail = null; profile = {}; matchState = { byPost: {} };
   displayedMatchData = null; displayedMatches = []; matchesExpanded = false;
   for (const [key, value] of [[storagePosts, []], [storageInterest, []], [storageProfile, {}], [storageMatches, matchState]]) save(key, value);

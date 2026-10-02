@@ -39,6 +39,7 @@
           <h1 id="pageTitle">当机器能做一切，你想亲手做什么？</h1>
           <p>在自动化成为日常的未来，探索想做的事，体验人类曾经的手艺与生活，让自由时间有值得期待的内容。</p>
         </div>
+        <button class="secondary-button today-entry" id="openToday" type="button">今天想怎样度过？<span aria-hidden="true">→</span></button>
       </section>
 
       <div class="main-grid">
@@ -65,10 +66,38 @@
       </div>
     </main>
 
+    <dialog id="todayDialog" class="dialog today-dialog" aria-labelledby="todayTitle">
+      <form id="todayForm" novalidate>
+        <div class="dialog-header"><div><h2 id="todayTitle">今天想怎样度过？</h2><p>做三个选择，找一件现在愿意尝试的事。</p></div><button class="icon-button" type="button" data-close="todayDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div>
+        <div class="dialog-body">
+          <div class="today-choices">
+            <label class="form-field">可用时间<select id="todayMinutes" name="minutes"><option value="15">15 分钟</option><option value="30" selected>30 分钟</option><option value="60">60 分钟</option></select></label>
+            <label class="form-field">预计总人数 <span>含自己，1–50 人</span><input id="todayParticipants" name="participants" type="number" min="1" max="50" step="1" value="1" /></label>
+            <label class="form-field">体验倾向<select id="todayTheme" name="theme"><option value="all">不限主题</option><option>社区生活</option><option>生活手艺</option><option>亲子共学</option><option>旧物新生</option><option>学习交流</option><option>数码互助</option></select></label>
+          </div>
+          <details class="today-options"><summary>材料与其他限制 <span>选填</span></summary>
+            <fieldset class="today-materials"><legend>手边可用的材料</legend><div id="todayMaterials" class="today-checkboxes"></div></fieldset>
+            <fieldset class="today-materials"><legend>这次想怎样体验</legend><div class="today-checkboxes"><label><input name="indoorsOnly" type="checkbox" />不出门</label><label><input name="noPurchase" type="checkbox" />不添购材料</label><label><input name="lightOnly" type="checkbox" />轻量活动</label></div><p class="form-hint">不添购材料时，按上方已有材料筛选；不勾选材料也可找到无需材料的体验。</p></fieldset>
+            <label class="form-field">其他补充 <span>最多 160 字</span><textarea id="todayNotes" name="notes" rows="3" maxlength="160" placeholder="例如：想安静一点、喜欢听故事，或其他需要留意的条件…"></textarea></label>
+            <p class="form-hint">AI 会参考补充内容调整步骤；使用本地模板时，请自行核对这些文字条件。</p>
+          </details>
+          <p id="todayError" class="form-error" role="alert" hidden></p>
+          <p id="todayStatus" class="today-status" role="status" aria-live="polite">先选好条件，再看看今天可以尝试什么。</p>
+          <section id="todayResults" class="today-results" aria-label="推荐体验" aria-live="polite" hidden>
+            <div class="today-source"><span id="todaySource"></span><small id="todaySourceDetail"></small></div>
+            <p id="todayConditions" class="form-hint"></p><p id="todayNotesWarning" class="today-notes" hidden></p>
+            <div id="todayList" class="today-list"></div>
+          </section>
+        </div>
+        <div class="dialog-actions"><button class="ghost-button" type="button" data-close="todayDialog">返回首页</button><button class="primary-button" id="recommendToday" type="submit">给我一些建议</button></div>
+      </form>
+    </dialog>
+
     <dialog id="createDialog" class="dialog create-dialog" aria-labelledby="createTitle">
       <form id="createForm" novalidate>
         <div class="dialog-header"><div><h2 id="createTitle">发布想法</h2><p id="createSubtitle">说说想亲手体验的事，以及希望谁一起参与。</p></div><button class="icon-button" type="button" data-close="createDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div>
         <div class="dialog-body">
+          <p id="experienceDraftHint" class="experience-draft-hint" hidden></p>
           <fieldset class="type-selector"><legend>你想怎样参与</legend><label><input type="radio" name="type" value="need" checked /><span>发起一次体验</span></label><label><input type="radio" name="type" value="offer" /><span>分享我的经验</span></label></fieldset>
           <details class="form-examples"><summary>不知道怎么写？填写一个未来生活示例</summary><button class="example-button" data-example="food" type="button">体验过去的一顿饭 ↗</button><button class="example-button" data-example="repair" type="button">亲手修复旧椅子 ↗</button><button class="example-button" data-example="photo" type="button">记录自动化街区 ↗</button></details>
           <label class="form-field"><b id="titleLabel">标题</b> <span id="titleHint">一句话说明想体验的事</span><input id="postTitle" name="title" maxlength="48" placeholder="例如：想亲手修好一把旧椅子，体验过去的木工" required /></label>
