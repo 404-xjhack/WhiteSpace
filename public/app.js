@@ -4,6 +4,7 @@ const $ = (selector) => document.querySelector(selector);
 const postList = $("#postList");
 const createDialog = $("#createDialog");
 const detailDialog = $("#detailDialog");
+const experienceDialog = $("#experienceDialog");
 const createForm = $("#createForm");
 const scheduleDialog = $("#scheduleDialog");
 const scheduleForm = $("#scheduleForm");
@@ -33,6 +34,9 @@ let seedPosts = [];
 let selectedCategories = [];
 let filter = "all";
 let currentDetail = null;
+let experiencePost = null;
+let experienceFrame = null;
+const dumplingStepIds = ["dough", "filling", "portion", "roll", "wrap", "cook"];
 let matchingPost = null;
 let matchController = null;
 let matchVersion = 0;
@@ -99,10 +103,46 @@ function setFilter(next) {
   });
   renderPosts();
 }
-function syncDialogLock() { document.documentElement.classList.toggle("modal-open", createDialog.open || detailDialog.open || scheduleDialog.open || needDialog.open); }
+function syncDialogLock() { document.documentElement.classList.toggle("modal-open", createDialog.open || detailDialog.open || scheduleDialog.open || needDialog.open || experienceDialog.open); }
 function openDialog(dialog) { if (!dialog.open) dialog.showModal(); syncDialogLock(); }
 function closeDialog(dialog) { dialog.close(); syncDialogLock(); }
-for (const dialog of [createDialog, detailDialog, scheduleDialog, needDialog]) dialog.addEventListener("close", syncDialogLock);
+for (const dialog of [createDialog, detailDialog, scheduleDialog, needDialog, experienceDialog]) dialog.addEventListener("close", syncDialogLock);
+
+function openDumplingExperience() {
+  if (currentDetail?.id !== "p1" || experienceDialog.open) return;
+  experiencePost = currentDetail;
+  closeDialog(detailDialog);
+  $("#experienceStatus").textContent = "正在打开工坊…";
+  experienceFrame = document.createElement("iframe");
+  experienceFrame.id = "dumplingExperience";
+  experienceFrame.title = "传统手工饺子制作体验";
+  experienceFrame.sandbox = "allow-scripts allow-same-origin allow-pointer-lock";
+  experienceFrame.src = "/dumpling-house.html?embed=1";
+  $("#experienceContainer").replaceChildren(experienceFrame);
+  openDialog(experienceDialog);
+}
+
+experienceDialog.addEventListener("close", () => {
+  // Unmount the scene so a closed experience stops drawing and using GPU resources.
+  experienceFrame?.remove(); experienceFrame = null;
+  const post = experiencePost; experiencePost = null;
+  if (post) { showDetail(post); $("#openDumplingExperience")?.focus(); }
+});
+$("#detailContent").addEventListener("click", (event) => {
+  if (event.target.closest("#openDumplingExperience")) openDumplingExperience();
+});
+window.addEventListener("message", (event) => {
+  if (!experienceDialog.open || !experienceFrame || event.source !== experienceFrame.contentWindow || event.origin !== location.origin) return;
+  const message = event.data;
+  if (message?.version !== 1 || message.experienceId !== "dumpling-house") return;
+  if (message.type === "exit") { closeDialog(experienceDialog); return; }
+  if (!["ready", "progress", "complete"].includes(message.type)) return;
+  const data = message.data;
+  if (!data || !dumplingStepIds.includes(data.currentStepId) || !Array.isArray(data.completedStepIds)
+    || data.completedStepIds.some((id) => !dumplingStepIds.includes(id))) return;
+  const count = new Set(data.completedStepIds).size;
+  $("#experienceStatus").textContent = count === 6 ? "六步已体验完成 · 可继续重演与查看工艺回顾" : `已动手体验 ${count} / 6 步 · 可随时返回详情`;
+});
 
 const needFallbackMessages = {
   unconfigured: "AI 尚未配置，可自行补充或留空，留空将显示“未说明”。",
@@ -323,7 +363,9 @@ function showDetail(post) {
   $("#detailContent").innerHTML = `<div class="detail-person">${avatar(post)}<div><strong>${escapeHtml(post.name || "我")}</strong><small>${escapeHtml(personLine(post))} · <span data-published-id="${escapeHtml(post.id)}">${escapeHtml(formatPublished(post))}</span></small></div></div>
     <p class="detail-description">${escapeHtml(post.description)}</p><div class="post-tags">${tagHtml(post)}</div>
     <div class="detail-grid"><div><span>${post.type === "offer" ? "可以分享" : "可以带来"}</span><strong>${escapeHtml(post.offer || "愿意一起参与")}</strong></div><div><span>希望获得${hasAINeed(post) ? '<small class="need-source">AI 提炼</small>' : ""}</span><strong>${escapeHtml(post.need || "未说明")}</strong></div></div>
-    <div class="detail-info"><span>${icon("place")}${escapeHtml(post.location || "地点待确认")}</span><span>${icon("time")}${escapeHtml(displayTime(post))}</span><span>参与人数：${escapeHtml(post.participants || "协商决定")}</span></div><p class="detail-footnote">未来生活演示 · 参与意向仅保存在当前浏览器，不会发送给真实用户。</p>`;
+    <div class="detail-info"><span>${icon("place")}${escapeHtml(post.location || "地点待确认")}</span><span>${icon("time")}${escapeHtml(displayTime(post))}</span><span>参与人数：${escapeHtml(post.participants || "协商决定")}</span></div>
+    ${post.id === "p1" ? `<section class="detail-experience" aria-labelledby="dumplingEntryTitle"><span class="detail-label">先动手试一试</span><h3 id="dumplingEntryTitle">从一碗面粉，到一盘饺子</h3><p>跟着六道工序，认识工具，试着擀皮、放馅与捏合，了解每一步该观察和调整什么。</p><div class="experience-entry-actions"><button id="openDumplingExperience" class="primary-button" type="button">进入饺子工坊 →</button><a href="/dumpling-house.html" target="_blank" rel="noopener">独立打开</a></div></section>` : ""}
+    <p class="detail-footnote">未来生活演示 · 参与意向仅保存在当前浏览器，不会发送给真实用户。</p>`;
   const mine = isMine(post); $("#interestButton").hidden = mine; $("#interestButton").disabled = false;
   $("#interestButton").textContent = interestedIds.has(post.id) ? "取消参与意向" : "我想参与";
   $("#detailMatchButton").hidden = !mine; $("#detailMatchButton").textContent = cachedMatch(post) ? "查看上次匹配" : "寻找匹配";
