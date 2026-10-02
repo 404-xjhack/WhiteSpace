@@ -539,7 +539,7 @@ function deletePost() {
   }
   currentDetail = null; closeDialog(deleteDialog); closeDialog(detailDialog); renderPosts();
   (postList.querySelector("[data-post-id]") || $(".filter-chip.is-active")).focus({ preventScroll: true });
-  showToast(matchesSaved && interestSaved ? "发布已删除。" : "发布已删除，部分关联记录暂时无法保存。");
+  showToast(matchesSaved && interestSaved ? "发布已删除" : "发布已删除，部分关联记录暂时无法保存。");
 }
 deleteDialog.addEventListener("close", () => { deletePostId = null; });
 const fallbackMessages = {
