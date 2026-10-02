@@ -80,10 +80,13 @@ async function readyMatch(title) { await until(`!document.querySelector('#matchR
 function passed(label) { checks.push(label); console.log(`PASS ${label}`); }
 
 async function assertModal(selector, expectScroll) {
-  const layout = await evaluate(`(() => { const dialog = document.querySelector(${JSON.stringify(selector)}); const body = dialog.querySelector('.dialog-body'); const actions = dialog.querySelector('.dialog-actions').getBoundingClientRect(); body.scrollTop = body.scrollHeight; return {outerScroll:dialog.scrollHeight > dialog.clientHeight+2, innerScroll:body.scrollHeight > body.clientHeight+2, bottom:body.scrollTop+body.clientHeight >= body.scrollHeight-2, actionsVisible:actions.top >= 0 && actions.bottom <= innerHeight+1, locked:getComputedStyle(document.documentElement).overflowY === 'hidden', wide:document.documentElement.scrollWidth > innerWidth+1}; })()`);
+  const layout = await evaluate(`(() => { const dialog = document.querySelector(${JSON.stringify(selector)}); const body = dialog.querySelector('.dialog-body'); const actions = dialog.querySelector('.dialog-actions').getBoundingClientRect(); body.scrollTop = body.scrollHeight; return {outerScroll:dialog.scrollHeight > dialog.clientHeight+2, innerScroll:body.scrollHeight > body.clientHeight+2, bottom:body.scrollTop+body.clientHeight >= body.scrollHeight-2, actionsVisible:actions.top >= 0 && actions.bottom <= innerHeight+1, locked:getComputedStyle(document.documentElement).overflowY === 'hidden', wide:document.documentElement.scrollWidth > innerWidth+1,bar:getComputedStyle(body,'::-webkit-scrollbar').width,padding:getComputedStyle(body).paddingRight,margin:getComputedStyle(body).marginRight,thumb:getComputedStyle(body,'::-webkit-scrollbar-thumb').borderRadius,track:getComputedStyle(body,'::-webkit-scrollbar-track').backgroundColor}; })()`);
   assert.equal(layout.outerScroll, false, "Modal outer container must not scroll");
   if (expectScroll) assert.equal(layout.innerScroll, true, "Long body can scroll");
   assert.equal(layout.bottom, true); assert.equal(layout.actionsVisible, true); assert.equal(layout.locked, true); assert.equal(layout.wide, false);
+  assert.equal(layout.bar, "6px"); assert.equal(layout.padding, "6px");
+  assert.equal(layout.margin, await evaluate("innerWidth<=420 ? '13px' : '21px'"));
+  assert.equal(layout.thumb, "999px"); assert.equal(layout.track, "rgba(0, 0, 0, 0)");
 }
 
 try {
@@ -188,10 +191,15 @@ try {
   for (const size of [{ width: 1280, height: 800 }, { width: 375, height: 667 }, { width: 320, height: 568 }]) {
     await connection.send("Emulation.setDeviceMetricsOverride", { ...size, deviceScaleFactor: 1, mobile: false });
     await click("#openCreateTop"); await click("#profileSection summary"); await assertModal("#createDialog", true);
+    const createScrollShot = await connection.send("Page.captureScreenshot", { format: "png" });
+    await writeFile(path.join(root, ".tmp", "scrollbar-create-" + size.width + ".png"), Buffer.from(createScrollShot.data, "base64"));
     await set("#timeMode", "date"); await set("#postDate", "2026-10-04"); await set("#postStart", "09:00"); await set("#postEnd", "11:00");
     await click('#createDialog [data-close="createDialog"]');
     await evaluate(`(() => { const posts=JSON.parse(localStorage.getItem('writespace.posts.v1')); posts.find(p=>p.id===${JSON.stringify(repairId)}).description=('长说明'+String.fromCharCode(10)).repeat(80); localStorage.setItem('writespace.posts.v1',JSON.stringify(posts)); })()`);
-    await reload(); await click(`[data-post-id="${repairId}"]`); await assertModal("#detailDialog", true); await click('#detailDialog [data-close="detailDialog"]');
+    await reload(); await click(`[data-post-id="${repairId}"]`); await assertModal("#detailDialog", true);
+    const detailScrollShot = await connection.send("Page.captureScreenshot", { format: "png" });
+    await writeFile(path.join(root, ".tmp", "scrollbar-detail-" + size.width + ".png"), Buffer.from(detailScrollShot.data, "base64"));
+    await click('#detailDialog [data-close="detailDialog"]');
     assert.equal(await evaluate("document.documentElement.classList.contains('modal-open')"), false);
   }
   await connection.send("Emulation.setDeviceMetricsOverride", { width: 375, height: 667, deviceScaleFactor: 1, mobile: false });
@@ -334,8 +342,9 @@ try {
   for (const [width, height] of [[1280, 800], [900, 600]]) {
     await connection.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
     await evaluate("document.querySelector('.feed-section').scrollTop=0; document.querySelector('.match-column').scrollTop=0");
-    const layout = await evaluate("(() => { const feed=document.querySelector('.feed-section'), match=document.querySelector('.match-column'), button=document.querySelector('#moreMatches'), rect=match.getBoundingClientRect(), buttonRect=button.getBoundingClientRect(); return {feedScrollable:feed.scrollHeight>feed.clientHeight+2,matchScrollable:match.scrollHeight>match.clientHeight+2,top:rect.top,bottom:rect.bottom,buttonVisible:!button.hidden && buttonRect.top>=rect.top && buttonRect.bottom<=rect.bottom,buttonAboveList:buttonRect.bottom<=document.querySelector('#matchList').getBoundingClientRect().top+1,wide:document.documentElement.scrollWidth>innerWidth+1,height:innerHeight}; })()");
+    const layout = await evaluate("(() => { const feed=document.querySelector('.feed-section'), match=document.querySelector('.match-column'), button=document.querySelector('#moreMatches'), rect=match.getBoundingClientRect(), buttonRect=button.getBoundingClientRect(); return {feedScrollable:feed.scrollHeight>feed.clientHeight+2,matchScrollable:match.scrollHeight>match.clientHeight+2,top:rect.top,bottom:rect.bottom,buttonVisible:!button.hidden && buttonRect.top>=rect.top && buttonRect.bottom<=rect.bottom,buttonAboveList:buttonRect.bottom<=document.querySelector('#matchList').getBoundingClientRect().top+1,wide:document.documentElement.scrollWidth>innerWidth+1,height:innerHeight,padding:getComputedStyle(feed).paddingRight,margin:getComputedStyle(feed).marginRight}; })()");
     assert.equal(layout.feedScrollable, true); assert.equal(layout.matchScrollable, true);
+    assert.equal(layout.padding, "6px"); assert.equal(layout.margin, "-6px");
     assert.ok(layout.top >= 76 && layout.bottom <= height + 1); assert.equal(layout.wide, false);
     assert.equal(layout.buttonVisible, true); assert.equal(layout.buttonAboveList, true);
     await wheel(".match-column", 350); await until("document.querySelector('.match-column').scrollTop>0");
@@ -469,16 +478,18 @@ try {
   await connection.send("Input.dispatchKeyEvent", { type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13, text: "\r" });
   await connection.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
   await until("document.querySelector('#todayDialog').open");
-  assert.equal(await evaluate("document.activeElement.id"), "todayMinutes");
-  assert.equal(await evaluate("document.querySelector('#todayMinutes').value"), "30");
+  assert.equal(await evaluate("document.activeElement.id"), "todayTimePreference");
+  assert.equal(await evaluate("document.querySelector('#todayTimePreference').value"), "medium");
   assert.equal(await evaluate("document.querySelector('#todayParticipants').value"), "1");
   assert.equal(await evaluate("document.querySelector('#todayTheme').value"), "all");
+  assert.deepEqual(await evaluate("[...document.querySelector('#todayTimePreference').options].map(option=>option.value)"), ["short", "medium", "long"]);
+  assert.match(await evaluate("document.querySelector('.today-time-hint').textContent"), /自行选择/);
   await click("#todayForm .today-options summary");
   const plannerNotes = "想安静记录木椅的磨损。<b>不添购</b>";
   await set("#todayNotes", plannerNotes); await set("#todayTheme", "旧物新生"); await click("#recommendToday");
   await until("!document.querySelector('#recommendToday').disabled && document.querySelectorAll('.today-card').length===1");
   assert.equal(await evaluate("document.querySelector('#todaySource').textContent"), "本地发布筛选");
-  assert.match(await evaluate("document.querySelector('#todayNotesWarning').textContent"), /文字条件请向发布者确认/);
+  assert.match(await evaluate("document.querySelector('#todayNotesWarning').textContent"), /文字限制请向发布者确认/);
   assert.equal(await evaluate("document.querySelector('#todayNotesWarning b')"), null);
   assert.match(await evaluate("document.querySelector('.today-card').textContent"), /陈师傅/);
   assert.equal(await evaluate("document.querySelector('.today-card h3').textContent"), "机器人接管维修后，一起体验木工修家具");
@@ -541,11 +552,11 @@ try {
 
   await evaluate("window.__heldTodayFetch=window.fetch; window.__heldTodayCount=0; window.fetch=async(...args)=>{const response=await window.__heldTodayFetch(...args);if(args[0]==='/api/recommend-experiences' && ++window.__heldTodayCount===1)await new Promise(resolve=>window.__releaseToday=resolve);return response;}");
   await click("#recommendToday"); await until("typeof window.__releaseToday==='function'");
-  await set("#todayMinutes", "15");
+  await set("#todayTimePreference", "short");
   assert.equal(await evaluate("document.querySelector('#recommendToday').disabled"), false);
   await click("#recommendToday"); await until("!document.querySelector('#recommendToday').disabled && !document.querySelector('#todayResults').hidden");
   await evaluate("window.__releaseToday();window.fetch=window.__heldTodayFetch"); await pause(150);
-  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.today.v1')).result.criteria.minutes"), 15);
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.today.v1')).result.criteria.timePreference"), "short");
   await evaluate("window.__closedTodayFetch=window.fetch;window.fetch=async(...args)=>{const response=await window.__closedTodayFetch(...args);if(args[0]==='/api/recommend-experiences')await new Promise(resolve=>window.__releaseClosedToday=resolve);return response;}");
   await click("#recommendToday"); await until("typeof window.__releaseClosedToday==='function'");
   await connection.send("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
@@ -554,7 +565,7 @@ try {
   await click("#resetDemo");
   await evaluate("window.__releaseClosedToday();window.fetch=window.__closedTodayFetch"); await pause(150);
   assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.today.v1')).result"), null);
-  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.today.v1')).criteria.minutes"), 30);
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.today.v1')).criteria.timePreference"), "medium");
   await click("#openToday"); assert.equal(await evaluate("document.querySelector('#todayResults').hidden"), true);
   await connection.send("Network.setBlockedURLs", { urls: ["*/api/recommend-experiences"] });
   await click("#recommendToday"); await until("!document.querySelector('#recommendToday').disabled && document.querySelectorAll('.today-card').length===3");
@@ -578,9 +589,10 @@ try {
     await writeFile(path.join(root, ".tmp", "today-results-" + width + ".png"), Buffer.from(todayResultShot.data, "base64"));
   }
   await click('#todayDialog [data-close="todayDialog"]');
-  await evaluate("(() => {const state=JSON.parse(localStorage.getItem('writespace.today.v1'));state.criteria.theme='学习交流';state.result.version='old';localStorage.setItem('writespace.today.v1',JSON.stringify(state));})()");
+  await evaluate("(() => {const state=JSON.parse(localStorage.getItem('writespace.today.v1'));state.criteria.theme='学习交流';delete state.criteria.timePreference;state.criteria.minutes=60;state.result.version='old';localStorage.setItem('writespace.today.v1',JSON.stringify(state));})()");
   await reload(); await click("#openToday");
   assert.equal(await evaluate("document.querySelector('#todayTheme').value"), "学习交流");
+  assert.equal(await evaluate("document.querySelector('#todayTimePreference').value"), "long");
   assert.equal(await evaluate("document.querySelector('#todayResults').hidden"), true);
   await click('#todayDialog [data-close="todayDialog"]'); await evaluate("localStorage.setItem('writespace.today.v1','{broken')");
   await reload(); await click("#openToday");

@@ -126,7 +126,7 @@ test("Today API: no key filters actual community posts; invalid conditions fail 
   assert.ok(validRecommendationData(data, DEFAULT_CRITERIA, communityPosts)); assert.equal(data.recommendations.length, 3);
   assert.ok(data.recommendations.every((item) => communityPosts.some((post) => post.id === item.id && post.name === item.post.name && post.title === item.post.title)));
   assert.equal((await fetch(app.url + "/experience-planner.js")).status, 200);
-  for (const criteria of [null, {}, { ...DEFAULT_CRITERIA, minutes: 45 }, { ...DEFAULT_CRITERIA, participants: 0 },
+  for (const criteria of [null, {}, { ...DEFAULT_CRITERIA, timePreference: "15" }, { ...DEFAULT_CRITERIA, participants: 0 },
     { ...DEFAULT_CRITERIA, participants: 51 }, { ...DEFAULT_CRITERIA, notes: "文".repeat(161) }, { ...DEFAULT_CRITERIA, materials: ["unknown"] }]) {
     const response = await recommendRequest(app.url, criteria); assert.equal(response.status, 400); assert.ok((await response.json()).error);
   }
@@ -139,11 +139,12 @@ test("Today AI: receives only eligible other publications, ignores client candid
     forwarded = JSON.parse(JSON.parse(body).messages[1].content);
     replyExperiences(res, [{ ...experience, post: { name: "假发布者" }, title: "invented", status: "ready" }]);
   });
-  const criteria = { ...DEFAULT_CRITERIA, theme: "学习交流", noPurchase: true, materials: ["phone"], notes: "想安静记录" };
+  const criteria = { ...DEFAULT_CRITERIA, timePreference: "long", theme: "学习交流", noPurchase: true, materials: ["phone"], notes: "想安静记录" };
   const data = await (await recommendRequest(url, criteria, { candidates: [{ ...communityPosts[4], id: "mine-injected" }] })).json();
   assert.equal(data.source, "ai"); assert.equal(data.inputKey, criteriaKey(criteria));
   assert.deepEqual(forwarded.posts, filterExperiences(criteria, communityPosts));
   assert.equal(forwarded.templates, undefined); assert.equal(forwarded.criteria.notes, criteria.notes);
+  assert.equal(forwarded.criteria.timePreference, "long"); assert.equal(forwarded.criteria.minutes, undefined);
   assert.equal(data.recommendations[0].post.title, communityPosts[4].title); assert.equal(data.recommendations[0].post.name, "赵老师");
   assert.equal(data.recommendations[0].post.durationMinutes, null);
   assert.equal(data.recommendations[0].status, "coordinate"); assert.match(data.recommendations[0].firstStep, /确认/);
@@ -169,7 +170,9 @@ test("Today AI: invalid JSON, duplicate/unknown/own/filtered ids and invalid sug
   const criteria = { ...DEFAULT_CRITERIA, theme: "学习交流" };
   for (reply of [null, [], [experience, experience], [{ ...experience, id: "invented" }], [{ ...experience, id: "three-lines" }],
     [{ ...experience, id: "mine-own" }], [{ ...experience, id: "p3" }], [{ ...experience, reason: " " }],
-    [{ ...experience, steps: ["只有一步"] }], [{ ...experience, steps: ["文".repeat(121), "二"] }]]) {
+    [{ ...experience, steps: ["只有一步"] }], [{ ...experience, steps: ["文".repeat(121), "二"] }],
+    [{ ...experience, reason: "每次活动需要3小时。" }], [{ ...experience, reason: "完全符合你的条件。" }],
+    [{ ...experience, steps: ["确认是否能参加15分钟。", "表达参与意向。"] }]]) {
     const data = await (await recommendRequest(url, criteria)).json();
     assert.equal(data.source, "local"); assert.equal(data.fallbackReason, "invalid_response");
     assert.equal(data.recommendations[0].id, "p5"); assert.ok(validRecommendationData(data, criteria, communityPosts));

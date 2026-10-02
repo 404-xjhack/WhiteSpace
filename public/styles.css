@@ -60,17 +60,23 @@ html.modal-open,html.modal-open body{overflow:hidden}
   .page-shell{height:calc(100dvh - 76px);display:flex;flex-direction:column;padding-bottom:24px}
   .page-intro{flex:0 0 auto}
   .main-grid{flex:1 1 auto;min-height:0;align-items:stretch}
-  .feed-section,.match-column{min-height:0;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable;--scroll-thumb:#bdcfc3;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) transparent}
+  .feed-section,.match-column{min-height:0;margin-right:-6px;padding-right:6px;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable;--scroll-thumb:#bdcfc3;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) transparent}
   .feed-section:is(:hover,:focus-within),.match-column:is(:hover,:focus-within){--scroll-thumb:#789a85}
-  @supports selector(::-webkit-scrollbar){
-    .feed-section,.match-column{scrollbar-width:auto;scrollbar-color:auto}
-    .feed-section::-webkit-scrollbar,.match-column::-webkit-scrollbar{width:6px}
-    .feed-section::-webkit-scrollbar-track,.match-column::-webkit-scrollbar-track{background:transparent}
-    .feed-section::-webkit-scrollbar-thumb,.match-column::-webkit-scrollbar-thumb{background:var(--scroll-thumb);border:1px solid transparent;background-clip:padding-box;border-radius:999px;min-height:36px}
-    .feed-section::-webkit-scrollbar-button,.match-column::-webkit-scrollbar-button{display:none;width:0;height:0}
-  }
   .match-column{position:static}
 }
+/* Match the homepage's 6px content clearance and slim, inset scrollbars in all modals. */
+.dialog{--dialog-body-inset:27px}
+.dialog-body{margin-right:calc(var(--dialog-body-inset) - 6px);padding-right:6px;--scroll-thumb:#bdcfc3;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) transparent}
+.dialog-body:is(:hover,:focus-within){--scroll-thumb:#789a85}
+@supports selector(::-webkit-scrollbar){
+  .feed-section,.match-column,.dialog-body{scrollbar-width:auto;scrollbar-color:auto}
+  .feed-section::-webkit-scrollbar,.match-column::-webkit-scrollbar,.dialog-body::-webkit-scrollbar{width:6px}
+  .feed-section::-webkit-scrollbar-track,.match-column::-webkit-scrollbar-track,.dialog-body::-webkit-scrollbar-track{background:transparent}
+  .feed-section::-webkit-scrollbar-thumb,.match-column::-webkit-scrollbar-thumb,.dialog-body::-webkit-scrollbar-thumb{background:var(--scroll-thumb);border:1px solid transparent;background-clip:padding-box;border-radius:999px;min-height:36px}
+  .feed-section::-webkit-scrollbar-button,.match-column::-webkit-scrollbar-button,.dialog-body::-webkit-scrollbar-button{display:none;width:0;height:0}
+}
+@media(max-width:420px){.dialog{--dialog-body-inset:19px}}
+.today-time-hint{line-height:1.7;margin:-4px 0 18px}
 @media(max-width:420px){.dialog{max-height:95dvh}.dialog-actions{gap:8px}.dialog-actions .primary-button,.dialog-actions .ghost-button{font-size:12px;padding:0 12px}.category-controls button{padding:0 12px}.detail-grid{grid-template-columns:1fr}}
 
 .detail-experience{margin-top:20px;padding:18px;border:1px solid #dfdbc9;border-radius:10px;background:#faf6eb}

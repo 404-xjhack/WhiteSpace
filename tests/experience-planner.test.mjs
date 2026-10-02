@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { DEFAULT_CRITERIA, normalizeCriteria, criteriaKey, otherPosts, postsKey, filterExperiences, localRecommendations,
+import { DEFAULT_CRITERIA, normalizeCriteria, criteriaKey, otherPosts, postsKey, filterExperiences, rankExperiences, localRecommendations,
   validateAIRecommendations, validRecommendationData, restoreTodayState } from "../public/experience-planner.js";
 
 const posts = JSON.parse(await readFile(new URL("../public/data.json", import.meta.url), "utf8"));
@@ -24,9 +24,9 @@ test("Today: candidates are actual other people's posts, preserving authors and 
   assert.deepEqual(ids(criteria(), [custom()]), ["community-new"]);
 });
 
-test("Today: criteria validate time, party size including self, categories, materials and bounded notes", () => {
+test("Today: criteria validate fuzzy time preferences, party size including self, categories, materials and bounded notes", () => {
   assert.ok(criteria({ participants: 1 })); assert.ok(criteria({ participants: 50 }));
-  for (const invalid of [null, {}, { ...DEFAULT_CRITERIA, minutes: 45 }, { ...DEFAULT_CRITERIA, participants: 0 },
+  for (const invalid of [null, {}, { ...DEFAULT_CRITERIA, timePreference: "15" }, { ...DEFAULT_CRITERIA, participants: 0 },
     { ...DEFAULT_CRITERIA, participants: 51 }, { ...DEFAULT_CRITERIA, participants: 2.5 },
     { ...DEFAULT_CRITERIA, participants: "2" }, { ...DEFAULT_CRITERIA, theme: "unknown" },
     { ...DEFAULT_CRITERIA, materials: ["unknown"] }, { ...DEFAULT_CRITERIA, indoorsOnly: "yes" },
@@ -36,19 +36,19 @@ test("Today: criteria validate time, party size including self, categories, mate
 });
 
 test("Today: unknown session duration/materials stay candidates, schedule windows are not session durations", () => {
-  const conditions = criteria({ minutes: 15, noPurchase: true, lightOnly: true });
+  const conditions = criteria({ timePreference: "short", noPurchase: true, lightOnly: true });
   assert.ok(ids(conditions).includes("p3"));
   const item = localRecommendations({ ...conditions, theme: "旧物新生" }, posts).recommendations[0];
   assert.equal(item.post.durationMinutes, null); assert.equal(item.post.requiredMaterials, null);
-  assert.match(item.preparations.join(" "), /未说明单次参与时长.*确认.*15 分钟/);
+  assert.match(item.preparations.join(" "), /未说明单次参与时长.*确认/);
   assert.match(item.preparations.join(" "), /未说明完整材料要求/);
   assert.match(item.preparations.join(" "), /未说明体力要求/);
   assert.match(item.preparations.join(" "), /每周日 09:00–12:00/);
   assert.equal(item.status, "coordinate"); assert.match(item.firstStep, /原发布.*确认/);
   const pool = [custom({ durationMinutes: 30 }), custom({ id: "long", durationMinutes: 60 })];
-  assert.deepEqual(ids(criteria({ minutes: 15 }), pool), []);
-  assert.deepEqual(ids(criteria({ minutes: 30 }), pool), ["community-new"]);
-  assert.deepEqual(ids(criteria({ minutes: 60 }), pool), ["community-new", "long"]);
+  for (const timePreference of ["short", "medium", "long"]) assert.deepEqual(ids(criteria({ timePreference }), pool), ["community-new", "long"]);
+  assert.match(item.preparations[0], /具体日期和参与时长由你自行选择/);
+  assert.match(item.firstStep, /自行挑选合适的参与时间/);
 });
 
 test("Today: visitors can join group posts; party plus author must fit known capacity, unknown capacity stays", () => {
@@ -126,4 +126,67 @@ test("Today persistence: restores validated snapshots, invalidates changed posts
     assert.deepEqual(restored.criteria, conditions); assert.equal(restored.result, null);
   }
   assert.deepEqual(restoreTodayState(null, posts).criteria, DEFAULT_CRITERIA);
+});
+test("Today ranking: fuzzy time is soft; explicit durations are compared relatively without minute thresholds", () => {
+  const pool = [custom({ id: "quick", durationMinutes: 25 }), custom({ id: "middle", durationMinutes: 120 }), custom({ id: "deep", durationMinutes: 360 })];
+  for (const [timePreference, expected] of [["short", "quick"], ["medium", "middle"], ["long", "deep"]]) {
+    const conditions = criteria({ timePreference });
+    assert.equal(filterExperiences(conditions, pool).length, 3);
+    assert.equal(localRecommendations(conditions, pool).recommendations[0].id, expected);
+  }
+  const longOnly = localRecommendations(criteria({ timePreference: "short" }), [pool[2]]);
+  assert.equal(longOnly.recommendations[0].post.durationMinutes, 360);
+  assert.match(longOnly.recommendations[0].preparations.join(" "), /自行选择/);
+  const explicit = [custom({ id: "short", durationPreference: "short" }), custom({ id: "long", durationPreference: "long" })];
+  assert.equal(rankExperiences(criteria({ timePreference: "long" }), explicit)[0].post.id, "long");
+});
+
+test("Today ranking: interest dominates time cues; refusals are not treated as interests and novices are not assumed to be instructors", () => {
+  const interest = localRecommendations(criteria({ timePreference: "short", notes: "想学习木工修复木椅" }), posts);
+  assert.equal(interest.recommendations[0].id, "p3");
+  assert.match(interest.recommendations[0].reason, /木工与家具/);
+  const photo = localRecommendations(criteria({ notes: "不想学木工，只想学手机摄影" }), posts);
+  assert.equal(photo.recommendations[0].id, "p6");
+  assert.ok(!photo.recommendations.some((item) => item.id === "p3"));
+  const unpunctuated = localRecommendations(criteria({ notes: "不想学木工只想学手机摄影" }), posts);
+  assert.equal(unpunctuated.recommendations[0].id, "p6");
+  const refusedOnly = localRecommendations(criteria({ theme: "生活手艺", notes: "不想包饺子" }), posts);
+  assert.equal(refusedOnly.recommendations.length, 0);
+  assert.ok(validRecommendationData(refusedOnly, refusedOnly.criteria, posts));
+  const novice = localRecommendations(criteria({ notes: "我是零基础，想包饺子" }), posts);
+  assert.equal(novice.recommendations[0].id, "p1");
+  const helper = localRecommendations(criteria({ theme: "亲子共学", notes: "新手想尝试" }), posts);
+  assert.match(helper.recommendations[0].reason, /确认.*参与角色/);
+});
+
+test("Today ranking: published entry/deeper involvement cues and available materials produce explainable different results", () => {
+  const short = localRecommendations(criteria({ timePreference: "short" }), posts);
+  const long = localRecommendations(criteria({ timePreference: "long" }), posts);
+  assert.deepEqual(short.recommendations.slice(0, 2).map((item) => item.id), ["p5", "p6"]);
+  assert.equal(long.recommendations[0].id, "p3");
+  assert.match(short.recommendations[0].reason, /从一句自己的话开始/);
+  assert.match(long.recommendations[0].reason, /维修/);
+  const base = rankExperiences(criteria(), posts).find((item) => item.post.id === "p6");
+  const ready = rankExperiences(criteria({ materials: ["phone"] }), posts).find((item) => item.post.id === "p6");
+  assert.ok(ready.score > base.score);
+  assert.match(ready.reason, /已有材料符合/);
+  assert.ok(short.recommendations.every((item) => validRecommendationData({ ...short, recommendations: [item] }, short.criteria, posts)));
+});
+
+test("Today persistence: old fixed-minute conditions migrate to fuzzy preferences while old recommendations are discarded", () => {
+  for (const [minutes, timePreference] of [[15, "short"], [30, "medium"], [60, "long"]]) {
+    const saved = { ...DEFAULT_CRITERIA, notes: "想了解木工", timePreference: undefined, minutes };
+    const restored = restoreTodayState({ criteria: saved, result: { version: "today-posts-v2" } }, posts);
+    assert.equal(restored.criteria.timePreference, timePreference);
+    assert.equal(restored.criteria.minutes, undefined);
+    assert.equal(restored.criteria.notes, "想了解木工"); assert.equal(restored.result, null);
+  }
+});
+test("Today AI: invented durations, guaranteed fit, flexible schedules and long-term commitments are rejected", () => {
+  const conditions = criteria({ timePreference: "long", theme: "学习交流" });
+  for (const reason of ["每次需要3小时。", "先问是否能参加15分钟。", "可以两小时完成。", "完全符合你的条件。", "时间灵活，可以自行参加。", "你可以长期每周来学习。", "可以室内外均可参加。"]) {
+    assert.equal(validateAIRecommendations({ recommendations: [{ ...aiItem, reason }] }, conditions, posts), null);
+  }
+  const result = { ...localRecommendations(conditions, posts), source: "ai", recommendations: validateAIRecommendations({ recommendations: [aiItem] }, conditions, posts) };
+  assert.equal(validRecommendationData({ ...result, recommendations: [{ ...result.recommendations[0], reason: "单次2-3小时。" }] }, conditions, posts), false);
 });

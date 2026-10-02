@@ -1,5 +1,5 @@
 import { cleanCategory, postTags, validateDraft, validateSchedule, normalizeSchedule, formatSchedule, displayTime, formatPublished, matchPost, matchFingerprint, MATCH_VERSION, LEGACY_OFFER_NEED, needExtractionInput, needExtractionKey, validExtractedNeed, hasAINeed } from "./model.js";
-import { MATERIALS, DEFAULT_CRITERIA, normalizeCriteria, criteriaKey, localRecommendations, validRecommendationData, restoreTodayState } from "./experience-planner.js";
+import { MATERIALS, TIME_PREFERENCES, DEFAULT_CRITERIA, normalizeCriteria, criteriaKey, localRecommendations, validRecommendationData, restoreTodayState } from "./experience-planner.js";
 
 const $ = (selector) => document.querySelector(selector);
 const postList = $("#postList");
@@ -125,7 +125,7 @@ const todayFallbackMessages = {
 $("#todayMaterials").innerHTML = MATERIALS.map((material) => `<label><input type="checkbox" name="materials" value="${material.id}" />${escapeHtml(material.label)}</label>`).join("");
 function fillTodayConditions() {
   const criteria = todayState.criteria;
-  $("#todayMinutes").value = String(criteria.minutes); $("#todayParticipants").value = String(criteria.participants);
+  $("#todayTimePreference").value = criteria.timePreference; $("#todayParticipants").value = String(criteria.participants);
   $("#todayTheme").value = criteria.theme; $("#todayNotes").value = criteria.notes;
   for (const key of ["indoorsOnly", "noPurchase", "lightOnly"]) todayForm.elements[key].checked = criteria[key];
   todayForm.querySelectorAll('[name="materials"]').forEach((input) => { input.checked = criteria.materials.includes(input.value); });
@@ -133,7 +133,7 @@ function fillTodayConditions() {
   todayForm.querySelectorAll("[aria-invalid]").forEach((element) => element.removeAttribute("aria-invalid"));
 }
 function readTodayConditions() {
-  return normalizeCriteria({ minutes: Number($("#todayMinutes").value), participants: Number($("#todayParticipants").value),
+  return normalizeCriteria({ timePreference: $("#todayTimePreference").value, participants: Number($("#todayParticipants").value),
     theme: $("#todayTheme").value, notes: $("#todayNotes").value,
     materials: [...todayForm.querySelectorAll('[name="materials"]:checked')].map((input) => input.value),
     ...Object.fromEntries(["indoorsOnly", "noPurchase", "lightOnly"].map((key) => [key, todayForm.elements[key].checked])) });
@@ -153,9 +153,9 @@ function renderToday() {
   $("#todaySource").textContent = result.source === "ai" ? "AI 筛选推荐" : "本地发布筛选";
   $("#todaySource").classList.toggle("local", result.source === "local");
   $("#todaySourceDetail").textContent = `${result.source === "ai" ? "根据原始发布整理适合参与的理由；时长、材料和余位等未明确条件需向发布者确认。" : todayFallbackMessages[result.fallbackReason] || "按你的条件筛选他人发布，未明确条件仍需确认。"} · 生成于 ${new Date(result.generatedAt).toLocaleString("zh-CN")}`;
-  $("#todayConditions").textContent = `可用 ${criteria.minutes} 分钟 · 同行 ${criteria.participants} 人（含自己） · ${criteria.theme === "all" ? "不限主题" : criteria.theme}${criteria.indoorsOnly ? " · 不外出" : ""}${criteria.noPurchase ? " · 不添购材料" : ""}${criteria.lightOnly ? " · 轻量活动" : ""}`;
+  $("#todayConditions").textContent = `时间倾向：${TIME_PREFERENCES.find((item) => item.id === criteria.timePreference).label} · 同行 ${criteria.participants} 人（含自己） · ${criteria.theme === "all" ? "不限主题" : criteria.theme}${criteria.indoorsOnly ? " · 不外出" : ""}${criteria.noPurchase ? " · 不添购材料" : ""}${criteria.lightOnly ? " · 轻量活动" : ""}`;
   $("#todayNotesWarning").hidden = !criteria.notes;
-  $("#todayNotesWarning").textContent = `你的补充：${criteria.notes}\n${result.source === "local" ? "本地筛选优先比较兴趣与发布内容，其他文字条件请向发布者确认。" : "AI 已参考补充内容，是否符合实际参与条件仍需确认。"}`;
+  $("#todayNotesWarning").textContent = `你的补充：${criteria.notes}\n${result.source === "local" ? "本地筛选参考兴趣、参与节奏与已知准备条件，文字限制请向发布者确认。" : "AI 已参考补充内容，是否符合实际参与条件仍需确认。"}`;
   $("#todayList").innerHTML = result.recommendations.length ? result.recommendations.map((item) => {
     const post = item.post;
     return `<article class="today-card" data-experience-id="${escapeHtml(item.id)}">
@@ -170,7 +170,7 @@ function renderToday() {
   }).join("") : `<p class="today-empty">${escapeHtml(result.emptyReason)}</p>`;
 }
 function openToday() {
-  cancelToday(); todayState = restoreTodayState(todayState, seedLoaded ? seedPosts : null); fillTodayConditions(); renderToday(); openDialog(todayDialog); $("#todayMinutes").focus();
+  cancelToday(); todayState = restoreTodayState(todayState, seedLoaded ? seedPosts : null); fillTodayConditions(); renderToday(); openDialog(todayDialog); $("#todayTimePreference").focus();
   if (!seedReady) { $("#recommendToday").disabled = true; $("#todayStatus").textContent = "正在载入他人发布…"; }
 }
 function todayConditionsChanged() {
@@ -184,7 +184,7 @@ async function recommendToday(event) {
   event.preventDefault(); const criteria = readTodayConditions();
   if (!criteria) {
     const invalidCount = !/^\d+$/.test($("#todayParticipants").value) || Number($("#todayParticipants").value) < 1 || Number($("#todayParticipants").value) > 50;
-    $("#todayError").hidden = false; $("#todayError").textContent = invalidCount ? "同行人数须为 1–50 的整数，包含自己。" : "请检查时间、主题及补充内容（最多160字）。";
+    $("#todayError").hidden = false; $("#todayError").textContent = invalidCount ? "同行人数须为 1–50 的整数，包含自己。" : "请选择短、中或长的时间倾向，并检查主题及补充内容（最多160字）。";
     const field = invalidCount ? $("#todayParticipants") : $("#todayNotes"); field.setAttribute("aria-invalid", "true"); field.focus(); return;
   }
   cancelToday(); const version = todayVersion; const controller = new AbortController(); todayController = controller;
