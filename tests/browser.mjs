@@ -642,6 +642,87 @@ try {
   await click('#detailDialog [data-close="detailDialog"]');
   await connection.send("Network.setBlockedURLs", { urls: [] });
   passed("Today AI: original facts with suggestions; timeout, gateway and invented ids fall back; API snapshots support detail and interest when feed fails");
+
+  await connection.send("Page.navigate", { url: app.url }); await until("document.querySelectorAll('.post-card').length >= 6");
+  await click("#resetDemo");
+  await click('[data-post-id="p1"]');
+  assert.equal(await evaluate("document.querySelector('#detailDeleteButton').hidden"), true);
+  await evaluate("document.querySelector('#detailDeleteButton').click(); document.querySelector('#confirmDelete').click()");
+  assert.equal(await evaluate("document.querySelector('#deleteDialog').open"), false);
+  await click("#interestButton"); await click('#detailDialog [data-close="detailDialog"]');
+
+  await click("#openCreateTop"); await click('.form-examples summary'); await click('[data-example="photo"]');
+  await click("#profileSection summary"); await set("#profileRole", "摄影爱好者");
+  await click("#publishButton"); await until("document.querySelector('#needDialog').open && !document.querySelector('#extractNeed').disabled");
+  await click("#saveNeed"); await readyMatch("分享手机摄影，记录自动化街区的日常");
+  const deleteOffer = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0]");
+  await click("#openCreateTop"); await click('.form-examples summary'); await click('[data-example="repair"]');
+  await click("#publishButton"); await readyMatch("想亲手修好一把旧椅子，体验过去的木工");
+  const deleteNeed = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0]");
+  const beforeDelete = await evaluate("Object.fromEntries(['posts','matches','profile','interest','today'].map(key=>[key,localStorage.getItem('writespace.'+key+'.v1')]))");
+  await click(`[data-post-id="${deleteOffer.id}"]`);
+  for (const [width, height] of [[1280, 800], [375, 667], [320, 568]]) {
+    await connection.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
+    await assertModal("#detailDialog", false);
+    await click("#detailDeleteButton"); await until("document.querySelector('#deleteDialog').open");
+    assert.equal(await evaluate("document.querySelector('#deletePostTitle').textContent"), deleteOffer.title);
+    assert.equal(await evaluate("document.activeElement.id"), "cancelDelete");
+    await assertModal("#deleteDialog", false);
+    const deleteShot = await connection.send("Page.captureScreenshot", { format: "png" });
+    await writeFile(path.join(root, ".tmp", "delete-confirm-" + width + ".png"), Buffer.from(deleteShot.data, "base64"));
+    if (width === 320) {
+      await connection.send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+      await connection.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+    } else await click(width === 375 ? '#deleteDialog [aria-label="关闭"]' : "#cancelDelete");
+    await until("!document.querySelector('#deleteDialog').open");
+    assert.equal(await evaluate("document.querySelector('#detailDialog').open && document.documentElement.classList.contains('modal-open')"), true);
+    assert.deepEqual(await evaluate("Object.fromEntries(['posts','matches','profile','interest','today'].map(key=>[key,localStorage.getItem('writespace.'+key+'.v1')]))"), beforeDelete);
+  }
+  passed("Delete: only personal posts expose the action; cancel, close and Escape preserve data at 1280/375/320 px");
+
+  await click("#detailDeleteButton");
+  await evaluate("window.__deleteSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='writespace.posts.v1')throw new DOMException('Simulated quota','QuotaExceededError');return window.__deleteSetItem.call(this,key,value);}");
+  await click("#confirmDelete");
+  assert.equal(await evaluate("document.querySelector('#deleteDialog').open && !document.querySelector('#deleteError').hidden"), true);
+  assert.match(await evaluate("document.querySelector('#deleteError').textContent"), /删除未完成/);
+  assert.deepEqual(await evaluate("Object.fromEntries(['posts','matches','profile','interest','today'].map(key=>[key,localStorage.getItem('writespace.'+key+'.v1')]))"), beforeDelete);
+  assert.equal(await evaluate("document.querySelectorAll('.post-card').length"), 8);
+  await evaluate("Storage.prototype.setItem=window.__deleteSetItem");
+  await click("#confirmDelete"); await until("!document.querySelector('#deleteDialog').open && !document.querySelector('#detailDialog').open");
+  assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))"), [deleteNeed]);
+  const remainingMatch = await evaluate("JSON.parse(localStorage.getItem('writespace.matches.v1'))");
+  assert.equal(remainingMatch.byPost[deleteOffer.id], undefined);
+  assert.deepEqual(remainingMatch.byPost[deleteNeed.id], JSON.parse(beforeDelete.matches).byPost[deleteNeed.id]);
+  assert.equal(remainingMatch.lastPostId, deleteNeed.id);
+  assert.equal(await evaluate("document.querySelector('#matchingPostTitle').textContent"), deleteNeed.title);
+  assert.equal(await evaluate("document.querySelector('#myPostCount').textContent"), "1");
+  for (const key of ["profile", "interest", "today"]) assert.equal(await evaluate(`localStorage.getItem('writespace.${key}.v1')`), beforeDelete[key]);
+  await reload(); await readyMatch(deleteNeed.title);
+  assert.equal(await evaluate(`document.querySelector('[data-post-id="${deleteOffer.id}"]')`), null);
+  passed("Delete: storage failure preserves content; retry removes one offer and its cache while keeping other posts, matching, profile and interest after reload");
+
+  await click('.filter-chip[data-filter="mine"]');
+  await evaluate("window.__deleteFetch=window.fetch;window.fetch=async(...args)=>{const response=await window.__deleteFetch(...args);if(args[0]==='/api/match')await new Promise(resolve=>window.__releaseDeleteMatch=resolve);return response;}");
+  await click("#rerunMatch"); await until("typeof window.__releaseDeleteMatch === 'function'");
+  await click(`[data-post-id="${deleteNeed.id}"]`); await click("#detailDeleteButton"); await click("#confirmDelete");
+  assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))"), []);
+  assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('writespace.matches.v1'))"), { byPost: {} });
+  assert.equal(await evaluate("document.querySelectorAll('.post-card').length"), 0);
+  assert.equal(await evaluate("!document.querySelector('#emptyState').hidden && document.querySelector('#myPostCount').hidden"), true);
+  assert.equal(await evaluate("!document.querySelector('#matchWelcome').hidden && document.querySelector('#matchResults').hidden && document.querySelector('#matchLoading').hidden"), true);
+  assert.equal(await evaluate("document.documentElement.classList.contains('modal-open')"), false);
+  await evaluate("window.__releaseDeleteMatch();window.fetch=window.__deleteFetch"); await pause(200);
+  assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('writespace.matches.v1'))"), { byPost: {} });
+  assert.equal(await evaluate("document.querySelectorAll('.match-card').length"), 0);
+  await reload();
+  assert.equal(await evaluate("document.querySelectorAll('.post-card').length"), 6);
+  assert.equal(await evaluate("document.querySelector('#matchWelcome').hidden"), false);
+  await evaluate("document.querySelector('#rerunMatch').click()");
+  assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))"), []);
+  await click('.filter-chip[data-filter="mine"]');
+  await click("#emptyCreate"); await until("document.querySelector('#createDialog').open");
+  await click('#createDialog [data-close="createDialog"]');
+  passed("Delete: removing the last need during matching clears the panel and mine empty state; late responses and reload cannot revive deleted content");
   assert.deepEqual(errors, [], "No uncaught browser exceptions");
   console.log(`Browser checks passed: ${checks.length}; no uncaught exceptions.`);
 } catch (error) {

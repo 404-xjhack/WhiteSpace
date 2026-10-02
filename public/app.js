@@ -5,6 +5,7 @@ const $ = (selector) => document.querySelector(selector);
 const postList = $("#postList");
 const createDialog = $("#createDialog");
 const detailDialog = $("#detailDialog");
+const deleteDialog = $("#deleteDialog");
 const experienceDialog = $("#experienceDialog");
 const createForm = $("#createForm");
 const scheduleDialog = $("#scheduleDialog");
@@ -41,6 +42,7 @@ let seedLoaded = false;
 let selectedCategories = [];
 let filter = "all";
 let currentDetail = null;
+let deletePostId = null;
 let experiencePost = null;
 let experienceFrame = null;
 const dumplingStepIds = ["dough", "filling", "portion", "roll", "wrap", "cook"];
@@ -64,7 +66,7 @@ let todayController = null;
 let todayVersion = 0;
 
 function save(key, value) {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch { showToast("浏览器暂时无法保存，当前页面仍可继续体验。"); }
+  try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch { showToast("浏览器暂时无法保存，当前页面仍可继续体验。"); return false; }
 }
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
@@ -113,10 +115,10 @@ function setFilter(next) {
   });
   renderPosts();
 }
-function syncDialogLock() { document.documentElement.classList.toggle("modal-open", createDialog.open || detailDialog.open || scheduleDialog.open || needDialog.open || experienceDialog.open || todayDialog.open); }
+function syncDialogLock() { document.documentElement.classList.toggle("modal-open", createDialog.open || detailDialog.open || deleteDialog.open || scheduleDialog.open || needDialog.open || experienceDialog.open || todayDialog.open); }
 function openDialog(dialog) { if (!dialog.open) dialog.showModal(); syncDialogLock(); }
 function closeDialog(dialog) { dialog.close(); syncDialogLock(); }
-for (const dialog of [createDialog, detailDialog, scheduleDialog, needDialog, experienceDialog, todayDialog]) dialog.addEventListener("close", syncDialogLock);
+for (const dialog of [createDialog, detailDialog, deleteDialog, scheduleDialog, needDialog, experienceDialog, todayDialog]) dialog.addEventListener("close", syncDialogLock);
 
 const todayFallbackMessages = {
   unconfigured: "AI 尚未配置，按你的条件筛选他人发布。", timeout: "AI 响应超时，已切换为本地发布筛选。",
@@ -502,8 +504,44 @@ function showDetail(post) {
   $("#detailMatchButton").hidden = !mine; $("#detailMatchButton").textContent = cachedMatch(post) ? "查看上次匹配" : "寻找匹配";
   $("#detailTimeButton").hidden = !mine;
   $("#detailNeedButton").hidden = !mine || post.type !== "offer";
+  $("#detailDeleteButton").hidden = !mine;
   openDialog(detailDialog);
 }
+function openDelete() {
+  const post = myPosts.find((item) => item.id === currentDetail?.id);
+  if (!post || !isMine(post)) return;
+  deletePostId = post.id;
+  $("#deletePostTitle").textContent = post.title;
+  $("#deleteError").hidden = true;
+  openDialog(deleteDialog); $("#cancelDelete").focus();
+}
+function deletePost() {
+  if (!deleteDialog.open) return;
+  const post = myPosts.find((item) => item.id === deletePostId);
+  if (!post || !isMine(post)) return;
+  const remainingPosts = myPosts.filter((item) => item.id !== post.id);
+  try { localStorage.setItem(storagePosts, JSON.stringify(remainingPosts)); }
+  catch {
+    $("#deleteError").textContent = "删除未完成，浏览器暂时无法保存。请稍后重试。";
+    $("#deleteError").hidden = false; return;
+  }
+  myPosts = remainingPosts;
+  delete matchState.byPost[post.id];
+  if (matchState.lastPostId === post.id) delete matchState.lastPostId;
+  interestedIds.delete(post.id);
+  const matchesSaved = save(storageMatches, matchState);
+  const interestSaved = save(storageInterest, [...interestedIds]);
+  if (matchingPost?.id === post.id) {
+    cancelMatch(); matchingPost = null; displayedMatchData = null; displayedMatches = []; matchesExpanded = false;
+    $("#matchResults").hidden = true; $("#matchLoading").hidden = true; $("#matchWelcome").hidden = false;
+    $("#matchList").replaceChildren(); $("#matchingPostTitle").textContent = ""; $("#matchingPostConditions").textContent = "";
+    $("#moreMatches").hidden = true; $("#matchDiagnostics").hidden = true;
+  }
+  currentDetail = null; closeDialog(deleteDialog); closeDialog(detailDialog); renderPosts();
+  (postList.querySelector("[data-post-id]") || $(".filter-chip.is-active")).focus({ preventScroll: true });
+  showToast(matchesSaved && interestSaved ? "发布已删除。" : "发布已删除，部分关联记录暂时无法保存。");
+}
+deleteDialog.addEventListener("close", () => { deletePostId = null; });
 const fallbackMessages = {
   unconfigured: "未配置 AI，使用主题、供需和时间地点的本地规则", timeout: "AI 响应超时，已切换本地规则",
   upstream: "AI 服务暂不可用，已切换本地规则", invalid_response: "AI 返回内容无效，已切换本地规则", network: "未连接到匹配服务，使用浏览器中的本地规则",
@@ -604,6 +642,8 @@ $("#rerunMatch").addEventListener("click", () => { if (matchingPost) runMatch(ma
 $("#editMatchTime").addEventListener("click", () => { if (matchingPost) openSchedule(matchingPost); });
 $("#detailTimeButton").addEventListener("click", () => { if (currentDetail && isMine(currentDetail)) { const post = currentDetail; closeDialog(detailDialog); openSchedule(post); } });
 $("#detailNeedButton").addEventListener("click", () => { if (currentDetail && isMine(currentDetail) && currentDetail.type === "offer") { const post = currentDetail; closeDialog(detailDialog); openNeedEditor({ kind: "edit", post }); } });
+$("#detailDeleteButton").addEventListener("click", openDelete);
+$("#confirmDelete").addEventListener("click", deletePost);
 $("#resetDemo").addEventListener("click", () => {
   cancelToday(); todayState = { criteria: { ...DEFAULT_CRITERIA, materials: [] }, result: null }; save(storageToday, todayState); fillTodayConditions(); renderToday();
   cancelMatch(); myPosts = []; interestedIds = new Set(); matchingPost = null; currentDetail = null; profile = {}; matchState = { byPost: {} };

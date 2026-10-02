@@ -24,6 +24,10 @@ html.modal-open,html.modal-open body{overflow:hidden}
 .dialog-header,.dialog-actions{flex-shrink:0}
 .dialog-body{flex:1 1 auto;min-height:0;max-height:none;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
 .dialog-actions{flex-wrap:wrap}
+.ghost-button.danger-button{color:var(--danger)}
+.ghost-button.danger-button:hover{background:#fff0ee;border-color:var(--danger)}
+.primary-button.danger-button{background:var(--danger)}
+.primary-button.danger-button:hover:not(:disabled){background:#94312b}
 .form-field b{font-weight:inherit}
 .form-field textarea{max-height:240px}
 .form-field [aria-invalid="true"]{border-color:var(--danger)}
