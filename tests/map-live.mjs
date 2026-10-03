@@ -90,10 +90,10 @@ try {
   await send("Page.reload");
   await until("document.querySelectorAll('.post-card').length === 7", "隔离浏览器测试发布");
   await evaluate("document.querySelector('#mapToggle').click()");
-  await until("document.querySelector('#realMapCanvas .real-task-marker')", "真实地图任务标记");
+  await until("document.querySelector('#realMapCanvas .real-task-marker[data-post-id=\"mine-live-smoke\"]')", "真实地图个人任务标记");
   await pause(1000);
   const mapBox = await evaluate("(() => { const r=document.querySelector('#realMapCanvas').getBoundingClientRect(); return {left:r.left,top:r.top,width:r.width,height:r.height}; })()");
-  const markerAt = () => evaluate("(() => { const r=document.querySelector('#realMapCanvas .real-task-marker').getBoundingClientRect(); return {x:r.x,y:r.y}; })()");
+  const markerAt = () => evaluate("(() => { const r=document.querySelector('#realMapCanvas .real-task-marker[data-post-id=\"mine-live-smoke\"]').getBoundingClientRect(); return {x:r.x,y:r.y}; })()");
   const still = async (before, label) => {
     await pause(180);
     const after = await markerAt();
@@ -132,11 +132,11 @@ try {
   await evaluate("document.querySelector('#realLocateButton').click()");
   await until("/已定位到你的附近/.test(document.querySelector('#realMapArea').textContent)", "拖拽后重新定位");
   await pause(150);
-  const centeredTask = await evaluate("(() => { const map=document.querySelector('#realMapCanvas').getBoundingClientRect(), pin=document.querySelector('#realMapCanvas .real-task-marker').getBoundingClientRect(); return {map:{left:map.left,top:map.top,right:map.right,bottom:map.bottom},pin:{left:pin.left,top:pin.top,right:pin.right,bottom:pin.bottom}}; })()");
+  const centeredTask = await evaluate("(() => { const map=document.querySelector('#realMapCanvas').getBoundingClientRect(), pin=document.querySelector('#realMapCanvas .real-task-marker[data-post-id=\"mine-live-smoke\"]').getBoundingClientRect(); return {map:{left:map.left,top:map.top,right:map.right,bottom:map.bottom},pin:{left:pin.left,top:pin.top,right:pin.right,bottom:pin.bottom}}; })()");
   assert.ok(centeredTask.pin.top >= centeredTask.map.top && centeredTask.pin.bottom <= centeredTask.map.bottom && centeredTask.pin.left >= centeredTask.map.left && centeredTask.pin.right <= centeredTask.map.right, `街区尺度下附近任务应在地图视野内：${JSON.stringify(centeredTask)}`);
   assert.equal(await evaluate("document.querySelector('#realMissionDetail h4')"), null);
   assert.equal(await evaluate("document.querySelector('#realMapCanvas .real-task-callout')"), null);
-  const pinBox = await evaluate("(() => { const r=document.querySelector('#realMapCanvas .real-task-marker').getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height*0.4}; })()");
+  const pinBox = await evaluate("(() => { const r=document.querySelector('#realMapCanvas .real-task-marker[data-post-id=\"mine-live-smoke\"]').getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height*0.4}; })()");
   await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: pinBox.x, y: pinBox.y, buttons: 0 });
   await send("Input.dispatchMouseEvent", { type: "mousePressed", x: pinBox.x, y: pinBox.y, button: "left", buttons: 1, clickCount: 1 });
   await send("Input.dispatchMouseEvent", { type: "mouseReleased", x: pinBox.x, y: pinBox.y, button: "left", buttons: 0, clickCount: 1 });
@@ -154,14 +154,14 @@ try {
   await until("document.querySelectorAll('.post-card').length === 7", "移动端隔离浏览器测试发布");
   await evaluate("document.querySelector('#mapToggle').click()");
   await until("/已定位到你的附近/.test(document.querySelector('#realMapArea')?.textContent || '')", "移动端地图定位");
-  await until("document.querySelector('#realMapCanvas .real-task-marker')", "移动端地图任务标记");
+  await until("document.querySelector('#realMapCanvas .real-task-marker[data-post-id=\"mine-live-smoke\"]')", "移动端地图个人任务标记");
   assert.equal(await evaluate("document.querySelector('#realMapCanvas .real-task-callout')"), null);
-  assert.equal(await evaluate("(() => { const map=document.querySelector('#realMapCanvas').getBoundingClientRect(), pin=document.querySelector('#realMapCanvas .real-task-marker').getBoundingClientRect(); return pin.top >= map.top && pin.bottom <= map.bottom; })()"), true, "移动端附近任务应在首屏地图内");
+  assert.equal(await evaluate("(() => { const map=document.querySelector('#realMapCanvas').getBoundingClientRect(), pin=document.querySelector('#realMapCanvas .real-task-marker[data-post-id=\"mine-live-smoke\"]').getBoundingClientRect(); return pin.top >= map.top && pin.bottom <= map.bottom; })()"), true, "移动端附近任务应在首屏地图内");
   await pause(700);
   assert.equal(await evaluate("document.documentElement.scrollWidth > innerWidth + 1"), false, "移动端地图不应横向溢出");
   const mobileShot = await send("Page.captureScreenshot", { format: "png" });
   await writeFile(path.join(root, ".tmp", "real-map-live-mobile.png"), Buffer.from(mobileShot.data, "base64"));
-  await evaluate("document.querySelector('#realMissionList [data-real-post]').click()");
+  await evaluate("document.querySelector('#realMissionList [data-real-post=\"mine-live-smoke\"]').click()");
   await until("document.querySelector('#realMapCanvas .real-task-marker.is-selected .real-task-callout')", "移动端点击后出现标记气泡");
   const mobileSelectedShot = await send("Page.captureScreenshot", { format: "png" });
   await writeFile(path.join(root, ".tmp", "real-map-live-mobile-selected.png"), Buffer.from(mobileSelectedShot.data, "base64"));

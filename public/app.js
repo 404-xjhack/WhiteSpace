@@ -1,6 +1,7 @@
 import { cleanCategory, postTags, validateDraft, validateSchedule, normalizeSchedule, formatSchedule, displayTime, formatPublished, matchPost, matchFingerprint, MATCH_VERSION, LEGACY_OFFER_NEED, needExtractionInput, needExtractionKey, validExtractedNeed, hasAINeed } from "./model.js";
 import { initMapView } from "./map-ui.js";
 import { initRealMap } from "./real-map.js";
+import { placeDemoPosts } from "./demo-map.js";
 
 const $ = (selector) => document.querySelector(selector);
 const postList = $("#postList");
@@ -34,6 +35,7 @@ let matchState = readSaved(storageMatches, {});
 if (!matchState || typeof matchState !== "object" || Array.isArray(matchState)) matchState = {};
 if (!matchState.byPost || typeof matchState.byPost !== "object" || Array.isArray(matchState.byPost)) matchState.byPost = {};
 let seedPosts = [];
+let mapDemoPosts = [];
 let selectedCategories = [];
 let filter = "all";
 let currentDetail = null;
@@ -113,7 +115,7 @@ function openDialog(dialog) { if (!dialog.open) dialog.showModal(); syncDialogLo
 function closeDialog(dialog) { dialog.close(); syncDialogLock(); }
 for (const dialog of [createDialog, detailDialog, scheduleDialog, needDialog, locationPickerDialog, deleteDialog]) dialog.addEventListener("close", syncDialogLock);
 realMap = initRealMap({
-  getPosts: allPosts,
+  getPosts: () => [...myPosts, ...mapDemoPosts],
   showDetail: (post) => showDetail(post),
   isInterested: (id) => interestedIds.has(id),
   toggleInterest: (post) => {
@@ -415,7 +417,7 @@ function showDetail(post) {
   $("#detailContent").innerHTML = `<div class="detail-person">${avatar(post)}<div><strong>${escapeHtml(post.name || "我")}</strong><small>${escapeHtml(personLine(post))} · <span data-published-id="${escapeHtml(post.id)}">${escapeHtml(formatPublished(post))}</span></small></div></div>
     <p class="detail-description">${escapeHtml(post.description)}</p>${post.firstStep ? `<p class="detail-first-step"><strong>见面后先做：</strong>${escapeHtml(post.firstStep)}</p>` : ""}<div class="post-tags">${tagHtml(post)}</div>
     <div class="detail-grid"><div><span>${post.type === "offer" ? "可以分享" : "可以带来"}</span><strong>${escapeHtml(post.offer || "愿意一起参与")}</strong></div><div><span>希望获得${hasAINeed(post) ? '<small class="need-source">AI 提炼</small>' : ""}</span><strong>${escapeHtml(post.need || "未说明")}</strong></div></div>
-    <div class="detail-info"><span>${icon("place")}${escapeHtml(post.location || "地点待确认")}</span><span>${icon("time")}${escapeHtml(displayTime(post))}</span><span>参与人数：${escapeHtml(post.participants || "协商决定")}</span></div><p class="detail-footnote">未来生活演示 · 参与意向仅保存在当前浏览器，不会发送给真实用户。</p>`;
+    <div class="detail-info"><span>${icon("place")}${escapeHtml(post.demoMap ? "学军紫金港附近 · 随机示意点" : post.location || "地点待确认")}</span><span>${icon("time")}${escapeHtml(displayTime(post))}</span><span>参与人数：${escapeHtml(post.participants || "协商决定")}</span></div><p class="detail-footnote">${post.demoMap ? "内置任务是虚构演示，位置随机，并非真实约见点。" : "未来生活演示 · 参与意向仅保存在当前浏览器，不会发送给真实用户。"}</p>`;
   const mine = isMine(post); $("#interestButton").hidden = mine; $("#interestButton").disabled = false;
   $("#interestButton").textContent = interestedIds.has(post.id) ? "取消参与意向" : "我想参与";
   $("#detailMatchButton").hidden = !mine; $("#detailMatchButton").textContent = cachedMatch(post) ? "查看上次匹配" : "寻找匹配";
@@ -596,7 +598,7 @@ createForm.addEventListener("submit", (event) => {
 });
 async function init() {
   if (hadLegacyNeeds) save(storagePosts, myPosts);
-  try { const response = await fetch("/data.json"); if (!response.ok) throw new Error("data_failed"); const data = await response.json(); if (!Array.isArray(data)) throw new Error("data_failed"); seedPosts = data; }
+  try { const response = await fetch("/data.json"); if (!response.ok) throw new Error("data_failed"); const data = await response.json(); if (!Array.isArray(data)) throw new Error("data_failed"); seedPosts = data; mapDemoPosts = placeDemoPosts(data); }
   catch { showToast("未来生活示例载入失败，你的发布仍可查看，请刷新重试。"); }
   renderPosts(); const lastPost = myPosts.find((post) => post.id === matchState.lastPostId); if (lastPost && !restoreMatch(lastPost)) runMatch(lastPost);
 }

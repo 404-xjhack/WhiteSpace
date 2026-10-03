@@ -502,12 +502,21 @@ try {
   assert.equal(await evaluate("window.__maps[0].options.jogEnable"), false);
   assert.equal(await evaluate("window.__maps[0].options.animateEnable"), false);
   assert.equal(await evaluate("document.querySelector('#demoMapLayout')"), null);
-  assert.match(await evaluate("document.querySelector('#realMissionDetail').textContent"), /暂时没有/);
+  await until("document.querySelectorAll('#realMissionList [data-real-post]').length === 6");
+  assert.match(await evaluate("document.querySelector('.real-demo-notice').textContent"), /位置随机/);
+  await evaluate("window.__markers.find(marker=>marker.title==='自动厨房之外，亲手包一顿家乡饺子').emit('click',{originEvent:{stopPropagation(){}}})");
+  await until("document.querySelector('#realMissionDetail h4')?.textContent === '自动厨房之外，亲手包一顿家乡饺子'");
+  assert.match(await evaluate("document.querySelector('#realRouteStatus').textContent"), /不提供真实步行路线/);
+  assert.equal(await evaluate("window.__serviceWalkingCalls.length"), 0);
+  await evaluate("window.__markers.findLast(marker=>marker.title==='自动厨房之外，亲手包一顿家乡饺子').emit('click',{originEvent:{stopPropagation(){}}})");
+  await until("document.querySelector('#realMissionDetail h4') === null");
   await set("#mapAreaSearch", "文化中心"); await click('#mapAreaSearchForm button[type="submit"]');
   await until("document.querySelectorAll('#mapAreaSearchResults [data-poi-index]').length === 1");
   assert.match(await evaluate("document.querySelector('#mapAreaSearchResults').textContent"), /西湖区/);
   await click('#mapAreaSearchResults [data-poi-index="0"]');
   assert.equal(await evaluate("window.__maps[0].center[0]"), 120.0678);
+  await click("#realDemoAreaButton");
+  assert.equal(await evaluate("window.__maps[0].center[0]"), 120.067672);
   await click("#realPublishButton"); await until("document.querySelector('#createDialog').open");
   await set("#postTitle", "一起整理社区故事"); await set("#postDescription", "想在公共地点和邻居一起整理旧照片，记录社区的记忆。");
   await set("#categoryPicker", "社区生活"); await click("#addCategory");
@@ -576,7 +585,7 @@ try {
   await click("#confirmDeleteButton");
   await until("document.querySelector('#realMissionDetail h4') === null");
   assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))"), []);
-  passed("Real map: browser location, vertical search, direct start reselection, publish, edit and delete");
+  passed("Real map: randomized demo tasks, browser location, vertical search, direct start reselection, publish, edit and delete");
   assert.deepEqual(errors, [], "No uncaught browser exceptions");
   console.log(`Browser checks passed: ${checks.length}; no uncaught exceptions.`);
 } catch (error) {

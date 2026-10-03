@@ -7,7 +7,7 @@
     "dev": "node server.mjs",
     "start": "node server.mjs",
     "check": "node --check server.mjs && node --check public/app.js && node --check public/model.js && node --check public/coordinates.js && node --check public/map-ui.js && node --check public/real-map.js && node --check tests/map-live.mjs",
-    "test": "node --test tests/model.test.mjs tests/coordinates.test.mjs tests/api.test.mjs",
+    "test": "node --test tests/model.test.mjs tests/coordinates.test.mjs tests/demo-map.test.mjs tests/api.test.mjs",
     "test:browser": "node tests/browser.mjs"
   },
   "engines": {

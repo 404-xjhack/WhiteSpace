@@ -49,13 +49,13 @@
         </div>
         <div id="realMapLayout" class="real-map-layout">
           <div class="real-map-column">
-            <div class="real-map-toolbar"><div><strong id="realMapArea">定位后查看身边的事</strong><span>点击地图空白处，可随时更换出发点</span></div><div><button id="realLocateButton" class="secondary-button" type="button">定位到我</button><button id="realPublishButton" class="primary-button" type="button">发布附近的事</button></div></div>
+            <div class="real-map-toolbar"><div><strong id="realMapArea">定位后查看身边的事</strong><span>点击地图空白处，可随时更换出发点</span></div><div><button id="realLocateButton" class="secondary-button" type="button">定位到我</button><button id="realDemoAreaButton" class="secondary-button" type="button">看演示街区</button><button id="realPublishButton" class="primary-button" type="button">发布附近的事</button></div></div>
             <div class="place-search-shell real-map-search"><form id="mapAreaSearchForm" class="location-search-form"><label class="sr-only" for="mapAreaSearch">搜索要查看的街区</label><input id="mapAreaSearch" type="search" placeholder="搜索城市、街区或公共地点" maxlength="60" /><button class="secondary-button" type="submit">搜索区域</button></form><div id="mapAreaSearchResults" class="place-results" aria-live="polite" hidden></div></div>
             <div id="realMapCanvas" class="real-map-canvas" aria-label="高德真实地图"></div>
             <button id="realJumpMission" class="real-jump-mission" type="button">查看任务与下一步 ↓</button>
             <p id="realMapStatus" class="real-map-status" role="status">正在准备真实地图…</p>
           </div>
-          <aside class="real-mission-panel" aria-labelledby="realMissionTitle"><h3 id="realMissionTitle">地图上的可参与事项</h3><div id="realMissionDetail"></div><div id="realMissionList" class="real-mission-list"></div><p class="real-map-safety">集合点由发布者确认；请勿选择家庭住址或私人地址。出发点不会保存，当前发布和参与意向仅保存在这台设备。</p></aside>
+          <aside class="real-mission-panel" aria-labelledby="realMissionTitle"><h3 id="realMissionTitle">地图上的可参与事项</h3><p class="real-demo-notice">内置任务是虚构演示，位置随机，并非真实约见点。</p><div id="realMissionDetail"></div><div id="realMissionList" class="real-mission-list"></div><p class="real-map-safety">集合点由发布者确认；请勿选择家庭住址或私人地址。出发点不会保存，当前发布和参与意向仅保存在这台设备。</p></aside>
         </div>
       </section>
 
