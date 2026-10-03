@@ -518,6 +518,17 @@ try {
   assert.equal(await evaluate("window.__serviceWalkingCalls.length"), 1, "Only the selected task requests a route");
   assert.equal(await evaluate(`JSON.stringify(window.__polylines.find(line=>line.active).path.at(-1)) === JSON.stringify(window.__markers.find(marker=>marker.title===${JSON.stringify(farthestDemoTitle)}).position)`), true);
   assert.equal(await evaluate("window.__markers.length"), markerCount, "Selecting a task keeps existing map markers");
+  const nextDemoTitle = await evaluate(`window.__markers.find(marker=>marker.title && marker.title!==${JSON.stringify(farthestDemoTitle)}).title`);
+  await evaluate(`window.__markers.find(marker=>marker.title===${JSON.stringify(nextDemoTitle)}).emit('click',{originEvent:{stopPropagation(){}}})`);
+  await until(`document.querySelector('#realMissionDetail h4')?.textContent === ${JSON.stringify(nextDemoTitle)}`);
+  await until("document.querySelector('#realRouteSummary').dataset.state === 'ready'");
+  assert.equal(await evaluate("window.__polylines.filter(line=>line.active).length"), 1, "Switching tasks removes the previous route");
+  assert.equal(await evaluate("window.__polylines.find(line=>line.active).strokeColor"), "#2c82cf", "Only the blue selected route remains");
+  assert.equal(await evaluate(`JSON.stringify(window.__polylines.find(line=>line.active).path.at(-1)) === JSON.stringify(window.__markers.find(marker=>marker.title===${JSON.stringify(nextDemoTitle)}).position)`), true);
+  await evaluate(`window.__markers.find(marker=>marker.title===${JSON.stringify(farthestDemoTitle)}).emit('click',{originEvent:{stopPropagation(){}}})`);
+  await until(`document.querySelector('#realMissionDetail h4')?.textContent === ${JSON.stringify(farthestDemoTitle)}`);
+  await until("document.querySelector('#realRouteSummary').dataset.state === 'ready'");
+  assert.equal(await evaluate("window.__polylines.filter(line=>line.active).length"), 1, "Switching back does not leave a second route");
   await click("#realRouteToggle");
   assert.equal(await evaluate("document.querySelector('#realRouteSummary').dataset.state"), "hidden");
   assert.equal(await evaluate("window.__polylines.filter(line=>line.active).length"), 0);
