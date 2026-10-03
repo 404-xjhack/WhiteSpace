@@ -18,3 +18,4 @@ body.embedded .experience-header{display:none}body.embedded .experience-shell{pa
 .summary-actions{padding:15px 25px;border-top:1px solid var(--line);flex:none}
 @media(max-width:760px){#summary-dialog{--dialog-scroll-inset:19px}#summary-dialog .dialog-heading{padding:19px}.summary-body{padding:17px 19px}.summary-actions{padding:14px 19px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+.experience-header .brand{color:var(--ink);text-decoration:none}.experience-header img.brand-mark{background:none;border-radius:0;object-fit:contain}.experience-header .brand:hover img.brand-mark{opacity:.85}.experience-header .brand:focus-visible{outline:3px solid #89bea0;outline-offset:3px;border-radius:8px}
