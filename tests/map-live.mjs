@@ -79,7 +79,11 @@ try {
   const status = await evaluate("document.querySelector('#realMapStatus').textContent");
   assert.doesNotMatch(status, /暂不可用/, `高德地图未加载：${status}`);
   await until("document.querySelector('#realMapCanvas .amap-maps')", "高德底图容器");
-  await pause(1200);
+  if (config.servicesEnabled) {
+    await until("document.querySelector('#realRouteSummary')?.dataset.state === 'ready'", "最近步行路线出现在地图");
+    assert.match(await evaluate("document.querySelector('#realRouteSummary').textContent"), /绿色最近路线.*随机生成/);
+  }
+  await pause(300);
   assert.match(await evaluate("document.querySelector('#realMapArea').textContent"), /已定位到你的附近/);
   const shot = await send("Page.captureScreenshot", { format: "png" });
   await writeFile(path.join(root, ".tmp", "real-map-live.png"), Buffer.from(shot.data, "base64"));
@@ -155,6 +159,7 @@ try {
   await evaluate("document.querySelector('#mapToggle').click()");
   await until("/已定位到你的附近/.test(document.querySelector('#realMapArea')?.textContent || '')", "移动端地图定位");
   await until("document.querySelector('#realMapCanvas .real-task-marker[data-post-id=\"mine-live-smoke\"]')", "移动端地图个人任务标记");
+  if (config.servicesEnabled) await until("document.querySelector('#realRouteSummary')?.dataset.state === 'ready'", "移动端最近步行路线");
   assert.equal(await evaluate("document.querySelector('#realMapCanvas .real-task-callout')"), null);
   assert.equal(await evaluate("(() => { const map=document.querySelector('#realMapCanvas').getBoundingClientRect(), pin=document.querySelector('#realMapCanvas .real-task-marker[data-post-id=\"mine-live-smoke\"]').getBoundingClientRect(); return pin.top >= map.top && pin.bottom <= map.bottom; })()"), true, "移动端附近任务应在首屏地图内");
   await pause(700);

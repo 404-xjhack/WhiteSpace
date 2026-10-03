@@ -484,13 +484,13 @@ try {
     window.fetch = (url, options) => {
       const path = typeof url === 'string' ? url : url.url;
       if (path.startsWith('/api/map/places?')) return Promise.resolve(new Response(JSON.stringify({ places:[{name:'蒋村社区文化中心',address:'杭州市 · 西湖区 · 文一路',point:{lng:120.0678,lat:30.2982}}] }), {status:200,headers:{'content-type':'application/json'}}));
-      if (path.startsWith('/api/map/walking?')) { window.__serviceWalkingCalls.push(path); return Promise.resolve(new Response(JSON.stringify({duration:480,distance:550,path:[[120.067,30.297],[120.0676,30.2976],[120.068,30.2984]]}), {status:200,headers:{'content-type':'application/json'}})); }
+      if (path.startsWith('/api/map/walking?')) { const params=new URL(path,location.origin).searchParams; const from=params.get('from').split(',').map(Number), to=params.get('to').split(',').map(Number); const distance=Math.round(Math.hypot((to[0]-from[0])*96000,(to[1]-from[1])*111000)*1.35)+50; window.__serviceWalkingCalls.push(path); return Promise.resolve(new Response(JSON.stringify({duration:Math.round(distance/1.2),distance,path:[{lng:from[0],lat:from[1]},{lng:to[0],lat:to[1]}]}), {status:200,headers:{'content-type':'application/json'}})); }
       return originalFetch(url, options);
     };
     class FakeLngLat { constructor(lng, lat) { this.lng=lng; this.lat=lat; } getLng() { return this.lng; } getLat() { return this.lat; } }
     class FakeMap { constructor(id, opts={}) { this.events={}; this.options=opts; this.center=opts.center || [120.067,30.297]; this.zoom=opts.zoom; document.getElementById(id).dataset.fakeMap='ready'; window.__maps.push(this); } on(name, fn) { this.events[name]=fn; } emit(name, data) { this.events[name]?.(data); } resize() {} setCenter(point) { this.center=point; } setZoom(zoom) { this.zoom=zoom; } getCenter() { return new FakeLngLat(...this.center); } }
     class FakeMarker { constructor(opts) { this.position=opts.position; this.title=opts.title; this.events={}; window.__markers.push(this); } on(name, fn) { this.events[name]=fn; } emit(name, data) { this.events[name]?.(data); } setMap() {} setPosition(point) { this.position=point; } getPosition() { return new FakeLngLat(...this.position); } }
-    class FakePolyline { constructor(opts) { this.path=opts.path; window.__polylines.push(this); } setMap() {} }
+    class FakePolyline { constructor(opts) { this.path=opts.path; this.strokeColor=opts.strokeColor; this.active=true; window.__polylines.push(this); } setMap(map) { this.active=Boolean(map); } }
     window.AMap={Map:FakeMap,Marker:FakeMarker,Polyline:FakePolyline,LngLat:FakeLngLat,convertFrom:(point,_kind,callback)=>callback('complete',{locations:[new FakeLngLat(point[0]+.0005,point[1]+.0005)]})};
   ` });
   await connection.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
@@ -504,11 +504,18 @@ try {
   assert.equal(await evaluate("document.querySelector('#demoMapLayout')"), null);
   await until("document.querySelectorAll('#realMissionList [data-real-post]').length === 6");
   assert.match(await evaluate("document.querySelector('.real-demo-notice').textContent"), /位置随机/);
-  await evaluate("window.__markers.find(marker=>marker.title==='自动厨房之外，亲手包一顿家乡饺子').emit('click',{originEvent:{stopPropagation(){}}})");
-  await until("document.querySelector('#realMissionDetail h4')?.textContent === '自动厨房之外，亲手包一顿家乡饺子'");
-  assert.match(await evaluate("document.querySelector('#realRouteStatus').textContent"), /不提供真实步行路线/);
-  assert.equal(await evaluate("window.__serviceWalkingCalls.length"), 0);
-  await evaluate("window.__markers.findLast(marker=>marker.title==='自动厨房之外，亲手包一顿家乡饺子').emit('click',{originEvent:{stopPropagation(){}}})");
+  await until("document.querySelector('#realRouteSummary').dataset.state === 'ready'");
+  assert.equal(await evaluate("window.__serviceWalkingCalls.length"), 6);
+  assert.match(await evaluate("document.querySelector('#realRouteSummary').textContent"), /绿色最近路线.*随机生成/);
+  assert.equal(await evaluate("window.__polylines.filter(line=>line.active && line.strokeColor==='#28735a').length"), 1);
+  assert.equal(await evaluate("(() => { const origin=[120.0675,30.2975], nearest=window.__markers.filter(marker=>marker.title).map(marker=>({point:marker.position,distance:Math.hypot((marker.position[0]-origin[0])*96000,(marker.position[1]-origin[1])*111000)})).sort((a,b)=>a.distance-b.distance)[0].point; return JSON.stringify(window.__polylines.find(line=>line.active).path.at(-1))===JSON.stringify(nearest); })()"), true, "Green line ends at the shortest walking route's task");
+  const farthestDemoTitle = await evaluate("(() => { const from=[120.0675,30.2975]; return window.__markers.filter(marker=>marker.title).map(marker=>({title:marker.title,distance:Math.hypot((marker.position[0]-from[0])*96000,(marker.position[1]-from[1])*111000)})).sort((a,b)=>b.distance-a.distance)[0].title; })()");
+  await evaluate(`window.__markers.find(marker=>marker.title===${JSON.stringify(farthestDemoTitle)}).emit('click',{originEvent:{stopPropagation(){}}})`);
+  await until(`document.querySelector('#realMissionDetail h4')?.textContent === ${JSON.stringify(farthestDemoTitle)}`);
+  assert.match(await evaluate("document.querySelector('#realRouteStatus').textContent"), /蓝色当前任务路线.*随机演示点/);
+  assert.equal(await evaluate("window.__polylines.filter(line=>line.active && line.strokeColor==='#2c82cf').length"), 1);
+  assert.equal(await evaluate("window.__serviceWalkingCalls.length"), 6, "Opening a task reuses compared routes");
+  await evaluate(`window.__markers.findLast(marker=>marker.title===${JSON.stringify(farthestDemoTitle)}).emit('click',{originEvent:{stopPropagation(){}}})`);
   await until("document.querySelector('#realMissionDetail h4') === null");
   await set("#mapAreaSearch", "文化中心"); await click('#mapAreaSearchForm button[type="submit"]');
   await until("document.querySelectorAll('#mapAreaSearchResults [data-poi-index]').length === 1");
@@ -585,7 +592,7 @@ try {
   await click("#confirmDeleteButton");
   await until("document.querySelector('#realMissionDetail h4') === null");
   assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))"), []);
-  passed("Real map: randomized demo tasks, browser location, vertical search, direct start reselection, publish, edit and delete");
+  passed("Real map: nearest walking route, selected route, randomized demo tasks, browser location, search, reselection, publish, edit and delete");
   assert.deepEqual(errors, [], "No uncaught browser exceptions");
   console.log(`Browser checks passed: ${checks.length}; no uncaught exceptions.`);
 } catch (error) {

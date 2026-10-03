@@ -35,10 +35,16 @@ function loadAMap(key) {
 
 export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest, openCreate, onPick, editPost, deletePost }) {
   let config = { enabled: false, servicesEnabled: false };
-  let map, pickerMap, pickerMarker, startMarker, routeLine;
+  let map, pickerMap, pickerMarker, startMarker, nearestLine, selectedLine;
   let markers = [], selectedId = null, startPoint = null, pickerPoint = null;
   let pickerResults = [], areaResults = [], routeVersion = 0, locationAttempted = false;
+  let routeKey = "", routeState = "idle", routeResults = new Map(), nearestRoute = null;
   let selectionVersion = 0, areaSearchVersion = 0, pickerSearchVersion = 0;
+  const routeSummary = document.createElement("p");
+  routeSummary.id = "realRouteSummary";
+  routeSummary.className = "real-route-summary";
+  routeSummary.setAttribute("role", "status");
+  $(".real-demo-notice").after(routeSummary);
   function setStart(point, source = "map") {
     const nextPoint = normalizeLocationPoint(point);
     if (!nextPoint || !map) return;
@@ -136,25 +142,68 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
 
   function mappedPosts() { return getPosts().filter((post) => normalizeLocationPoint(post.locationPoint)); }
 
-  async function updateRoute(post) {
-    routeVersion++;
-    const version = routeVersion;
-    routeLine?.setMap(null); routeLine = null;
-    const target = $("#realRouteStatus");
-    if (!target) return;
-    if (post.demoMap) { target.textContent = "示例位置随机生成，不提供真实步行路线。"; return; }
-    if (!startPoint) { target.textContent = "在地图上选一个出发点，再查看真实步行路线。"; return; }
-    if (!config.servicesEnabled) { target.textContent = "步行路线需配置高德 Web 服务 Key；任务地点仍可查看。"; return; }
-    target.textContent = "正在计算真实步行路线…";
-    try {
-      const params = new URLSearchParams({ from: coordinates(startPoint).join(","), to: coordinates(post.locationPoint).join(",") });
-      const response = await fetch(`/api/map/walking?${params}`);
-      if (!response.ok) throw new Error("walking_unavailable");
-      const route = await response.json();
+  function routeText(route) {
+    return `步行约 ${Math.max(1, Math.ceil(route.duration / 60))} 分钟 · ${Math.round(route.distance)} 米（高德路线）`;
+  }
+
+  function syncRoutes() {
+    nearestLine?.setMap(null); nearestLine = null;
+    selectedLine?.setMap(null); selectedLine = null;
+    const posts = mappedPosts();
+    const selected = posts.find((post) => post.id === selectedId);
+    const selectedRoute = selected && routeResults.get(selected.id);
+    const nearestPost = nearestRoute && posts.find((post) => post.id === nearestRoute.post.id);
+    if (map && nearestRoute) nearestLine = new window.AMap.Polyline({ map, path: nearestRoute.route.path, strokeColor: "#28735a", strokeWeight: 7, strokeOpacity: 0.95, isOutline: true, outlineColor: "#fff", borderWeight: 2, zIndex: 80 });
+    if (map && selectedRoute && selected.id !== nearestRoute?.post.id) selectedLine = new window.AMap.Polyline({ map, path: selectedRoute.path, strokeColor: "#2c82cf", strokeWeight: 5, strokeOpacity: 0.95, isOutline: true, outlineColor: "#fff", borderWeight: 2, zIndex: 81 });
+    if (!map) routeSummary.textContent = "配置地图后可查看步行路线。";
+    else if (!posts.length) routeSummary.textContent = "附近暂无地图任务；发布一件事后可查看路线。";
+    else if (!startPoint) routeSummary.textContent = "定位或点击地图选择出发点，即可比较步行路线。";
+    else if (!config.servicesEnabled) routeSummary.textContent = "步行路线需配置高德 Web 服务 Key；任务地点仍可查看。";
+    else if (nearestRoute) routeSummary.textContent = `绿色最近路线 · ${nearestPost?.title || nearestRoute.post.title}：${routeText(nearestRoute.route)}${nearestPost?.demoMap ? "；演示点随机生成，仅供功能参考，不可按此赴约。" : ""}`;
+    else if (routeState === "loading") routeSummary.textContent = "正在比较附近任务的步行路线…";
+    else routeSummary.textContent = "暂时无法取得步行路线；请在任务附近重选出发点，或稍后重试。";
+    routeSummary.dataset.state = nearestRoute ? "ready" : routeState;
+    const detailStatus = $("#realRouteStatus");
+    if (!detailStatus) return;
+    if (!map || !startPoint || !config.servicesEnabled) detailStatus.textContent = routeSummary.textContent;
+    else if (selectedRoute) detailStatus.textContent = `${selected.id === nearestRoute?.post.id ? "绿色最近路线" : "蓝色当前任务路线"} · ${routeText(selectedRoute)}${selected.demoMap ? "；随机演示点，仅供功能参考，不可按此赴约。" : ""}`;
+    else if (routeState === "loading") detailStatus.textContent = "正在计算这件任务的步行路线…";
+    else detailStatus.textContent = "这件任务的步行路线暂不可用；可重选出发点后重试。";
+  }
+
+  function ensureRoutes(posts) {
+    const key = map && startPoint && config.servicesEnabled && posts.length
+      ? JSON.stringify([coordinates(startPoint), posts.map((post) => [post.id, coordinates(post.locationPoint)])]) : "";
+    if (key === routeKey) { syncRoutes(); return; }
+    routeKey = key;
+    const version = ++routeVersion;
+    routeResults = new Map();
+    nearestRoute = null;
+    routeState = key ? "loading" : "idle";
+    syncRoutes();
+    if (!key) return;
+    // Serial requests keep the public walking API below its per-second quota.
+    void (async () => {
+      for (const post of posts) {
+        if (version !== routeVersion) return;
+        try {
+          const params = new URLSearchParams({ from: coordinates(startPoint).join(","), to: coordinates(post.locationPoint).join(",") });
+          const response = await fetch(`/api/map/walking?${params}`);
+          if (!response.ok) throw new Error("walking_unavailable");
+          const route = await response.json();
+          if (version !== routeVersion) return;
+          const path = Array.isArray(route.path) ? route.path.map(normalizeLocationPoint).filter(Boolean).map(coordinates) : [];
+          if (Number.isFinite(Number(route.distance)) && Number.isFinite(Number(route.duration)) && path.length > 1) routeResults.set(post.id, { distance: Number(route.distance), duration: Number(route.duration), path });
+        } catch { /* One unavailable route must not hide the other tasks. */ }
+        if (version !== routeVersion) return;
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      }
       if (version !== routeVersion) return;
-      if (Array.isArray(route.path) && route.path.length > 1) routeLine = new window.AMap.Polyline({ map, path: route.path, strokeColor: "#277252", strokeWeight: 6, strokeOpacity: 0.86 });
-      target.textContent = `沿街步行约 ${Math.max(1, Math.ceil(Number(route.duration) / 60))} 分钟 · ${Math.round(Number(route.distance))} 米（高德路线）`;
-    } catch { if (version === routeVersion && $("#realRouteStatus")) $("#realRouteStatus").textContent = "路线服务暂不可用；任务详情仍可查看。"; }
+      nearestRoute = posts.map((post) => ({ post, route: routeResults.get(post.id) })).filter((entry) => entry.route)
+        .sort((left, right) => left.route.distance - right.route.distance)[0] || null;
+      routeState = nearestRoute ? "ready" : "error";
+      syncRoutes();
+    })();
   }
 
   function render() {
@@ -187,8 +236,7 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
         ? '<p>点击地图上的任务点，或从下方列表选择一件事，查看详情和步行路线。</p>'
         : '<p>这里暂时没有带公共集合点的本机任务。发布一件小事，在真实地图上选一个见面的公共地点，就能看到它出现在地图上。</p><button id="realEmptyPublish" class="primary-button" type="button">发布一件附近的事</button>';
       if (!posts.length) $("#realEmptyPublish").addEventListener("click", openCreate);
-      routeVersion++;
-      routeLine?.setMap(null); routeLine = null;
+      ensureRoutes(posts);
       return;
     }
     const mine = selected.id.startsWith("mine-");
@@ -197,8 +245,7 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
     $("#realJoin").addEventListener("click", () => mine ? showDetail(selected) : toggleInterest(selected));
     $("#realDetail").addEventListener("click", () => showDetail(selected));
     if (mine) { $("#realEdit").addEventListener("click", () => editPost(selected)); $("#realDelete").addEventListener("click", () => deletePost(selected)); }
-    if (map) updateRoute(selected);
-    else $("#realRouteStatus").textContent = selected.demoMap ? "示例位置随机生成，不提供真实步行路线。" : "配置地图后可从自选出发点计算真实步行路线。";
+    ensureRoutes(posts);
   }
 
   function setPickerPoint(point, name = "") {
