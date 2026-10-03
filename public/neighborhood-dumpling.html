@@ -1,0 +1,1519 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>饺子店街区沙盘 · 留白 WriteSpace</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <style>
+    body { margin: 0; overflow: hidden; background: #eae2d3;
+           font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
+    canvas { display: block; }
+    /* —— 覆盖层 UI 统一采用 WriteSpace 设计令牌：纸白底 / 墨色 #1d2924 / 灰绿 #65736d / 主绿 #28735a —— */
+    #tip { position: fixed; left: 16px; bottom: 16px; padding: 8px 14px; border-radius: 9px;
+           background: rgba(255,255,255,.88); color: #1d2924; font-size: 13px;
+           border: 1px solid #e3e9e2; box-shadow: 0 12px 36px rgba(33,55,42,.08);
+           letter-spacing: .02em; pointer-events: none; }
+    #ui { position: fixed; left: 16px; bottom: 54px; padding: 10px 14px; border-radius: 9px;
+          background: rgba(255,255,255,.9); color: #1d2924; font-size: 13px;
+          border: 1px solid #e3e9e2; box-shadow: 0 12px 36px rgba(33,55,42,.08);
+          display: flex; align-items: center; gap: 10px; }
+    #ui input { width: 220px; accent-color: #28735a; cursor: pointer; }
+    #ui button { font: inherit; padding: 5px 12px; border-radius: 9px; cursor: pointer;
+                 border: 1px solid #e3e9e2; background: #fff; color: #1d2924; font-weight: 650; }
+    #ui button.on { background: #28735a; border-color: #28735a; color: #fff; }
+    /* 漫游模式：掉锁后的恢复提示 */
+    #walkHint { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); z-index: 15;
+                padding: 6px 14px; border-radius: 9px; display: none; pointer-events: none;
+                background: rgba(29,41,36,.85); color: #fff; font-size: 12.5px; letter-spacing: .03em; }
+    /* 漫游模式：屏幕中心准星（步骤 3） */
+    #crosshair { position: fixed; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px;
+                 border-radius: 50%; display: none; z-index: 14; pointer-events: none;
+                 background: rgba(255,255,255,.9); box-shadow: 0 0 4px rgba(0,0,0,.6);
+                 transition: transform .12s, background .12s; }
+    #crosshair.on { transform: scale(1.9); background: #df8b55; }
+    #crossTip { position: fixed; left: 50%; top: calc(50% + 16px); transform: translateX(-50%); z-index: 14;
+                display: none; pointer-events: none; color: #fff; font-size: 12px;
+                text-shadow: 0 1px 3px rgba(0,0,0,.7); letter-spacing: .05em; }
+    .scene-home { position: fixed; top: 16px; left: 16px; z-index: 12; display: flex; align-items: center; gap: 9px;
+                  min-height: 44px; padding: 6px 12px 6px 7px; border-radius: 10px; background: #fff;
+                  color: #1d2924; text-decoration: none; box-shadow: 0 8px 24px rgba(24,45,32,.15); }
+    .scene-home:hover { background: #f2f5f0; }
+    .scene-home:focus-visible, #ui button:focus-visible, .scene-help button:focus-visible { outline: 3px solid #89bea0; outline-offset: 3px; }
+    .scene-home-mark { display: block; flex: none; width: 32px; height: 32px; }
+    .scene-home strong, .scene-home small { display: block; line-height: 1.15; }
+    .scene-home strong { font-size: 15px; }
+    .scene-home small { margin-top: 3px; color: #526359; font-size: 10px; }
+    .scene-help { width: min(430px, calc(100% - 24px)); padding: 24px; border: 0; border-radius: 14px; color: #1d2924; background: #fff; box-shadow: 0 22px 70px rgba(24,45,32,.25); }
+    .scene-help::backdrop { background: rgba(20,33,24,.52); }
+    .scene-help h2 { margin: 0 0 10px; font-size: 21px; }
+    .scene-help p { margin: 0 0 15px; color: #42524a; font-size: 13px; line-height: 1.75; }
+    .scene-help button { min-height: 38px; padding: 6px 14px; border: 0; border-radius: 8px; background: #28735a; color: #fff; font: inherit; cursor: pointer; }
+    @media (max-width: 600px) {
+      #ui { right: 12px; left: 12px; bottom: 12px; flex-wrap: wrap; gap: 8px; }
+      #ui input { flex: 1 1 120px; width: auto; }
+      #tip { display: none; }
+      .scene-home { top: 12px; left: 12px; }
+    }
+    /* 热区悬浮标签：hover/准星对准时跟随热区 */
+    #zoneLabel { position: fixed; display: none; z-index: 13; transform: translate(-50%, -100%);
+                 pointer-events: none; white-space: nowrap; padding: 4px 12px; border-radius: 999px;
+                 background: rgba(29,41,36,.85); color: #fff; font-size: 12.5px; letter-spacing: .03em;
+                 box-shadow: 0 4px 14px rgba(24,45,32,.25); }
+    #zoneLabel b { color: #bfe3cd; font-weight: 600; }
+    #clock { font-variant-numeric: tabular-nums; min-width: 48px; text-align: right; }
+    /* 热区详情卡（HTML overlay，随热区投影跟随；默认向上弹，上方放不下加 .below 改向下弹） */
+    #zoneCard { position: fixed; display: none; z-index: 20; box-sizing: border-box; width: 300px; max-width: calc(100vw - 24px); max-height: 52vh; overflow-y: auto;
+                transform: translate(-50%, calc(-100% - 14px));
+                background: rgba(255,255,255,.97); border: 1px solid #e3e9e2; border-radius: 12px;
+                box-shadow: 0 12px 36px rgba(33,55,42,.16); padding: 14px 16px; font-size: 14px; color: #1d2924; }
+    #zoneCard.below { transform: translate(-50%, 14px); }
+    #zoneCard .zc-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    #zoneCard .zc-head b { font-size: 17px; }
+    #zoneCard .zc-chip { color: #fff; font-size: 12.5px; border-radius: 999px; padding: 2px 10px; white-space: nowrap; }
+    #zoneCard .zc-x { margin-left: auto; border: 0; background: none; font-size: 20px; color: #65736b; cursor: pointer; }
+    #zoneCard .zc-desc { color: #42524a; font-size: 14px; margin-bottom: 8px; line-height: 1.75;
+                         overflow-wrap: break-word; word-break: break-word; }
+    #zoneCard .zc-meta { color: #65736b; font-size: 13px; margin: 8px 0 0; line-height: 1.6; }
+    #zoneCard .zc-foot { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e3e9e2;
+                         color: #8a978e; font-size: 12.5px; letter-spacing: .04em; }
+    #zoneCard { animation: zc-pop .18s ease-out; }
+    @keyframes zc-pop { from { opacity: 0; } to { opacity: 1; } }
+    /* —— 漫游模式加大版卡片：更宽、类别色顶条、面板式数据行 —— */
+    #zoneCard.walk { width: 384px; max-height: 64vh; padding: 16px 20px 14px; border-radius: 16px;
+                     border-top: 4px solid var(--zc, #28735a); font-size: 15px;
+                     background: rgba(255,255,255,.98); box-shadow: 0 18px 50px rgba(24,45,32,.24); }
+    #zoneCard.walk .zc-head { gap: 10px; margin-bottom: 8px; }
+    #zoneCard.walk .zc-head b { font-size: 21px; letter-spacing: .02em; }
+    #zoneCard.walk .zc-chip { font-size: 13px; padding: 3px 12px; }
+    #zoneCard.walk .zc-x { font-size: 22px; }
+    #zoneCard.walk .zc-desc { font-size: 15px; line-height: 1.9; color: #37423c; }
+    #zoneCard.walk .zc-meta { font-size: 13.5px; background: #f2f5f0; border: 1px solid #e3e9e2;
+                              border-radius: 9px; padding: 8px 12px; margin-top: 10px; }
+    #zoneCard.walk .zc-foot { font-size: 13px; margin-top: 10px; }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "/experiences/dumpling/vendor/three.module.js"
+    }
+  }
+  </script>
+</head>
+<body>
+<a class="scene-home" href="/" aria-label="留白 WriteSpace，返回首页"><img class="scene-home-mark" src="/favicon.svg" alt="" aria-hidden="true"><span><strong>留白</strong><small>回到首页</small></span></a>
+<div id="tip">左键拖拽旋转 · 滚轮缩放 · 按住滚轮键（中键）拖拽平移</div>
+<div id="zoneCard"></div>
+<div id="ui">
+  <span>时间</span>
+  <input id="slider" type="range" min="24" max="108" step="1" value="92">
+  <span id="clock">18:48</span>
+  <button id="play">播放</button>
+  <button id="walkBtn">漫游</button>
+  <button id="aboutBtn" type="button">玩法</button>
+</div>
+<div id="walkHint">已暂停漫游 —— 点击画面继续，按 V 退出</div>
+<dialog id="sceneHelp" class="scene-help" aria-labelledby="sceneHelpTitle"><h2 id="sceneHelpTitle">怎样逛这间饺子店</h2><p>拖动画面看街区，移动时间滑杆观察一天中的变化。点击店里的光柱，查看该时段的虚构社区需求。按 V 进入漫游，使用 WASD 移动，靠近光柱后按 E 阅读。</p><p>这里是互动演示沙盘，光柱和需求均为示意数据，并非真实求助。</p><button id="closeSceneHelp" type="button">继续体验</button></dialog>
+<div id="crosshair"></div>
+<div id="crossTip">按 E 查看详情</div>
+<div id="zoneLabel"></div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from '/experiences/dumpling/vendor/OrbitControls.js';
+
+// === 场景 ===
+const scene = new THREE.Scene();
+
+// === 天空（竖向渐变贴在大球内侧，随时间重绘）+ 暖色雾 ===
+scene.background = new THREE.Color(0xf3c294);
+scene.fog = new THREE.Fog(0xe6a878, 30, 125);
+const skyCv = document.createElement('canvas'); skyCv.width = 64; skyCv.height = 512;
+const skyCtx = skyCv.getContext('2d');
+const skyTex = new THREE.CanvasTexture(skyCv); skyTex.colorSpace = THREE.SRGBColorSpace;
+const SKY_STOPS = [0.00, 0.30, 0.55, 0.78, 1.00];      // 色标位置：画布顶 → 球体天顶
+function paintSky(cols) {                               // cols：与 SKY_STOPS 对应的 THREE.Color[]
+  const g = skyCtx.createLinearGradient(0, 0, 0, 512);
+  SKY_STOPS.forEach((p, i) => g.addColorStop(p, cols[i].getStyle()));
+  skyCtx.fillStyle = g; skyCtx.fillRect(0, 0, 64, 512);
+  skyTex.needsUpdate = true;
+}
+scene.add(new THREE.Mesh(new THREE.SphereGeometry(220, 32, 16),
+  new THREE.MeshBasicMaterial({ map: skyTex, side: THREE.BackSide, fog: false, depthWrite: false })));
+// 太阳光晕贴图（径向渐变，加色混合叠成一团暖光）
+function haloTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const x = c.getContext('2d');
+  const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0.00, 'rgba(255,238,200,0.95)');
+  g.addColorStop(0.22, 'rgba(255,196,124,0.55)');
+  g.addColorStop(0.55, 'rgba(255,150,80,0.18)');
+  g.addColorStop(1.00, 'rgba(255,140,70,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
+// shop：整栋饺子店（含室内、立面、屋顶、雨棚招牌），整体绕 Y 轴转 180°
+// 街景 / 地面 / 人行道等属于环境，挂在 scene 上不参与旋转
+const shop = new THREE.Group();
+shop.rotation.y = Math.PI;      // 店铺整体前后翻转 180°（街道环境不参与旋转）
+scene.add(shop);
+const room = new THREE.Group();
+shop.add(room);
+
+// === 渲染器 ===
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));   // 2 → 1.5：高分屏像素量降 44%，肉眼几乎无差
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.autoUpdate = false;              // 阴影不逐帧重算：光源只随时间轴动，setTime 里按需 needsUpdate
+document.body.appendChild(renderer.domElement);
+
+// === 相机：站到街对面的斜前方，保证一进页面就看得见整栋店 ===
+// 不写固定坐标：垂直 FOV 固定 55° 时，水平视野随窗口比例变（4:3 的半角只有 34.8°，远窄于 16:9 的 42.8°），
+// 写死坐标在窄窗口下一定会切掉边。改成「轮廓点 + 观察方向」在运行时反解出刚好装下的距离。
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 300);
+const VIEW_TARGET = new THREE.Vector3(0, 2.15, -1.0);          // 看向建筑中心：略偏前、略抬高
+const VIEW_ELEV = 17 * Math.PI / 180;                          // 俯角：大于屋面坡度(~12°)才看得见瓦顶
+const VIEW_AZIM = 16 * Math.PI / 180;                          // 方位：从正面偏开一点，能同时看到一侧墙
+const VIEW_DIR = new THREE.Vector3(                            // 相机相对目标的方向（斜前上方）
+  Math.cos(VIEW_ELEV) * Math.sin(VIEW_AZIM), Math.sin(VIEW_ELEV), -Math.cos(VIEW_ELEV) * Math.cos(VIEW_AZIM));
+const VIEW_PTS = [                                             // 建模轮廓的关键点（世界坐标）
+  [6.3, 5.0, 0], [-6.3, 5.0, 0],                                                    // 屋脊两端（含吻兽）
+  [6.3, 3.82, 6.05], [-6.3, 3.82, 6.05], [6.3, 3.82, -6.05], [-6.3, 3.82, -6.05],    // 四角檐口
+  [6.45, -0.06, 5.45], [-6.45, -0.06, 5.45], [6.45, -0.06, -5.45], [-6.45, -0.06, -5.45], // 基座四角
+  [6.5, 2.95, -6.65], [-6.5, 2.95, -6.65], [5.0, 2.9, -6.5], [-5.0, 2.9, -6.5],      // 雨棚前沿与立柱顶
+  [3.35, 1.35, -5.9], [-3.35, 1.35, -5.9], [4.9, 1.7, -7.0], [-5.2, 1.4, -7.9],      // 盆栽 / 立牌 / 三轮车
+  [3.2, 4.84, -7.6], [3.2, 4.34, -8.3], [0, 0, -6.9],                                // 路灯杆顶 / 灯头 / 门前地面
+].map(a => new THREE.Vector3(...a));
+const _v = new THREE.Vector3(), _r = new THREE.Vector3(), _u = new THREE.Vector3(), _f = new THREE.Vector3();
+function fitDistance(margin = 1.35) {                          // 给街景留出呼吸空间，同时保证建筑完整入镜
+  const tanV = Math.tan(camera.fov * Math.PI / 360), tanH = tanV * camera.aspect;
+  _f.copy(VIEW_DIR).negate();                                  // 视线方向 = -VIEW_DIR
+  _r.crossVectors(_f, camera.up).normalize();                  // 相机右轴
+  _u.crossVectors(_r, _f).normalize();                         // 相机上轴
+  for (let r = 8; r <= 60; r += 0.25) {
+    let ok = true;
+    for (const p of VIEW_PTS) {
+      _v.copy(p).sub(VIEW_TARGET).addScaledVector(VIEW_DIR, -r);   // 相机坐标系下的偏移
+      const d = _v.dot(_f);                                        // 深度
+      if (d <= 0.1 || Math.abs(_v.dot(_r)) > d * tanH / margin
+                   || Math.abs(_v.dot(_u)) > d * tanV / margin) { ok = false; break; }
+    }
+    if (ok) return r;
+  }
+  return 60;
+}
+function placeCamera() {                                       // 用户没手动转过视角前，resize 也会重新取景
+  camera.position.copy(VIEW_TARGET).addScaledVector(VIEW_DIR, fitDistance());
+  camera.lookAt(VIEW_TARGET);
+}
+placeCamera();
+
+// === 控制器 ===
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.copy(VIEW_TARGET);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 3;
+controls.maxDistance = 46;                          // 初始距离已到 ~13，上限要跟着放宽
+controls.maxPolarAngle = Math.PI * 0.495;           // 不穿到地面以下
+// 平移改为按住中键（滚轮键）拖拽：左键旋转、中键平移，右键不再有动作（避免误拖画面）
+// touch 保持默认：单指旋转、双指缩放+平移
+controls.mouseButtons = {
+  LEFT: THREE.MOUSE.ROTATE,
+  MIDDLE: THREE.MOUSE.PAN,
+  RIGHT: null                                     // null → OrbitControls 内部落到 STATE.NONE
+};
+// Windows / Linux 浏览器对中键的默认行为是「自动滚动 / 粘贴」，必须屏蔽掉拖拽平移才会生效
+renderer.domElement.addEventListener('pointerdown', e => { if (e.button === 1) e.preventDefault(); });
+renderer.domElement.addEventListener('auxclick', e => { if (e.button === 1) e.preventDefault(); });
+controls.update();
+let userMoved = false;                              // 用户动过视角后就不再自动取景，免得 resize 跳画面
+controls.addEventListener('start', () => { userMoved = true; });
+
+// === 相机补间管理器（开场运镜 / orbit↔walk 过渡 / 双击聚焦共用）===
+// useTarget 模式：补间相机位置 + controls.target（orbit 系）；否则 slerp 四元数（walk 系）
+const camTween = { active: false, t: 0, dur: 0.8,
+  fromP: new THREE.Vector3(), toP: new THREE.Vector3(),
+  fromQ: new THREE.Quaternion(), toQ: new THREE.Quaternion(),
+  fromT: new THREE.Vector3(), toT: new THREE.Vector3(),
+  useTarget: false, onDone: null };
+function startCamTween(toP, { toQ = null, toT = null, dur = 0.8, onDone = null } = {}) {
+  camTween.active = true; camTween.t = 0; camTween.dur = dur;
+  camTween.fromP.copy(camera.position); camTween.toP.copy(toP);
+  camTween.fromQ.copy(camera.quaternion);
+  camTween.useTarget = !!toT;
+  if (toT) { camTween.fromT.copy(controls.target); camTween.toT.copy(toT); }
+  if (toQ) camTween.toQ.copy(toQ);
+  camTween.onDone = onDone;
+}
+function updateCamTween(dt) {
+  if (!camTween.active) return false;
+  camTween.t += dt / camTween.dur;
+  const u = Math.min(camTween.t, 1);
+  const k = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;   // easeInOutCubic
+  camera.position.lerpVectors(camTween.fromP, camTween.toP, k);
+  if (camTween.useTarget) {
+    controls.target.lerpVectors(camTween.fromT, camTween.toT, k);
+    camera.lookAt(controls.target);
+  } else camera.quaternion.slerpQuaternions(camTween.fromQ, camTween.toQ, k);
+  if (u >= 1) { camTween.active = false; const f = camTween.onDone; camTween.onDone = null; if (f) f(); }
+  return true;
+}
+
+// Start directly in the usable scene; the former splash screen is omitted.
+let introDone = true;
+controls.enabled = true;
+controls.update();
+
+// === 第一人称漫游模式（walk）：V 键 / 按钮切换，WASD 移动 + PointerLock 转头（步骤 1：暂无碰撞） ===
+camera.rotation.order = 'YXZ';                      // walk 模式按 yaw/pitch 直接写欧拉角
+const tipEl = document.getElementById('tip');
+const TIP_ORBIT = tipEl.textContent;
+const walkBtn = document.getElementById('walkBtn');
+const walkHint = document.getElementById('walkHint');
+const crosshair = document.getElementById('crosshair');
+const crossTip = document.getElementById('crossTip');
+let mode = 'orbit';                                 // 'orbit' 第三人称（默认）/ 'walk' 第一人称漫游
+const walkState = { yaw: 0, pitch: 0, keys: new Set(), vx: 0, vz: 0, bob: 0 };
+let orbitSnapshot = null;                           // 切回 orbit 时恢复原机位
+
+function enterWalk() {
+  if (selectedZone >= 0) closeZoneCard();             // 先关卡再切模式（反过来会触发 walk 的关卡自动回锁）
+  if (hoverZone >= 0) setHoverZone(-1);               // 清掉 orbit 残留的悬停高亮与标签
+  mode = 'walk'; userMoved = true;                  // 之后 resize 不许再自动取景
+  orbitSnapshot = { pos: camera.position.clone(), tgt: controls.target.clone() };
+  controls.enabled = false;
+  const start = shop.localToWorld(new THREE.Vector3(0, 1.35, 7));   // 起点：门口人眼高度（shop 局部）
+  const look = shop.localToWorld(new THREE.Vector3(0, 1.35, 0));    // 面朝店内
+  const d = look.sub(start).normalize();
+  walkState.yaw = Math.atan2(-d.x, -d.z);
+  walkState.pitch = Math.asin(THREE.MathUtils.clamp(d.y, -1, 1));
+  walkState.keys.clear();
+  walkState.vx = walkState.vz = walkState.bob = 0;    // 速度/步态清零，免得带着上次的惯性进来
+  const toQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(walkState.pitch, walkState.yaw, 0, 'YXZ'));
+  startCamTween(start, { toQ, dur: 0.8 });            // 步骤 4：从当前机位 0.8s 平滑飞到门口
+  walkBtn.textContent = '退出漫游'; walkBtn.classList.add('on');
+  tipEl.textContent = 'WASD 移动 · Shift 加速 · 鼠标转头 · V 退出漫游';
+  renderer.domElement.requestPointerLock();
+}
+function exitWalk() {
+  if (document.pointerLockElement) document.exitPointerLock();
+  walkBtn.textContent = '漫游'; walkBtn.classList.remove('on');
+  walkHint.style.display = 'none';
+  crosshair.style.display = 'none'; crosshair.classList.remove('on'); crossTip.style.display = 'none';
+  tipEl.textContent = TIP_ORBIT;
+  mode = 'orbit';
+  if (orbitSnapshot) {                                // 0.8s 飞回快照机位，结束才交还 OrbitControls
+    startCamTween(orbitSnapshot.pos, { toT: orbitSnapshot.tgt, dur: 0.8,
+      onDone: () => { controls.enabled = true; controls.update(); } });
+  } else controls.enabled = true;
+}
+walkBtn.addEventListener('click', () => (mode === 'orbit' ? enterWalk() : exitWalk()));
+
+// PointerLock：Esc 掉锁后给恢复提示（卡片打开时不催）；准星只在锁定且未开卡时显示
+document.addEventListener('pointerlockchange', () => {
+  if (mode !== 'walk') return;
+  const locked = document.pointerLockElement === renderer.domElement;
+  walkHint.style.display = (!locked && selectedZone < 0) ? 'block' : 'none';
+  crosshair.style.display = locked ? 'block' : 'none';
+  if (!locked) { crosshair.classList.remove('on'); crossTip.style.display = 'none'; }
+});
+const WALK_SENS = 0.0004;                           // 鼠标灵敏度（rad/px，调视角快慢改这里）
+document.addEventListener('mousemove', e => {
+  if (mode !== 'walk' || camTween.active || document.pointerLockElement !== renderer.domElement) return;  // 飞行途中不转头
+  walkState.yaw -= e.movementX * WALK_SENS;
+  walkState.pitch = THREE.MathUtils.clamp(walkState.pitch - e.movementY * WALK_SENS,
+    -Math.PI * 0.444, Math.PI * 0.444);             // ±80°
+});
+renderer.domElement.addEventListener('click', () => {
+  if (mode !== 'walk') return;
+  if (document.pointerLockElement) {                      // 锁定中：准星对着热区 → 开卡（会自动退锁）
+    if (hoverZone >= 0 && selectedZone < 0) selectZone(hoverZone);
+  } else if (selectedZone >= 0) closeZoneCard();          // 卡片打开时点空白处关卡（closeZoneCard 内会立即回锁鼠标）
+  else renderer.domElement.requestPointerLock();          // 否则点击画面恢复漫游
+});
+
+// WASD / 方向键 + Shift 加速
+const WALK_KEYS = { w: 'f', arrowup: 'f', s: 'b', arrowdown: 'b', a: 'l', arrowleft: 'l', d: 'r', arrowright: 'r' };
+addEventListener('keydown', e => {
+  if (e.key === 'v' || e.key === 'V') { mode === 'orbit' ? enterWalk() : exitWalk(); return; }
+  if ((e.key === 'e' || e.key === 'E') && mode === 'walk' && document.pointerLockElement
+      && hoverZone >= 0 && selectedZone < 0) { selectZone(hoverZone); return; }   // 准星开卡
+  const k = WALK_KEYS[e.key.toLowerCase()];
+  if (k) walkState.keys.add(k);
+  if (e.key === 'Shift') walkState.keys.add('run');
+});
+addEventListener('keyup', e => {
+  const k = WALK_KEYS[e.key.toLowerCase()];
+  if (k) walkState.keys.delete(k);
+  if (e.key === 'Shift') walkState.keys.delete('run');
+});
+
+// === 碰撞（步骤 2）：XZ 平面 2D，相机视为半径 0.3 的圆 ===
+// 坐标均为世界坐标。shop 内物件（含 yard/frontFix）随 180° 翻转，已按 (x,z)→(-x,-z) 换算；路灯挂 out 不翻转。
+const CAM_R = 0.3;
+const COLLIDERS = [
+  // —— 室内：三张桌子（桌面 1.5 + 两侧长凳）——
+  { c: [2.6, -1.2], r: 1.15 }, { c: [-1.5, -2.6], r: 1.15 }, { c: [-2.7, 1.5], r: 1.15 },
+  // —— 室内：灶台 / 立式冰柜 / 靠墙备餐柜 / 三层货架 / 箩筐米袋堆 / 后角置物架 ——
+  { c: [5.3, 0.8], h: [0.68, 2.35] }, { c: [-5.55, -3.3], h: [0.4, 0.55] },
+  { c: [-5.6, -0.6], h: [0.35, 1.25] }, { c: [-5.6, 1.8], h: [0.35, 0.9] },
+  { c: [-5.45, 3.6], h: [0.55, 1.2] }, { c: [5.62, 4.2], h: [0.4, 0.8] },
+  // —— 室内：饮水机 / 垃圾桶 ——
+  { c: [5.6, -1.9], r: 0.35 }, { c: [5.5, -3.1], r: 0.3 },
+  // —— 室外：雨棚立柱×2 / 陶缸盆栽×2 / 门口周转箱 / A字菜单立牌 ——
+  { c: [-5.0, -6.5], r: 0.15 }, { c: [5.0, -6.5], r: 0.15 },
+  { c: [-3.35, -5.9], r: 0.5 }, { c: [3.35, -5.9], r: 0.5 },
+  { c: [-4.33, -5.9], r: 0.5 }, { c: [4.9, -7.0], r: 0.5 },
+  // —— 室外：三轮车 / 路灯杆 / 侧墙根杂物（泔水桶、箱垛、粮袋、竹梯、油桶、纸箱） ——
+  { c: [-5.2, -7.9], r: 1.2 }, { c: [3.2, -7.6], r: 0.15 },
+  { c: [7.15, -3.3], h: [0.66, 0.48] }, { c: [7.0, -1.35], r: 0.5 }, { c: [6.9, 0.15], r: 0.5 },
+  { c: [6.9, 2.9], r: 0.4 }, { c: [-6.78, -1.85], r: 0.35 }, { c: [-6.95, -2.95], r: 0.5 },
+  { c: [-6.9, -4.05], r: 0.5 },
+];
+// 活动范围（矩形的并集）：室内 + 门洞（净宽 3.4）+ 门前院落与街面；不进后巷深处
+const RANGE_RECTS = [
+  { x: 0, z: 0, hx: 5.5, hz: 4.55 },        // 室内（墙面内缩一个半径）
+  { x: 0, z: -5.5, hx: 1.4, hz: 1.15 },     // 门洞
+  { x: 0, z: -7.0, hx: 9.0, hz: 2.5 },      // 门前（覆盖盆栽、路灯、三轮车）
+];
+function resolveCollision(p) {
+  for (let round = 0; round < 2; round++) {           // 推离→钳范围→再推离，防角落互相顶出
+    for (let iter = 0; iter < 3; iter++) {            // 圆推离迭代 2~3 次
+      for (const o of COLLIDERS) {
+        if (o.r) {                                    // 圆碰撞体
+          const dx = p.x - o.c[0], dz = p.z - o.c[1];
+          const rr = o.r + CAM_R, d2 = dx * dx + dz * dz;
+          if (d2 < rr * rr && d2 > 1e-8) {
+            const d = Math.sqrt(d2), k = (rr - d) / d;
+            p.x += dx * k; p.z += dz * k;
+          }
+        } else {                                      // AABB：沿穿透浅的一侧推出
+          const dx = p.x - o.c[0], dz = p.z - o.c[1];
+          const px = o.h[0] + CAM_R - Math.abs(dx), pz = o.h[1] + CAM_R - Math.abs(dz);
+          if (px > 0 && pz > 0) {
+            if (px < pz) p.x += dx >= 0 ? px : -px; else p.z += dz >= 0 ? pz : -pz;
+          }
+        }
+      }
+    }
+    let bx = p.x, bz = p.z, bd = Infinity;            // 钳到并集中最近的矩形
+    for (const R of RANGE_RECTS) {
+      const cx = Math.max(R.x - R.hx, Math.min(p.x, R.x + R.hx));
+      const cz = Math.max(R.z - R.hz, Math.min(p.z, R.z + R.hz));
+      const d = (p.x - cx) * (p.x - cx) + (p.z - cz) * (p.z - cz);
+      if (d < bd) { bd = d; bx = cx; bz = cz; }
+    }
+    p.x = bx; p.z = bz;
+  }
+}
+
+function updateWalk(dt) {
+  const f = (walkState.keys.has('f') ? 1 : 0) - (walkState.keys.has('b') ? 1 : 0);
+  const r = (walkState.keys.has('r') ? 1 : 0) - (walkState.keys.has('l') ? 1 : 0);
+  // 目标速度 → 惯性平滑：起步有加速、松键有滑停，不再"瞬间启停"
+  const speed = walkState.keys.has('run') ? 3.2 : 1.6;    // 走 1.6 m/s、跑 3.2 m/s
+  const fx = -Math.sin(walkState.yaw), fz = -Math.cos(walkState.yaw);   // 前向（yaw 朝向）
+  const rx = -fz, rz = fx;                                // 右向 = 前向 × 上
+  const len = Math.hypot(f, r) || 1;
+  const wishX = (fx * f + rx * r) / len * speed, wishZ = (fz * f + rz * r) / len * speed;
+  const accel = (f || r) ? 9 : 13;                        // 停步比起步收得更快，贴真人手感
+  walkState.vx += (wishX - walkState.vx) * Math.min(1, accel * dt);
+  walkState.vz += (wishZ - walkState.vz) * Math.min(1, accel * dt);
+  camera.position.x += walkState.vx * dt;
+  camera.position.z += walkState.vz * dt;
+  // 步伐驱动的头部律动：步频随速度，幅度跑步略大；停下时淡出
+  const planar = Math.hypot(walkState.vx, walkState.vz);
+  walkState.bob += planar * dt * 3.4;                     // ≈ 步幅 0.6m 一步一沉
+  const fade = Math.min(1, planar / 0.7);
+  const amp = (planar > 2.2 ? 0.030 : 0.022) * fade;
+  const bobY = Math.sin(walkState.bob * 2) * amp;         // 每步一次上下
+  const roll = Math.sin(walkState.bob) * 0.010 * fade;    // 左右轻微侧倾
+  // 人眼高度固定：室内地板 0 → 1.35；室外地面 -0.06 → 1.29，门槛 2cm 平滑过渡；bob 叠在目标高度上
+  const inside = Math.abs(camera.position.x) <= 5.8 && Math.abs(camera.position.z) <= 4.85;
+  const targetY = (inside ? 1.35 : 1.29) + bobY;
+  camera.position.y += (targetY - camera.position.y) * Math.min(1, dt * 10);
+  resolveCollision(camera.position);                  // 步骤 2：碰撞推离 + 活动范围钳制
+  camera.rotation.set(walkState.pitch, walkState.yaw, roll);
+}
+
+// === 材质 ===
+const M = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.75, metalness: 0, ...o });
+const matWood   = M(0x8a5a33);
+const matWoodL  = M(0xc08a4e, { roughness: 0.65 });
+const matBeam   = M(0x6b4527);
+const matBamboo = M(0xd7ac63, { roughness: 0.85 });
+const matSteel  = M(0xd8dce0, { metalness: 0.9, roughness: 0.25 });
+const matPorc   = M(0xf3f7f9, { roughness: 0.18 });
+const matBlue   = M(0x2d4f96, { roughness: 0.35 });
+const matDough  = M(0xf7f2e4, { roughness: 0.9 });
+const matRed    = M(0xb92f26, { roughness: 0.5, emissive: 0x3a0b06, emissiveIntensity: 0.6 });
+const matWall   = M(0xe6dccc, { roughness: 0.95 });
+const matGold   = M(0xd9a441, { metalness: 0.7, roughness: 0.35 });
+const matGlass  = new THREE.MeshPhysicalMaterial({
+  color: 0xdfeaf2, transparent: true, opacity: 0.16, roughness: 0.06, side: THREE.DoubleSide });
+
+// === 建模工具 ===
+const addBox = (p, m, w, h, d, x, y, z, ry = 0) => {
+  const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+  o.position.set(x, y, z); o.rotation.y = ry;
+  o.castShadow = o.receiveShadow = true; p.add(o); return o;
+};
+const addCyl = (p, m, rt, rb, h, seg, x, y, z) => {
+  const o = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), m);
+  o.position.set(x, y, z);
+  o.castShadow = o.receiveShadow = true; p.add(o); return o;
+};
+
+// === 房间 ===
+function checkerTex(a, b, rx, ry) {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  g.fillStyle = a; g.fillRect(0, 0, 64, 64);
+  g.fillStyle = b; g.fillRect(0, 0, 32, 32); g.fillRect(32, 32, 32, 32);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(12, 10),
+  M(0xffffff, { map: checkerTex('#bdb6a8', '#a79f92', 6, 5), roughness: 0.9 }));
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; room.add(floor);
+
+const addPlane = (m, w, h, x, y, z, rx = 0, ry = 0) => {
+  const o = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m);
+  o.position.set(x, y, z); o.rotation.x = rx; o.rotation.y = ry; o.receiveShadow = true;
+  room.add(o); return o;
+};
+addPlane(matWall, 12, 3.6, 0, 1.8, -5);                    // 后墙
+addPlane(matWall, 10, 3.6, -6, 1.8, 0, 0, Math.PI / 2);    // 左墙
+addPlane(matWall, 10, 3.6, 6, 1.8, 0, 0, -Math.PI / 2);    // 右墙
+addPlane(matWall, 12, 10, 0, 3.6, 0, Math.PI / 2);         // 天花板（朝下）
+[-2.6, 0, 2.6].forEach(z => addBox(room, matBeam, 12, 0.18, 0.22, 0, 3.5, z)); // 房梁
+
+// === 正面外墙：两侧木格窗 + 中间敞开的大门 ===
+const WIN = [[-3.45, 2.3], [3.45, 2.3]];   // 两侧窗：[中心 x, 宽]
+addBox(room, matWall, 4.1, 0.95, 0.22, -3.95, 0.475, 5);   // 窗下矮墙（左）
+addBox(room, matWall, 4.1, 0.95, 0.22, 3.95, 0.475, 5);    // 窗下矮墙（右）
+addBox(room, matWall, 12, 0.7, 0.22, 0, 3.25, 5);          // 门楣以上墙体
+addBox(room, matWall, 1.4, 1.95, 0.22, -5.3, 1.925, 5);    // 左侧墙垛
+addBox(room, matWall, 1.4, 1.95, 0.22, 5.3, 1.925, 5);     // 右侧墙垛
+addBox(room, matWall, 0.4, 1.95, 0.22, -2.1, 1.925, 5);    // 门框边垛
+addBox(room, matWall, 0.4, 1.95, 0.22, 2.1, 1.925, 5);
+addBox(room, matWood, 4.6, 0.22, 0.34, 0, 3.01, 5);        // 门头横梁
+WIN.forEach(([wx, w]) => {                                  // 窗——木框 + 格心 + 玻璃
+  addBox(room, matWood, w + 0.3, 0.14, 0.3, wx, 0.98, 5);   // 窗台板
+  [wx - w / 2, wx + w / 2].forEach(x => addBox(room, matWood, 0.1, 1.95, 0.16, x, 1.95, 5));
+  addBox(room, matWood, w + 0.2, 0.1, 0.16, wx, 2.9, 5);
+  addBox(room, matWood, w + 0.2, 0.14, 0.24, wx, 0.99, 5);
+  for (let i = 1; i < 4; i++) addBox(room, matWood, 0.05, 1.85, 0.06, wx - w / 2 + i * w / 4, 1.95, 5);
+  for (let j = 1; j < 3; j++) addBox(room, matWood, w - 0.1, 0.05, 0.06, wx, 1.0 + j * 0.62, 5);
+  addPlane(matGlass, w, 1.9, wx, 1.95, 5);
+});
+[-1, 1].forEach(s => {                                      // 两扇向外敞开的大门
+  const hinge = new THREE.Group();
+  hinge.position.set(s * 1.9, 0, 5.06);
+  hinge.rotation.y = -s * 0.95;                             // 约 54°，向街面展开
+  room.add(hinge);
+  addBox(hinge, M(0x9c4a2f), 1.85, 2.88, 0.1, s * 0.93, 1.44, 0);
+  addBox(hinge, M(0x7d3a24), 1.5, 0.95, 0.03, s * 0.93, 1.95, 0.06);   // 门芯板
+  addBox(hinge, M(0x7d3a24), 1.5, 0.8, 0.03, s * 0.93, 0.75, 0.06);
+  addCyl(hinge, matGold, 0.055, 0.055, 0.03, 10, s * 0.93, 1.5, 0.09).rotation.x = Math.PI / 2;
+});
+addBox(room, M(0xa9a49a, { roughness: 1 }), 3.8, 0.16, 0.9, 0, 0.02, 5.6);   // 门前石阶（底面埋到街面 GY，不悬空）
+
+// === 建筑外墙 + 屋顶 ===
+const matOut = M(0xd8cdba, { roughness: 0.95 });
+const exterior = new THREE.Group(); shop.add(exterior);
+const addOutPlane = (w, h, x, y, z, ry) => {
+  const o = new THREE.Mesh(new THREE.PlaneGeometry(w, h), matOut);
+  o.position.set(x, y, z); o.rotation.y = ry; o.receiveShadow = true;
+  exterior.add(o); return o;
+};
+// 墙顶统一到 EAVE_Y，屋顶底面始终保持在它之上，留出净空避免穿模
+const EAVE_Y = 3.82;
+addOutPlane(10.9, EAVE_Y, -6.15, EAVE_Y / 2, 0, -Math.PI / 2);   // 左外墙（朝外）
+addOutPlane(10.9, EAVE_Y, 6.15, EAVE_Y / 2, 0, Math.PI / 2);     // 右外墙（朝外）
+addOutPlane(12.3, EAVE_Y, 0, EAVE_Y / 2, -5.15, Math.PI);        // 后外墙（朝外）
+// 前后檐口封檐板（压在屋檐下，不与坡屋面相交）
+addBox(exterior, M(0x8d7b5f), 12.6, 0.2, 0.18, 0, EAVE_Y - 0.22, 6.05);
+addBox(exterior, M(0x8d7b5f), 12.6, 0.16, 0.18, 0, EAVE_Y - 0.24, -6.05);
+
+// === 双坡瓦顶 ===
+const matTile  = M(0x66696b, { roughness: 0.95 });   // 屋面底色
+const matTile2 = M(0x585c5e, { roughness: 0.95 });   // 瓦垄（隔一变色）
+const matTrim  = M(0x464a4d, { roughness: 0.9 });    // 脊、瓦当
+const eaveZ = 6.05, ridgeY = 5.0, roofW = 12.5;
+const panelLen = Math.hypot(eaveZ, ridgeY - EAVE_Y), ang = Math.atan2(ridgeY - EAVE_Y, eaveZ);
+const ribStep = 0.45, ribN = Math.floor(roofW / ribStep);
+[-1, 1].forEach(s => {
+  const p = new THREE.Mesh(new THREE.BoxGeometry(roofW, 0.16, panelLen), matTile);
+  p.position.set(0, (ridgeY + EAVE_Y) / 2, s * eaveZ / 2);
+  p.rotation.x = s * ang;
+  p.castShadow = p.receiveShadow = true; exterior.add(p);
+  for (let i = 0; i < ribN; i++) {                    // 瓦垄：作为屋面板的子物体，自动贴合坡度
+    const x = -roofW / 2 + ribStep * (i + 0.5);
+    const rib = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.09, panelLen * 0.99),
+      i % 2 ? matTile2 : matTrim);
+    rib.position.set(x, 0.115, 0); p.add(rib);
+    const drip = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.045, 0.14, 8), matTrim);
+    drip.position.set(x, -0.03, s * (panelLen / 2 - 0.01));   // 檐口瓦当
+    drip.rotation.x = Math.PI / 2; p.add(drip);
+  }
+});
+// 四条垂脊（压在坡屋面外侧边缘）
+[-1, 1].forEach(sx => [-1, 1].forEach(sz => {
+  const r = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.2, panelLen), matTrim);
+  r.position.set(sx * 6.13, (ridgeY + EAVE_Y) / 2 + 0.11, sz * (eaveZ / 2 + 0.02));
+  r.rotation.x = sz * ang; r.castShadow = true; exterior.add(r);
+}));
+addBox(exterior, matTrim, 12.6, 0.2, 0.3, 0, ridgeY + 0.05, 0);             // 正脊
+addBox(exterior, M(0x3f4244), 12.7, 0.1, 0.44, 0, ridgeY + 0.17, 0);        // 脊上线脚
+[-1, 1].forEach(s => {                                                       // 两端吻兽（简化上翘）
+  addBox(exterior, matTrim, 0.52, 0.16, 0.52, s * 6.2, ridgeY + 0.12, 0);
+  const w = addBox(exterior, matTrim, 0.34, 0.66, 0.36, s * 6.2, ridgeY + 0.36, 0);
+  w.rotation.z = -s * 0.34;
+});
+[-6.15, 6.15].forEach(x => {                                                 // 山墙：与外墙同面，底边贴墙顶 y=3.7
+  const s = new THREE.Shape();
+  s.moveTo(-eaveZ, EAVE_Y); s.lineTo(eaveZ, EAVE_Y); s.lineTo(0, ridgeY); s.closePath();
+  const g = new THREE.Mesh(new THREE.ShapeGeometry(s), matTile);
+  g.rotation.y = x > 0 ? Math.PI / 2 : -Math.PI / 2;
+  g.position.set(x, 0, 0); exterior.add(g);
+});
+
+// === 店外地面 / 街景（整片地面统一基准，避免与店铺错位）===
+const out = new THREE.Group(); scene.add(out);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), M(0x93989c, { roughness: 1 }));
+ground.rotation.x = -Math.PI / 2; ground.position.y = -0.06;
+ground.receiveShadow = true; out.add(ground);
+addBox(out, M(0x918c84, { roughness: 1 }), 12.9, 0.5, 10.9, 0, -0.27, 0);  // 房屋基座：顶面 -0.02，紧贴地板不重面
+addBox(out, M(0xb9b4aa, { roughness: 1 }), 13.6, 0.16, 2.2, 0, 0.02, 6.3);  // 人行道
+addBox(out, M(0x7d8286, { roughness: 1 }), 60, 0.02, 0.3, 0, 0.11, 7.4);    // 路缘线
+
+// 街道对面 / 两侧的楼体色块
+const cityMat = [0x8d99a6, 0x7f8b98, 0x99a3ad, 0x869099, 0x8a949f, 0x7c8794];
+[[-9, 3.4, 12, 5, 4], [-3, 2.8, 14.5, 4, 4], [4, 3.8, 12.5, 4.5, 5], [11, 3.0, 10.5, 4, 4],
+ [-15, 4.4, 22, 6, 6], [15, 3.6, 19, 6, 6], [-13, 3.2, 30, 5, 5], [12, 4.0, 31, 6, 5]]
+  .forEach(([x, h, z, w, d], i) => {
+    out.add(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), M(cityMat[i % 6]))
+      .translateX(x).translateY(h / 2 - 0.06).translateZ(z));
+    out.add(new THREE.Mesh(new THREE.BoxGeometry(w + 0.4, 0.18, d + 0.4), M(0x6d7883))
+      .translateX(x).translateY(h - 0.06).translateZ(z));                    // 檐口压顶
+  });
+
+// 行道树（位于人行道外侧）
+const treeMat = M(0x6f8f56, { flatShading: true }), trunkMat = M(0x7b5b3a);
+[-8.2, 8.2].forEach(x => {
+  const g = new THREE.Group(); g.position.set(x, -0.06, 7.8); out.add(g);
+  addBox(g, trunkMat, 0.26, 1.5, 0.26, 0, 0.75, 0);
+  const c = new THREE.Mesh(new THREE.IcosahedronGeometry(1.2, 0), treeMat);
+  c.position.y = 2.2; c.castShadow = true; g.add(c);
+});
+
+// 雨棚 + 招牌：附属于店面，随店铺一起旋转
+const frontFix = new THREE.Group(); shop.add(frontFix);
+// 招牌压在雨棚之上、屋檐之下：该区间 (z≈5.4) 屋面下沿约 y=3.74，招牌顶面 3.69，留 5cm 余量
+addBox(frontFix, M(0x8f3b2f), 13.0, 0.16, 1.3, 0, 2.95, 6.0);                       // 雨棚
+[-5.0, 5.0].forEach(x => addBox(frontFix, matWood, 0.12, 2.96, 0.12, x, 1.42, 6.5));  // 雨棚立柱（落地 -0.06，上端仍抵住雨棚）
+addBox(frontFix, M(0x8f3b2f), 5.8, 0.62, 0.14, 0, 3.38, 5.4);                        // 招牌底板
+[[-1.7, 0.95], [0.1, 0.8], [1.8, 0.95]].forEach(([x, w]) =>                          // 招牌文字色块
+  addBox(frontFix, M(0xf6e9cf), w, 0.14, 0.03, x, 3.38, 5.48));
+
+// === 店外侧堆积的大型杂物（挂在 shop 上，随店铺一起翻转）===
+const yard = new THREE.Group(); shop.add(yard);
+const GY = -0.06, SW = 0.10;     // GY：街面标高；SW：后侧人行道面标高（该处的杂物要抬到步道上）
+const matPlastic  = M(0x3f7fa8, { roughness: 0.65 });
+const matPlasticG = M(0x4d7a4a, { roughness: 0.65 });
+const matDrum     = M(0xa8563a, { roughness: 0.85 });
+const matCard     = M(0xc0a077, { roughness: 0.95 });
+const matSack     = M(0xd0c6ad, { roughness: 1 });
+const matPot      = M(0x8b6a49, { roughness: 0.9 });
+const matLeaf     = M(0x5f8149, { flatShading: true });
+const matUnit     = M(0xa9aeb2, { metalness: 0.45, roughness: 0.55 });
+
+// 周转箱 / 木箱：五块薄板拼出空心感，俯视能看到箱内
+function crate(p, m, w, h, d, x, y, z, ry = 0) {
+  const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; p.add(g);
+  addBox(g, m, w, 0.05, d, 0, -h / 2, 0);
+  [-1, 1].forEach(s => {
+    addBox(g, m, w, h, 0.05, 0, 0, s * (d / 2 - 0.02));
+    addBox(g, m, 0.05, h, d, s * (w / 2 - 0.02), 0, 0);
+  });
+  return g;
+}
+// 麻袋 / 面粉袋
+function sack(p, x, y, z, ry = 0) {
+  const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; p.add(g);
+  addCyl(g, matSack, 0.26, 0.36, 0.62, 10, 0, 0.31, 0);
+  addCyl(g, matSack, 0.09, 0.15, 0.14, 8, 0, 0.68, 0);
+  return g;
+}
+
+// —— 大门两侧（都在雨棚之下，且不挡敞开的两扇门：门扇最远只到 |x|≈3.0）——
+[-1, 1].forEach(s => {                                          // 两口大陶缸盆栽
+  const g = new THREE.Group(); g.position.set(s * 3.35, GY, 5.9); yard.add(g);
+  addCyl(g, matPot, 0.46, 0.34, 0.72, 14, 0, 0.36, 0);
+  addCyl(g, M(0x6f5237), 0.5, 0.5, 0.08, 14, 0, 0.74, 0);
+  const lv = new THREE.Mesh(new THREE.IcosahedronGeometry(0.6, 0), matLeaf);
+  lv.position.y = 1.32; lv.scale.y = 0.85; lv.castShadow = true; g.add(lv);
+});
+const standee = new THREE.Group();                              // 立式菜单牌（A 字立牌）
+standee.position.set(-4.9, GY, 7.0); standee.rotation.y = 0.25; yard.add(standee);
+[-1, 1].forEach(s => {
+  const b = new THREE.Group(); b.position.set(0, 0.6, s * 0.15);
+  b.rotation.x = -s * 0.13; standee.add(b);                     // 两块板相向倾斜成 A 形
+  addBox(b, matWood, 0.9, 1.2, 0.06, 0, 0, 0);
+  [[0.34, 0.6, 0], [0.06, 0.68, 0], [-0.24, 0.44, -0.2]].forEach(([dy, w, dx]) =>
+    addBox(b, M(0xf6e9cf), w, 0.11, 0.02, dx, dy, s * 0.04));  // 菜名色块
+});
+crate(yard, matPlasticG, 0.86, 0.42, 0.62, 4.35, GY + 0.21, 5.95, 0.12);   // 门口的空周转箱
+crate(yard, matPlastic, 0.86, 0.42, 0.62, 4.30, GY + 0.64, 5.88, -0.06);
+
+// —— 左墙外：泔水桶 + 周转箱垛 + 粮袋 + 斜靠的竹梯（均贴在 x≈-6.9 的墙根）——
+const bin = new THREE.Group(); bin.position.set(-7.15, GY, 3.3); bin.rotation.y = 0.18; yard.add(bin);
+addBox(bin, M(0x3f6b3c), 1.25, 0.9, 0.9, 0, 0.62, 0);
+addBox(bin, M(0x31502f), 1.32, 0.1, 0.96, 0, 1.11, 0).rotation.x = 0.12;    // 掀开的桶盖
+addBox(bin, M(0x31502f), 1.28, 0.08, 0.06, 0, 0.96, 0.48);
+[-1, 1].forEach(s => {
+  const w = addCyl(bin, M(0x22262a), 0.12, 0.12, 0.09, 10, s * 0.42, 0.12, -0.32);
+  w.rotation.z = Math.PI / 2;
+});
+crate(yard, matPlastic,  0.92, 0.44, 0.66, -6.98, GY + 0.22, 1.35, 0.06);
+crate(yard, matPlasticG, 0.92, 0.44, 0.66, -7.02, GY + 0.67, 1.30, -0.05);
+crate(yard, matPlastic,  0.92, 0.44, 0.66, -6.94, GY + 1.12, 1.36, 0.12);
+sack(yard, -6.95, GY, -0.55, 0.3);
+sack(yard, -6.85, GY, 0.28, -0.4);
+sack(yard, -6.90, GY + 0.62, -0.15, 0.15);
+const ladder = new THREE.Group();                                // 竹梯斜靠墙面：横档平行墙面，绕 z 倾侧
+ladder.position.set(-6.9, GY, -2.9); ladder.rotation.z = -0.25; yard.add(ladder);
+[-1, 1].forEach(s => addBox(ladder, matBamboo, 0.08, 3.0, 0.08, 0, 1.5, s * 0.26));   // 两杆沿墙分开，顶端齐平触墙
+for (let i = 0; i < 8; i++) addBox(ladder, matWoodL, 0.06, 0.06, 0.54, 0, 0.3 + i * 0.36, 0);
+
+// —— 右墙外：壁挂空调外机 + 两只油桶 + 纸箱垛 ——
+const ac = new THREE.Group(); ac.position.set(6.37, 2.35, -1.2); yard.add(ac);
+addBox(ac, matUnit, 0.44, 0.58, 0.95, 0, 0, 0);
+for (let i = 0; i < 5; i++) addBox(ac, M(0x7f8589), 0.03, 0.44, 0.05, 0.23, 0, -0.34 + i * 0.17);
+const fan = addCyl(ac, matSteel, 0.2, 0.2, 0.05, 14, 0.23, 0, 0.3); fan.rotation.z = Math.PI / 2;
+[-1, 1].forEach(s => {                                            // 三角支架
+  addBox(ac, matSteel, 0.05, 0.06, 0.24, -0.14, -0.34, s * 0.36);
+  addBox(ac, matSteel, 0.05, 0.36, 0.05, -0.14, -0.55, s * 0.36);
+});
+addCyl(ac, M(0x5b5b5b), 0.035, 0.035, 2.3, 8, -0.2, -1.30, 0.32);  // 连接铜管：上接外机、下落地（原两端悬空）
+const drum1 = new THREE.Group(); drum1.position.set(6.78, GY, 1.85); yard.add(drum1);   // 立着的油桶
+addCyl(drum1, matDrum, 0.33, 0.33, 0.92, 14, 0, 0.46, 0);
+[0.25, 0.68].forEach(y => {
+  const r = new THREE.Mesh(new THREE.TorusGeometry(0.335, 0.025, 6, 14), M(0x7d432c));
+  r.rotation.x = Math.PI / 2; r.position.y = y; drum1.add(r);
+});
+const drum2 = new THREE.Group(); drum2.position.set(6.95, GY + 0.33, 2.95); yard.add(drum2);
+addCyl(drum2, matDrum, 0.33, 0.33, 0.92, 14, 0, 0, 0).rotation.z = Math.PI / 2;          // 侧卧的油桶
+addBox(yard, matCard, 0.70, 0.50, 0.55, 6.90, GY + 0.25, 4.05, 0.20);
+addBox(yard, matCard, 0.62, 0.44, 0.50, 6.86, GY + 0.72, 4.10, -0.10);
+addBox(yard, matCard, 0.50, 0.36, 0.42, 6.92, GY + 1.12, 4.00, 0.35);
+
+// —— 后墙外：厨房排风管 + 电表箱 + 废纸箱垛（落在人行道上，基准抬到 SW） ——
+[[2.4, 0.19], [3.5, 0.13]].forEach(([x, r]) => {
+  addCyl(yard, matUnit, r, r, 3.0, 12, x, SW + 1.5, -5.40);                 // 排风管贴后墙（原离墙 32cm 悬空）
+  addCyl(yard, M(0x7c8285), r + 0.05, r + 0.05, 0.14, 12, x, SW + 3.05, -5.40);
+  addBox(yard, M(0x7c8285), r * 2.2, 0.12, 0.4, x, SW + 0.06, -5.40);       // 落地鞍座（原悬空在步道上方 24cm）
+});
+addBox(yard, M(0x9aa0a4), 0.42, 0.5, 0.16, -2.6, 1.7, -5.24);              // 电表箱（背面贴住后外墙，原悬空离墙 17cm）
+addBox(yard, matCard, 0.80, 0.55, 0.60, -4.90, SW + 0.275, -5.95, 0.12);
+addBox(yard, matCard, 0.70, 0.48, 0.55, -4.86, SW + 0.790, -6.00, -0.08);
+addBox(yard, matWood, 1.10, 0.10, 0.50, -4.90, SW + 1.080, -6.00, 0.05);
+
+// —— 街边停着的送货三轮车 ——
+const trike = new THREE.Group(); trike.position.set(5.2, GY, 7.9); trike.rotation.y = -0.5; yard.add(trike);
+[-1, 1].forEach(s => {
+  const w = addCyl(trike, M(0x22262a), 0.3, 0.3, 0.12, 14, -0.9, 0.3, s * 0.55);
+  w.rotation.x = Math.PI / 2;
+});
+addCyl(trike, M(0x22262a), 0.33, 0.33, 0.1, 14, 1.45, 0.33, 0).rotation.x = Math.PI / 2;
+addBox(trike, matUnit, 2.3, 0.09, 0.14, 0.5, 0.62, 0);
+crate(trike, matWood, 1.85, 0.52, 1.1, -0.55, 0.93, 0);          // 货箱落在车架上（原悬空 6.5cm）
+sack(trike, -0.95, 0.70, 0.22, 0.4);                             // 麻袋落在箱底
+sack(trike, -0.25, 0.70, -0.22, -0.3);
+addBox(trike, M(0x35393d), 0.55, 0.13, 0.38, 0.35, 0.9, 0);
+addBox(trike, matUnit, 0.06, 0.2, 0.06, 0.35, 0.73, 0);          // 座管（原来车座悬空无支撑）
+addBox(trike, matUnit, 0.07, 0.5, 0.07, 1.3, 0.9, 0);
+const bar = addCyl(trike, matUnit, 0.035, 0.035, 0.62, 8, 1.3, 1.16, 0); bar.rotation.x = Math.PI / 2;
+
+// === 街边路灯（第 12 次迭代 · 步骤 1：只建模，光源在下一步再加）===
+// 挂在 out（环境组，不随 shop 旋转），坐标为世界坐标：店铺转 180° 后前门在世界 -Z 侧，
+// 悬臂因此朝街心（-Z）外挑。位 A 的实测净距：盆栽 0.87 / 菜单立牌 0.91 / 敞开的门扇端 0.71
+const matBase = M(0x9a9691, { roughness: 1 });
+const matPole = M(0x4c5459, { metalness: 0.5, roughness: 0.6 });
+const matDark = M(0x3b4045, { metalness: 0.6, roughness: 0.5 });
+const matBand = M(0x9c4a2f, { roughness: 0.6 });
+const matBulb = new THREE.MeshBasicMaterial({           // 发光面单独一份材质，别复用 matRed / matGold
+  color: 0xfff0cf, transparent: true, opacity: 0.25, side: THREE.DoubleSide, depthWrite: false });
+const POLE_H = 4.90;                                    // 杆高（自 GY 起算，顶面 4.84，压在屋脊 5.0 之下）
+const ARM_Z = -0.70;                                    // 悬臂朝街心外挑的长度
+const ARM_Y = POLE_H - 0.06;                            // 悬臂高度 ≈ 杆顶
+const HEAD_Y = ARM_Y - 0.44;                            // 灯罩中心
+const BULB_Y = ARM_Y - 0.56;                            // 发光面（下一步的 SpotLight 就放这里）
+
+function streetLamp(parent, px, pz, ry = 0) {
+  const g = new THREE.Group(); g.position.set(px, GY, pz); g.rotation.y = ry; parent.add(g);
+  addCyl(g, matBase, 0.30, 0.34, 0.16, 8, 0, 0.08, 0);                    // 混凝土基座
+  addCyl(g, matDark, 0.20, 0.22, 0.05, 8, 0, 0.185, 0);                   // 法兰盘
+  addCyl(g, matPole, 0.09, 0.13, POLE_H - 0.16, 8, 0, (POLE_H + 0.16) / 2, 0);  // 杆身（八棱锥形收分）
+  [0.42, 0.56].forEach(y => addCyl(g, matBand, 0.140, 0.146, 0.06, 8, 0, y, 0)); // 两道红漆环（须略大于该处杆径）
+  addBox(g, matDark, 0.10, 0.24, 0.03, 0, 0.80, -0.128);                  // 检修小门（朝街一侧）
+  addBox(g, matPole, 0.08, 0.08, 0.74, 0, ARM_Y, ARM_Z / 2);              // 悬臂
+  const brace = addBox(g, matPole, 0.05, 0.66, 0.05, 0, ARM_Y - 0.335, -0.255);
+  brace.rotation.x = 2.618;                                               // 斜撑：由杆身撑向悬臂
+  addCyl(g, matDark, 0.09, 0.09, 0.30, 8, 0, ARM_Y - 0.19, ARM_Z);        // 灯颈
+  addCyl(g, matDark, 0.36, 0.24, 0.20, 10, 0, HEAD_Y, ARM_Z);             // 灯罩
+  const bulb = new THREE.Mesh(new THREE.CircleGeometry(0.22, 12), matBulb);
+  bulb.rotation.x = Math.PI / 2; bulb.position.set(0, BULB_Y, ARM_Z); g.add(bulb);
+  const knot = new THREE.Group(); knot.position.set(0, ARM_Y - 0.05, ARM_Z * 0.62); g.add(knot);  // 中国结
+  addBox(knot, matBand, 0.02, 0.14, 0.02, 0, -0.07, 0);
+  addCyl(knot, M(0xb9432f), 0.075, 0.075, 0.12, 8, 0, -0.20, 0);
+  addCyl(knot, M(0xd4b483), 0.035, 0.012, 0.10, 6, 0, -0.31, 0);
+  return { g, bulb, bulbPos: new THREE.Vector3(px, GY + BULB_Y, pz + ARM_Z) };
+}
+const lampA = streetLamp(out, 3.2, -7.6);               // 灯位 A（推荐方案）
+
+// === 餐桌组合 ===
+function steamerStack(p, x, y, z, n) {
+  for (let i = 0; i < n; i++) addCyl(p, matBamboo, 0.28, 0.28, 0.13, 14, x, y + i * 0.13, z);
+  const top = y + n * 0.13;
+  addCyl(p, matBamboo, 0.30, 0.30, 0.05, 14, x, top, z);
+  addCyl(p, matWood, 0.045, 0.045, 0.06, 8, x, top + 0.05, z);
+}
+function bowl(p, x, y, z, s = 1) {
+  const prof = [new THREE.Vector2(0.015, 0), new THREE.Vector2(0.07, 0.006),
+                new THREE.Vector2(0.115, 0.03), new THREE.Vector2(0.145, 0.07), new THREE.Vector2(0.155, 0.1)];
+  const b = new THREE.Mesh(new THREE.LatheGeometry(prof, 14), matPorc);
+  b.position.set(x, y, z); b.scale.setScalar(s); b.castShadow = true; p.add(b);
+  [0.05, 0.09].forEach(t => {
+    const r = new THREE.Mesh(new THREE.TorusGeometry(0.135, 0.006, 6, 14), matBlue);
+    r.rotation.x = Math.PI / 2; r.position.set(x, y + t * s, z); r.scale.setScalar(s); p.add(r);
+  });
+}
+function chopstickPot(p, x, y, z) {
+  addCyl(p, M(0x6d4526), 0.07, 0.06, 0.2, 12, x, y + 0.1, z);
+  for (let i = 0; i < 6; i++) {
+    const s = addCyl(p, matWoodL, 0.012, 0.012, 0.36, 6,
+      x + (Math.random() - 0.5) * 0.07, y + 0.26, z + (Math.random() - 0.5) * 0.07);
+    s.rotation.z = (Math.random() - 0.5) * 0.25; s.rotation.x = (Math.random() - 0.5) * 0.2;
+  }
+}
+function vinegarPot(p, x, y, z) {
+  addCyl(p, matPorc, 0.032, 0.055, 0.16, 12, x, y + 0.08, z);
+  addCyl(p, matPorc, 0.02, 0.026, 0.05, 8, x, y + 0.185, z);
+  const spout = addCyl(p, matPorc, 0.012, 0.02, 0.11, 8, x + 0.05, y + 0.2, z);
+  spout.rotation.z = -0.9;
+  addCyl(p, matRed, 0.026, 0.026, 0.02, 10, x, y + 0.215, z);
+}
+function makeTable(x, z, rot, n) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rot; room.add(g);
+  addBox(g, matWood, 1.5, 0.08, 1.5, 0, 0.75, 0);                                   // 桌面
+  [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(([sx, sz]) =>
+    addBox(g, matWood, 0.09, 0.72, 0.09, sx * 0.66, 0.36, sz * 0.66));               // 桌腿
+  [1.15, -1.15].forEach(bz => {                                                      // 长凳
+    const b = new THREE.Group(); b.position.z = bz; g.add(b);
+    addBox(b, matWoodL, 1.4, 0.07, 0.34, 0, 0.45, 0);
+    [-0.55, 0.55].forEach(bx => addBox(b, matWoodL, 0.08, 0.45, 0.26, bx, 0.225, 0));
+  });
+  steamerStack(g, -0.05, 0.79, -0.05, n);
+  bowl(g, 0.5, 0.79, 0.42, 1); bowl(g, 0.42, 0.79, -0.5, 0.85);
+  chopstickPot(g, -0.55, 0.79, 0.12);
+  vinegarPot(g, 0.1, 0.79, 0.55);
+}
+makeTable(-2.6, 1.2, 0.05, 3);
+makeTable(1.5, 2.6, 0.28, 2);
+makeTable(2.7, -1.5, -0.22, 3);
+
+// === 开放式厨房（左侧）===
+addBox(room, matSteel, 1.3, 0.9, 4.6, -5.3, 0.45, -0.8);                    // 灶台
+addBox(room, M(0xbcc1c7, { metalness: 0.85, roughness: 0.3 }), 1.36, 0.06, 4.66, -5.3, 0.93, -0.8);
+const ring = addCyl(room, M(0x3d3d3d, { metalness: 0.5, roughness: 0.6 }), 0.42, 0.42, 0.04, 20, -5.2, 0.98, -2.4);
+addCyl(room, matSteel, 0.5, 0.44, 0.55, 20, -5.2, 1.25, -2.4);              // 汤锅
+addCyl(room, matSteel, 0.53, 0.5, 0.05, 20, -5.2, 1.55, -2.4);              // 锅沿
+addCyl(room, M(0x2f2f2f), 0.06, 0.06, 0.3, 8, -5.2, 1.72, -2.4).rotation.z = Math.PI / 2.6; // 锅铲柄
+steamerStack(room, -5.2, 0.96, -1.0, 2);
+addBox(room, matWoodL, 1.05, 0.09, 1.5, -5.15, 0.98, 0.9);                  // 擀面板
+const pin = addCyl(room, matWoodL, 0.05, 0.05, 0.9, 10, -5.15, 1.06, 0.5); pin.rotation.x = Math.PI / 2;
+const doughGeo = new THREE.IcosahedronGeometry(0.055, 0);
+for (let i = 0; i < 9; i++) {
+  const d = new THREE.Mesh(doughGeo, matDough);
+  d.position.set(-5.15 + (Math.random() - 0.5) * 0.7, 1.06, 0.9 + (Math.random() - 0.5) * 1.1);
+  d.castShadow = true; room.add(d);
+}
+for (let i = 0; i < 4; i++) bowl(room, -5.85, 0.96 + i * 0.055, 1.25, 1);  // 叠放瓷碗：挪进灶台台面左前角（原在 z=2.2 悬于台面外半空）
+
+// === 两侧墙边的杂物 ===
+// —— 一侧：冰柜 + 备餐柜 + 货架 + 箩筐米袋 ——
+addBox(room, M(0xdfe3e6, { metalness: 0.3, roughness: 0.45 }), 0.7, 1.85, 1.0, 5.55, 0.925, 3.3);   // 立式冰柜
+addBox(room, M(0xb9bfc4, { metalness: 0.5, roughness: 0.4 }), 0.05, 1.62, 0.05, 5.2, 0.95, 3.4);
+addCyl(room, M(0x9aa0a5, { metalness: 0.7, roughness: 0.3 }), 0.03, 0.03, 0.55, 8, 5.18, 1.1, 3.62);
+addBox(room, M(0xc6b085, { roughness: 0.95 }), 0.5, 0.34, 0.62, 5.55, 2.02, 3.25);                // 柜顶纸箱
+
+addBox(room, matWood, 0.6, 0.9, 2.4, 5.6, 0.45, 0.6);                     // 靠墙备餐柜
+addBox(room, matWoodL, 0.68, 0.06, 2.5, 5.6, 0.93, 0.6);
+[-0.55, 0.55].forEach(dz => addBox(room, M(0x7a4d2b), 0.04, 0.6, 1.05, 5.29, 0.48, 0.6 + dz));
+addCyl(room, matSteel, 0.2, 0.18, 0.42, 14, 5.52, 1.17, -0.2);            // 保温汤桶
+addCyl(room, matSteel, 0.22, 0.22, 0.05, 14, 5.52, 1.4, -0.2);
+for (let i = 0; i < 4; i++) bowl(room, 5.52, 0.96 + i * 0.05, 0.42, 1);   // 叠碗
+addCyl(room, M(0xc9ced2, { metalness: 0.6, roughness: 0.35 }), 0.13, 0.15, 0.34, 12, 5.52, 1.13, 1.5); // 电热水壶
+addBox(room, M(0x2e2e2e), 0.2, 0.05, 0.16, 5.52, 1.32, 1.5);
+for (let i = 0; i < 5; i++) addCyl(room, matPorc, 0.13, 0.13, 0.02, 14, 5.52, 0.97 + i * 0.021, 0.9); // 一摞盘子（贴住柜面）
+addBox(room, matWood, 0.26, 0.08, 1.6, 5.85, 2.18, 1.9);                  // 墙上的酒瓶架
+for (let i = 0; i < 5; i++) addCyl(room, M(0x9fb7c9, { roughness: 0.3 }), 0.045, 0.05, 0.26, 10,
+  5.85, 2.35, 1.2 + i * 0.34);
+
+const rackA = new THREE.Group(); rackA.position.set(5.6, 0, -1.8); room.add(rackA);   // 三层货架
+[-0.7, 0.7].forEach(dz => addBox(rackA, M(0x8f9499, { metalness: 0.6, roughness: 0.4 }), 0.06, 1.7, 0.06, -0.25, 0.85, dz));
+[0.55, 1.05, 1.55].forEach((y, k) => {
+  addBox(rackA, M(0x9ea3a8, { metalness: 0.5, roughness: 0.45 }), 0.5, 0.05, 1.6, -0.25, y, 0);
+  for (let i = 0; i < 4; i++) {                                            // 坛坛罐罐
+    const jx = -0.25, jz = -0.6 + i * 0.4;
+    addCyl(rackA, matPorc, 0.05, 0.062, 0.2 + (i % 3) * 0.04, 10, jx, y + 0.14, jz);
+    if (i % 2) addCyl(rackA, matRed, 0.055, 0.055, 0.03, 10, jx, y + 0.26, jz);
+  }
+});
+for (let i = 0; i < 2; i++) {                                              // 箩筐 + 里头的菜
+  const bz = -3.5 + i * 0.75;
+  addCyl(room, M(0xcbb188, { roughness: 0.95 }), 0.34, 0.27, 0.28, 10, 5.45, 0.14, bz);   // 箩筐落地（原悬空 2cm）
+  [[-0.12, 0], [0.1, 0.05], [0, -0.1]].forEach(([dx, dz]) => {
+    const v = new THREE.Mesh(new THREE.IcosahedronGeometry(0.1, 0),
+      M(i ? 0xc4523f : 0x76a24f, { flatShading: true }));
+    v.position.set(5.45 + dx, 0.34, bz + dz); v.castShadow = true; room.add(v);
+  });
+}
+[-4.5, -3.9].forEach((bz, i) => {                                          // 米袋面粉袋
+  addCyl(room, M(0xe3d9c2, { roughness: 0.95 }), 0.16, 0.26, 0.66, 10, 5.42 - i * 0.04, 0.33, bz);
+  addCyl(room, M(0xd6c9ad, { roughness: 0.95 }), 0.09, 0.13, 0.12, 8, 5.42 - i * 0.04, 0.72, bz);
+});
+const clk = addCyl(room, M(0xf5efe2), 0.19, 0.19, 0.05, 16, 5.96, 2.55, 3.0);  // 挂钟（背面贴右墙）
+clk.rotation.z = Math.PI / 2;
+addBox(room, M(0x33302c), 0.02, 0.02, 0.12, 5.91, 2.55, 3.06);
+addBox(room, M(0x33302c), 0.02, 0.14, 0.02, 5.91, 2.6, 3.0);
+
+// —— 另一侧：备餐柜 post 饮水机 + 垃圾桶 + 清扫工具 + 后角置物架 ——
+addBox(room, M(0xe8eae7), 0.42, 0.95, 0.42, -5.6, 0.475, 1.9);             // 饮水机
+addBox(room, M(0xcfd3d0), 0.2, 0.12, 0.16, -5.6, 0.72, 1.72);
+addCyl(room, M(0x9fd4e8, { roughness: 0.25, transparent: true, opacity: 0.85 }), 0.2, 0.22, 0.5, 12, -5.6, 1.2, 1.9);
+addCyl(room, M(0x4f7a52, { roughness: 0.8 }), 0.24, 0.2, 0.62, 12, -5.5, 0.31, 3.1);  // 垃圾桶
+addCyl(room, M(0x3f6342, { roughness: 0.8 }), 0.26, 0.26, 0.05, 12, -5.5, 0.63, 3.1);
+const broom = addCyl(room, M(0xb08a52), 0.022, 0.026, 1.6, 6, -5.75, 0.78, 4.2);  // 扫帚：底脚落地、顶端抵墙（原斜穿簸箕且够不到墙）
+broom.rotation.z = 0.32;
+addBox(room, M(0xd9c98f, { roughness: 0.95 }), 0.3, 0.26, 0.14, -5.55, 0.13, 4.2);   // 拖把头：垫在杆底脚下（杆底 (-5.50,0.02) 插进头里，和真拖把一样）
+const rackB = new THREE.Group(); rackB.position.set(-5.62, 0, -4.2); room.add(rackB); // 后角置物架
+[-0.6, 0.6].forEach(dz => addBox(rackB, matWood, 0.07, 1.8, 0.07, 0, 0.9, dz));
+[0.6, 1.15, 1.7].forEach(y => addBox(rackB, matWoodL, 0.5, 0.06, 1.35, 0, y, 0));
+steamerStack(rackB, 0, 0.63, -0.3, 2);
+addBox(rackB, M(0xc2a273, { roughness: 0.95 }), 0.34, 0.28, 0.34, 0, 1.29, 0.3);
+for (let i = 0; i < 3; i++) addCyl(rackB, matPorc, 0.05, 0.055, 0.2, 10, 0, 1.25, -0.1 + i * 0.22);
+addBox(rackB, M(0xb8514a, { roughness: 0.9 }), 0.3, 0.2, 0.42, 0, 1.83, 0.35);
+
+// === 后墙：菜单牌 + 挂钩 ===
+addBox(room, matWood, 3.6, 1.7, 0.08, 2.2, 2.0, -4.94);
+addBox(room, matRed, 3.3, 1.42, 0.06, 2.2, 2.0, -4.9);
+const stripe = new THREE.BoxGeometry(1, 0.1, 0.03);
+for (let r = 0; r < 5; r++) {
+  const w = 0.8 + Math.random() * 0.7;
+  const a = new THREE.Mesh(stripe, M(0xfdf6e6));
+  a.position.set(2.2 - 1.3 + w / 2, 2.5 - r * 0.25, -4.85); a.scale.x = w; room.add(a);
+  const b = new THREE.Mesh(stripe, M(0xf0d489, { metalness: 0.3, roughness: 0.4 }));
+  b.position.set(2.2 + 1.25, 2.5 - r * 0.25, -4.85); b.scale.x = 0.38; room.add(b);
+}
+[-3.2, -2.4, -1.6].forEach(x => {
+  const h = addCyl(room, M(0x4b4b4b, { metalness: 0.7, roughness: 0.4 }), 0.022, 0.022, 0.16, 8, x, 2.4, -4.92);
+  h.rotation.x = Math.PI / 2;
+  addBox(room, M(0xcfd6dd), 0.22, 0.5, 0.05, x, 2.15, -4.85);              // 挂着的围裙（上沿提到挂钩高度）
+});
+
+// === 天花板灯笼 ===
+const lanterns = [];
+[[-3.4, 2.5, -2.6], [0.4, 2.85, 0], [3.4, 2.55, 2.6], [-0.8, 2.35, 2.6]].forEach(([x, y, z], i) => {
+  const g = new THREE.Group(); g.position.set(x, y, z); room.add(g);
+  const len = 3.5 - y - 0.26;
+  addCyl(g, M(0x3b2a1a), 0.012, 0.012, len, 6, 0, 0.26 + len / 2, 0);       // 吊绳
+  const lanternMat = matRed.clone();                        // 单独一份，入夜后加大自发光
+  lanternMat.emissive.setHex(0xff7a2a); lanternMat.emissiveIntensity = 0.5;
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.26, 14, 10), lanternMat);
+  body.scale.y = 0.78; body.castShadow = true; g.add(body);
+  addCyl(g, matGold, 0.085, 0.085, 0.05, 10, 0, 0.21, 0);
+  addCyl(g, matGold, 0.085, 0.085, 0.05, 10, 0, -0.21, 0);
+  const tas = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.16, 8), matGold);
+  tas.position.y = -0.3; tas.rotation.x = Math.PI; g.add(tas);
+  const pl = new THREE.PointLight(0xffa863, 3.4, 7, 2); g.add(pl);
+  lanterns.push({ g, phase: i * 1.4, light: pl, mat: lanternMat });
+});
+
+// === 灯光：按一天的时间插值（关键帧见 KEYS）===
+const ambient = new THREE.AmbientLight(0x8ea3cc, 0.30);      // 冷调补光，压出暖冷对比
+const hemi = new THREE.HemisphereLight(0xffcf9e, 0x7a6152, 0.32);
+scene.add(ambient, hemi);
+
+// 主平行光：白天是太阳，日落后方向镜像到另一侧当日月用
+const sun = new THREE.DirectionalLight(0xffa358, 3.2);
+sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+const sc = sun.shadow.camera;                                 // 覆盖整栋店 + 院外杂物 + 近处街景
+sc.left = -34; sc.right = 34; sc.top = 34; sc.bottom = -34; sc.near = 1; sc.far = 90;
+sc.updateProjectionMatrix();
+sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.06;      // 掠射角度大，法线上抬防止条纹
+scene.add(sun);
+
+// 天体圆盘 + 加色光晕（fog:false，不被雾吃亮）
+const disc = new THREE.Mesh(new THREE.CircleGeometry(7.5, 32),
+  new THREE.MeshBasicMaterial({ color: 0xfff3d2, fog: false, transparent: true, opacity: 0.95, depthWrite: false }));
+scene.add(disc);
+const halo = new THREE.Mesh(new THREE.PlaneGeometry(95, 95), new THREE.MeshBasicMaterial({
+  map: haloTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+scene.add(halo);
+
+const keyLight = new THREE.PointLight(0xffe6cb, 16, 18, 2);   // 室内主光：入夜变亮
+keyLight.position.set(3.0, 3.1, 3.8);
+keyLight.castShadow = true; keyLight.shadow.mapSize.set(512, 512); keyLight.shadow.bias = -0.004;   // 立方体 6 面，1024→512 省 3/4 开销
+shop.add(keyLight);                                           // 随店铺旋转，保持从门窗侧斜射
+const stoveLight = new THREE.PointLight(0xff8a3c, 4.5, 7, 2); // 灶火（呼吸变化）
+stoveLight.position.set(-5.2, 1.75, -2.4); shop.add(stoveLight);
+
+// === 街边路灯的光（第 12 次迭代 · 步骤 2）===
+// 选 SpotLight 不选 PointLight：PointLight 要 6 面 cube shadow map，当前每帧已是 7 pass，上它会直接到 13
+const LAMP_I = 40;                                    // 夜间满档强度，调到满意为止（物理单位配 decay 1.6）
+const lampSpot = new THREE.SpotLight(0xffb46a, 0, 22, Math.PI * 0.30, 0.45, 1.6);
+lampSpot.position.copy(lampA.bulbPos);                // 发光面 (3.2, 4.22, -8.30)，随模型自动算好
+lampSpot.target.position.set(2.6, -0.06, -6.90);      // 光轴指向门前地砖，偏离铅垂 19.6°
+out.add(lampSpot, lampSpot.target);                   // ★ target 必须进场景图，否则光永远指向原点
+lampSpot.shadow.mapSize.set(1024, 1024);
+lampSpot.shadow.camera.near = 0.5;                    // far 由 SpotLightShadow 拿 distance=22 覆盖，别手动放大
+lampSpot.shadow.bias = -0.0008; lampSpot.shadow.normalBias = 0.03;
+
+// ① 体积光锥：纯加色装饰几何，不投影不写深度，夜里肉眼可见那束斜插下来的光柱
+const lampDir = new THREE.Vector3().subVectors(lampSpot.target.position, lampSpot.position).normalize();
+const CONE_H = 4.80;                                  // 略长于轴长 4.54，底部插进地面后被地面挡住
+const coneMat = new THREE.ShaderMaterial({
+  uniforms: { uColor: { value: new THREE.Color(0xffb46a) }, uOpacity: { value: 0 } },
+  vertexShader: `
+    varying vec2 vUv;
+    void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `
+    uniform vec3 uColor; uniform float uOpacity; varying vec2 vUv;
+    void main(){
+      float top = smoothstep(1.0, 0.74, vUv.y);       // 锥尖（贴着灯罩）收一笔，不与金属硬接
+      float bot = smoothstep(0.02, 0.30, vUv.y);      // 落地前散尽
+      float a = top * bot * uOpacity;                 // uv.y = 1 是锥尖、0 是锥底（CylinderGeometry 约定）
+      if (a < 0.004) discard;
+      gl_FragColor = vec4(uColor, a);
+    }`,
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  side: THREE.DoubleSide, fog: false
+});
+const lampCone = new THREE.Mesh(new THREE.ConeGeometry(2.45, CONE_H, 20, 1, true), coneMat);
+lampCone.position.copy(lampSpot.position).addScaledVector(lampDir, CONE_H / 2 + 0.05);
+lampCone.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), lampDir);   // 局部 -Y = 锥尖→锥底
+out.add(lampCone);
+
+// ② 地面光斑：径向渐变贴片，压在地面 -0.06 之上 2cm 防 z-fighting
+function poolTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const x = c.getContext('2d');
+  const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0.00, 'rgba(255,226,172,0.85)');
+  g.addColorStop(0.35, 'rgba(255,190,120,0.42)');
+  g.addColorStop(1.00, 'rgba(255,160,90,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const lampPool = new THREE.Mesh(new THREE.CircleGeometry(2.6, 32), new THREE.MeshBasicMaterial({
+  map: poolTexture(), transparent: true, blending: THREE.AdditiveBlending,
+  depthWrite: false, fog: false, opacity: 0 }));
+lampPool.rotation.x = -Math.PI / 2;
+lampPool.position.copy(lampSpot.target.position).setY(-0.04);
+out.add(lampPool);
+
+// === 时间轴：t=0 → 5:00，t=1 → 20:00（t>1 即日落后）===
+const MAX_ELEV = 52 * Math.PI / 180;          // 正午太阳高度
+const AZ_SUNSET = -129.3 * Math.PI / 180;     // 日落方位（沿用初版夕阳方向）
+const AZ_SPAN = 160 * Math.PI / 180;          // 一天转过的方位角
+const sunDir = new THREE.Vector3();
+const KEYS = [
+  { t: 0.24, sky: ['#2f5a9c', '#5b87bf', '#9fb9d6', '#f2d9b8', '#fbe6cd'], sun: '#ffedcf', sunI: 2.2,
+    amb: '#a8bedd', ambI: 0.46, hemiS: '#d6e7f7', hemiG: '#8a7a62', hemiI: 0.46,
+    fog: '#d3dcea', fogN: 45, fogF: 170, keyI: 5, lant: 0.00, disc: '#fff6e0', discS: 1.00, haloO: 0.45, lampG: 0 },
+  { t: 0.46, sky: ['#2c62b8', '#4f86cf', '#86b3e0', '#bcd9ef', '#e4f0f8'], sun: '#fffaf0', sunI: 2.9,
+    amb: '#b3c6e0', ambI: 0.52, hemiS: '#e2eefb', hemiG: '#94825f', hemiI: 0.50,
+    fog: '#cfdcea', fogN: 55, fogF: 190, keyI: 4, lant: 0.00, disc: '#fffdf5', discS: 0.90, haloO: 0.35, lampG: 0 },
+  { t: 0.68, sky: ['#2a4f92', '#4a6daa', '#b08a8a', '#ffc072', '#ffe3b8'], sun: '#ffd79a', sunI: 2.8,
+    amb: '#9db3d6', ambI: 0.42, hemiS: '#d8dff0', hemiG: '#8d7350', hemiI: 0.42,
+    fog: '#e2cfb8', fogN: 38, fogF: 145, keyI: 8, lant: 0.15, disc: '#ffe9c2', discS: 1.00, haloO: 0.50, lampG: 0 },
+  { t: 0.86, sky: ['#27407e', '#4a5a94', '#a86f74', '#ff9a52', '#ffc98d'], sun: '#ff8b45', sunI: 3.1,
+    amb: '#8ea3cc', ambI: 0.32, hemiS: '#ffcf9e', hemiG: '#7a6152', hemiI: 0.34,
+    fog: '#e2955f', fogN: 32, fogF: 130, keyI: 13, lant: 0.55, disc: '#ffd9a0', discS: 1.15, haloO: 0.68, lampG: 0.10 },
+  // ↓ 0.92 / 1.00 / 1.08 三档已按「夜间重平衡」回收：路灯光上位后，
+  //   室内主光与环境光要让位，否则夜里会被均匀提亮、读不出光的来向
+  { t: 0.92, sky: ['#1a2a55', '#414f87', '#a06a72', '#ff9a52', '#ffdca8'], sun: '#ffa358', sunI: 3.2,
+    amb: '#8ea3cc', ambI: 0.30, hemiS: '#ffcf9e', hemiG: '#7a6152', hemiI: 0.32,
+    fog: '#e6a878', fogN: 30, fogF: 125, keyI: 15, lant: 1.00, disc: '#fff3d2', discS: 1.20, haloO: 0.70, lampG: 0.45 },
+  { t: 1.00, sky: ['#101a3f', '#2a2f60', '#6b4368', '#c2603f', '#e0895a'], sun: '#ff6a3c', sunI: 0.8,
+    amb: '#3f5480', ambI: 0.22, hemiS: '#6a6a95', hemiG: '#3a3340', hemiI: 0.28,
+    fog: '#6a4560', fogN: 26, fogF: 105, keyI: 14, lant: 1.25, disc: '#ff8a4a', discS: 1.30, haloO: 0.50, lampG: 0.85 },
+  { t: 1.08, sky: ['#070c22', '#131c3f', '#22305c', '#33507e', '#46567e'], sun: '#9fb6ee', sunI: 0.25,
+    amb: '#2a3a63', ambI: 0.12, hemiS: '#3b537f', hemiG: '#1e2230', hemiI: 0.22,
+    fog: '#1b2438', fogN: 20, fogF: 85, keyI: 11, lant: 1.35, disc: '#dfe8ff', discS: 0.75, haloO: 0.35, lampG: 1.00 },
+];
+KEYS.forEach(k => {                                           // 预转成 Color，避免每帧解析字符串
+  k.cSky = k.sky.map(s => new THREE.Color(s));
+  k.cSun = new THREE.Color(k.sun); k.cAmb = new THREE.Color(k.amb);
+  k.cHemiS = new THREE.Color(k.hemiS); k.cHemiG = new THREE.Color(k.hemiG);
+  k.cFog = new THREE.Color(k.fog); k.cDisc = new THREE.Color(k.disc);
+});
+const skyCols = SKY_STOPS.map(() => new THREE.Color());
+const cSun = new THREE.Color(), cAmb = new THREE.Color(), cHemiS = new THREE.Color(),
+      cHemiG = new THREE.Color(), cFog = new THREE.Color(), cDisc = new THREE.Color();
+const lerpN = (a, b, k) => a + (b - a) * k;
+
+function applyTime(t) {
+  let i = 0;
+  while (i < KEYS.length - 2 && t > KEYS[i + 1].t) i++;
+  const a = KEYS[i], b = KEYS[i + 1];
+  const k = Math.min(Math.max((t - a.t) / (b.t - a.t), 0), 1);
+
+  // 天空 / 雾 / 背景
+  for (let s = 0; s < SKY_STOPS.length; s++) skyCols[s].copy(a.cSky[s]).lerp(b.cSky[s], k);
+  paintSky(skyCols);
+  scene.background.copy(skyCols[4]);
+  scene.fog.color.copy(cFog.copy(a.cFog).lerp(b.cFog, k));
+  scene.fog.near = lerpN(a.fogN, b.fogN, k); scene.fog.far = lerpN(a.fogF, b.fogF, k);
+
+  // 天体位置：高度过地平线后镜像到另一侧（当作月亮继续提供一点方向光）
+  const elev = MAX_ELEV * Math.sin(Math.PI * t), below = elev < 0;
+  const az = AZ_SUNSET + (t - 0.92) * AZ_SPAN + (below ? Math.PI : 0);
+  sunDir.set(Math.cos(elev) * Math.sin(az), Math.sin(Math.abs(elev)), Math.cos(elev) * Math.cos(az));
+  sun.position.copy(sunDir).multiplyScalar(36);
+  sun.color.copy(cSun.copy(a.cSun).lerp(b.cSun, k));
+  const lowFade = below ? 1                                   // 贴地时收一点，避免水平光全是阴影
+    : Math.min(1, Math.max(0.25, Math.sin(Math.abs(elev)) / Math.sin(6 * Math.PI / 180)));
+  sun.intensity = lerpN(a.sunI, b.sunI, k) * lowFade;
+
+  disc.position.copy(sunDir).multiplyScalar(200); disc.lookAt(0, 0, 0);
+  disc.material.color.copy(cDisc.copy(a.cDisc).lerp(b.cDisc, k));
+  disc.scale.setScalar(lerpN(a.discS, b.discS, k));
+  halo.position.copy(sunDir).multiplyScalar(198); halo.lookAt(0, 0, 0);
+  halo.material.color.copy(disc.material.color);
+  halo.material.opacity = lerpN(a.haloO, b.haloO, k);
+
+  // 环境 / 半球 / 室内主光 / 灯笼
+  ambient.color.copy(cAmb.copy(a.cAmb).lerp(b.cAmb, k)); ambient.intensity = lerpN(a.ambI, b.ambI, k);
+  hemi.color.copy(cHemiS.copy(a.cHemiS).lerp(b.cHemiS, k));
+  hemi.groundColor.copy(cHemiG.copy(a.cHemiG).lerp(b.cHemiG, k));
+  hemi.intensity = lerpN(a.hemiI, b.hemiI, k);
+  keyLight.intensity = lerpN(a.keyI, b.keyI, k);
+  lanternGain = lerpN(a.lant, b.lant, k);
+
+  // 街边路灯：日落后由它接管屋外照明
+  lampGain = lerpN(a.lampG, b.lampG, k);
+  lampSpot.intensity = LAMP_I * lampGain;
+  lampSpot.castShadow = lampGain > 0.02;              // 白天完全不付阴影代价
+  matBulb.opacity = 0.15 + lampGain * 0.85;           // 灯罩里的发光面同步亮起
+  coneMat.uniforms.uOpacity.value = lampGain * 0.09;  // 加色几何很吃强度，取值必须小（双面叠加已翻倍）
+  lampPool.material.opacity = lampGain * 0.32;
+  if (zoneVisuals) updateZones(dayT);   // 热区热度随时间轴刷新（var 提升，applyTime 早于本块执行时安全跳过）
+}
+
+// === 时间控件 ===
+const slider = document.getElementById('slider'), clockEl = document.getElementById('clock');
+const playBtn = document.getElementById('play');
+let dayT = 0.92, playing = false, lanternGain = 1, lampGain = 0;
+function fmtClock(t) {
+  const h = 5 + t * 15, hh = Math.floor(h), mm = Math.round((h - hh) * 60);
+  return `${mm === 60 ? hh + 1 : hh}:${String(mm === 60 ? 0 : mm).padStart(2, '0')}`;
+}
+function setTime(v) {
+  dayT = Math.min(Math.max(v, +slider.min / 100), +slider.max / 100);
+  slider.value = Math.round(dayT * 100);
+  clockEl.textContent = fmtClock(dayT);
+  applyTime(dayT);
+  renderer.shadowMap.needsUpdate = true;            // 太阳/路灯光源动了才重算阴影（配合 autoUpdate=false）
+}
+slider.addEventListener('input', () => { playing = false; playBtn.textContent = '播放'; setTime(+slider.value / 100); });
+playBtn.addEventListener('click', () => { playing = !playing; playBtn.textContent = playing ? '暂停' : '播放'; });
+setTime(0.92);
+
+// === 热区数据模型（第 14 次迭代 · 步骤 1：纯数据，零渲染）===
+// 结构与 outputs/README.md「3D 可视化热区系统」专章一致；本步只在 console 自检数值
+// >>> HOTZONE-DATA-BEGIN
+const ZONES = [
+  { id: 'tableA',    name: '餐桌 A',    category: '拼餐搭伙', center: [-2.6, 1.2],   radius: 1.3, mount: 'shop', desc: '拼桌吃饭、搭伙 AA',
+    intro: '日子越过越快，能坐下来同桌吃饭的人却越来越少。这张桌子记得每一次拼桌：原本陌生的人因一盘饺子坐到一块儿，醋碟一碰，就算认识了。光柱里存着的，是一个个"想找个人一起吃饭"的心愿。' },
+  { id: 'tableB',    name: '餐桌 B',    category: '拼餐搭伙', center: [1.5, 2.6],    radius: 1.3, mount: 'shop', desc: '拼桌吃饭、搭伙 AA',
+    intro: '一人食不孤单。在这里发出的拼桌邀约，总会被某个同样晚归的邻居接住——饺子冒着热气，话匣子也就打开了。这些细碎的相遇，正是我们想替社区留住的东西。' },
+  { id: 'tableC',    name: '餐桌 C',    category: '技能交换', center: [2.7, -1.5],   radius: 1.3, mount: 'shop', desc: '以技换技，边吃边聊',
+    intro: '教擀皮换修电脑、剪纸换口语。手艺在人跟人之间流动的时候，交换的不只是技能，还有一段坐下来慢慢聊的时光——这样的时光，如今越来越稀罕了。' },
+  { id: 'kitchen',   name: '开放厨房',  category: '帮厨',     center: [-5.3, -0.8],  radius: 1.6, mount: 'shop', desc: '晚高峰帮厨、洗碗帮工',
+    intro: '灶火不熄，人情不断。晚高峰缺一把手的时候，总有邻居卷起袖子进来：揉面、看锅、洗碗。小店的热闹，一半是客人，一半是熟人。' },
+  { id: 'menuWall',  name: '后墙菜单牌', category: '公告求助', center: [2.2, -4.85],  radius: 1.2, mount: 'shop', desc: '寻物、招聘、打听事',
+    intro: '寻物、招聘、打听事。这块老菜单牌就像社区的树洞，写下的每一桩小事，都有路过的邻居记在心上。当求助被人接住，光柱就会悄悄暗下去。' },
+  { id: 'gate',      name: '大门台阶',  category: '迎送带路', center: [0, 5.6],      radius: 1.5, mount: 'shop', desc: '接人送物、雨天送伞',
+    intro: '接人、送伞、带老人复诊。店门口的台阶迎来送往了许多年，顺路的善意总在这里发生——于人是举手之劳，于己是一整天的暖意。' },
+  { id: 'standee',   name: '雨棚立牌',  category: '闲置交换', center: [-4.9, 7.0],   radius: 1.4, mount: 'shop', desc: '闲置物品以物换物',
+    intro: '以物换物，物尽其用。闲置在邻里间流动起来，一件旧物换了主人，也多了一次敲门、一声问候的由头。' },
+  { id: 'trike',     name: '三轮车位',  category: '搬运接送', center: [5.2, 7.9],    radius: 1.6, mount: 'shop', desc: '搬米面、顺路带货',
+    intro: '搬米抬柜、顺路带货。这辆三轮车载过的不只是货物，还有街坊间"说一声就到"的义气。' },
+  { id: 'backAlley', name: '后巷堆场',  category: '大件暂存', center: [0, -6.5],     radius: 1.8, mount: 'shop', desc: '行李、建材临时堆放',
+    intro: '行李、建材的临时堆放。腾出的一角地方，接住的是别人生活里的周转与难关——社区的善意，常常就藏在这些不起眼的角落。' },
+  { id: 'lamp',      name: '路灯下',    category: '夜间陪伴', center: [3.2, -7.6],   radius: 1.8, mount: 'out',  desc: '打烊结伴、深夜自习',
+    intro: '打烊结伴、深夜自习。入夜后这盏路灯亮起来，照着晚回家的人，也守着还醒着的陪伴。把时间轴拖到 21 点，看它和夜色一起升温。' }   // 世界坐标，挂 out
+];
+
+// mock 需求：固定种子，每次加载结果一致（后续接 WriteSpace API 时整块替换）
+const NEEDS = (() => {
+  let seed = 20261002;
+  const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
+  const titles = {
+    '拼餐搭伙': ['周末拼一锅饺子', '一人食求拼桌', '拼单买面粉', '晚饭搭伙 AA'],
+    '技能交换': ['教擀皮换修电脑', '剪纸教学换英语口语', '包饺子速成换吉他入门'],
+    '帮厨':     ['晚高峰缺一名帮厨', '求会包麦穗饺的师傅', '洗碗帮工两小时'],
+    '公告求助': ['寻物：红色保温杯', '求推荐附近修鞋摊', '本店招聘周末兼职'],
+    '迎送带路': ['带老人去医院复诊', '车站接人求带路', '雨天送伞到地铁口'],
+    '闲置交换': ['闲置蒸笼换绿植', '旧课本换砂锅', '儿童餐椅转让'],
+    '搬运接送': ['搬米面上三楼', '三轮车顺路带货', '帮忙抬冰柜'],
+    '大件暂存': ['求暂存行李箱两天', '装修瓷砖临时堆放', '旧冰箱暂放一晚'],
+    '夜间陪伴': ['夜班后结伴回家', '打烊后一起看店', '深夜自习求伴']
+  };
+  const out = [];
+  let nid = 1;
+  for (const z of ZONES) {
+    const n = 3 + Math.floor(rnd() * 6);                      // 每区 3~8 条
+    const pool = titles[z.category];
+    for (let i = 0; i < n; i++) {
+      const capacity = 1 + Math.floor(rnd() * 5);             // 需要 1~5 人
+      out.push({
+        id: 'n' + (nid++),
+        zoneId: z.id, category: z.category,
+        title: pool[Math.floor(rnd() * pool.length)],
+        urgency: +(0.5 + rnd()).toFixed(2),                   // 0.5~1.5
+        capacity,
+        joined: Math.floor(rnd() * capacity),                 // 0~capacity-1，必有缺口
+        publishT: +(0.24 + rnd() * 0.84).toFixed(3)           // 一天内 8:36~21:12
+      });
+    }
+  }
+  return out;
+})();
+
+const HEAT_TAU = 4 / 15;   // τ = 4 小时，换算到 dayT 单位（t 的一天跨度为 15h）
+function heat(zoneId, t) {
+  let h = 0;
+  for (const n of NEEDS) {
+    if (n.zoneId !== zoneId || n.publishT > t) continue;      // 还没发布的不计入
+    h += n.urgency * Math.exp(-(t - n.publishT) / HEAT_TAU) * (1 - n.joined / n.capacity);
+  }
+  return h;
+}
+function heatAll(t) {                                          // 归一化到 0~1
+  const raw = ZONES.map(z => heat(z.id, t));
+  const max = Math.max(...raw, 1e-6);
+  return ZONES.map((z, i) => ({ zone: z, raw: raw[i], norm: raw[i] / max }));
+}
+
+// 步骤 1 自检：在默认档（18:48, t=0.92）打印一次各热区热度，确认公式与数据合理
+console.groupCollapsed('[热区] mock 数据自检（步骤 1 · 纯数据，未渲染）');
+console.log('热区数:', ZONES.length, ' 需求条目数:', NEEDS.length);
+console.table(heatAll(0.92).map(({ zone, raw, norm }) => ({
+  热区: zone.name, 类别: zone.category, 热度: +raw.toFixed(2), 归一化: +norm.toFixed(2)
+})));
+console.groupEnd();
+// <<< HOTZONE-DATA-END
+
+// === 热区可视化与交互（第 14 次迭代 · 步骤 2+3：光柱/热晕 + 点击详情卡）===
+// 类别色：6 色按语义家族映射 9 个类别（刻意避开场景已有的红/橙语义：灯笼、路灯、灶火）
+const ZONE_COLORS = {
+  '拼餐搭伙': 0xf2c14e, '帮厨': 0xf2c14e,     // 餐桌互助家族：暖黄
+  '技能交换': 0x5aa469, '闲置交换': 0x5aa469, // 交换家族：绿
+  '迎送带路': 0x4a90d9, '搬运接送': 0x4a90d9, // 跑腿出行家族：蓝
+  '公告求助': 0x8e6fc0,                       // 紫
+  '大件暂存': 0x9a9a9a,                       // 灰
+  '夜间陪伴': 0x45b8ac                        // 青
+};
+
+// 白色径向渐变纹理：所有热晕共用一张，颜色由材质 color 乘上去
+const zoneGlowTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const x = c.getContext('2d');
+  const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, 'rgba(255,255,255,.9)');
+  g.addColorStop(0.45, 'rgba(255,255,255,.38)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+})();
+
+// 光柱着色器：uv.y=0 在锥底、1 在锥尖（继承 CylinderGeometry 约定），底部实、顶端散尽
+function zoneBeamMaterial(color) {
+  return new THREE.ShaderMaterial({
+    uniforms: { uColor: { value: new THREE.Color(color) }, uOpacity: { value: 0 } },
+    vertexShader: `varying vec2 vUv;
+      void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `
+      uniform vec3 uColor; uniform float uOpacity; varying vec2 vUv;
+      void main(){
+        float a = mix(0.8, 0.0, vUv.y);
+        a *= smoothstep(0.0, 0.08, vUv.y);   // 贴地微收，不与地面硬接
+        gl_FragColor = vec4(uColor, a * uOpacity);
+      }`,
+    transparent: true, blending: THREE.AdditiveBlending,
+    depthWrite: false, side: THREE.DoubleSide, fog: false
+  });
+}
+
+var zoneVisuals = null;      // var 提升：applyTime 在本块之前被 setTime(0.92) 调用时要能安全判空
+const zonePickers = [];      // 拾取代理数组（additive 光柱不参与 raycast，点击只检测这一组）
+const zoneGroups = {};       // category -> Group[]，步骤 4 类别筛选用
+
+zoneVisuals = [];
+ZONES.forEach((zone, zi) => {
+  const [zx, zz] = zone.center;
+  const inside = Math.abs(zx) < 6 && Math.abs(zz) < 5;
+  const baseY = inside ? 0 : -0.06;                     // 室内地板 0 / 室外地面 -0.06
+  const parent = zone.mount === 'out' ? out : shop;     // 挂载规则与既有翻转约定一致
+  const color = ZONE_COLORS[zone.category];
+  const g = new THREE.Group(); g.position.set(zx, 0, zz); parent.add(g);
+
+  const beamMat = zoneBeamMaterial(color);              // 光柱：单位锥，高度由 scale.y 控制
+  const beam = new THREE.Mesh(new THREE.ConeGeometry(zone.radius * 0.5, 1, 20, 1, true), beamMat);
+  beam.frustumCulled = false; g.add(beam);
+
+  const glowMat = new THREE.MeshBasicMaterial({ map: zoneGlowTex, color, transparent: true,
+    opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+  const glow = new THREE.Mesh(new THREE.CircleGeometry(1, 32), glowMat);
+  glow.rotation.x = -Math.PI / 2; glow.position.y = baseY + 0.02; g.add(glow);
+
+  const ringMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0,
+    side: THREE.DoubleSide, depthWrite: false, fog: false });
+  const ring = new THREE.Mesh(new THREE.RingGeometry(zone.radius * 0.82, zone.radius, 40), ringMat);
+  ring.rotation.x = -Math.PI / 2; ring.position.y = baseY + 0.03; ring.visible = false; g.add(ring);  // 地面感应环
+
+  const picker = new THREE.Mesh(                        // 不可见拾取代理：罩住热区内的物品本体，点物品=点热区
+    new THREE.CylinderGeometry(zone.radius + 0.2, zone.radius + 0.2, 3, 12),
+    new THREE.MeshBasicMaterial({ visible: false }));
+  picker.position.y = baseY + 1.5; picker.userData.zoneIndex = zi; g.add(picker);
+  zonePickers.push(picker);
+
+  (zoneGroups[zone.category] ||= []).push(g);
+  zoneVisuals.push({ zone, baseY, beam, beamMat, glow, glowMat, ring, ringMat, boost: 1, _baseOp: 0 });
+});
+
+function updateZones(t) {
+  heatAll(t).forEach(({ raw, norm }, i) => {
+    const v = zoneVisuals[i];
+    const on = raw > 0.05;                              // 没有已发布需求时整体隐藏（清晨全空）
+    v.beam.visible = v.glow.visible = on;
+    v.ring.visible = on;
+    if (!on) return;
+    const H = 1.2 + norm * 1.4;                         // 光柱高 1.2~2.6
+    v.beam.scale.y = H; v.beam.position.y = v.baseY + H / 2;
+    v._baseOp = (0.3 + norm * 0.5) * v.boost;           // 存基准值，animate 里叠呼吸脉冲
+    v.beamMat.uniforms.uOpacity.value = v._baseOp;
+    const r = (0.8 + norm * 0.8) * (v.boost > 1 ? 1.15 : 1);   // hover/选中时热晕放大
+    v.glow.scale.set(r, r, 1);
+    v.glowMat.opacity = (0.18 + norm * 0.3) * v.boost;
+    v.ringMat.opacity = v.boost > 1 ? 0.55 : 0.16;      // 感应环：平时淡淡一圈，对准/选中变亮
+  });
+}
+updateZones(0.92);                                      // 与默认档对齐
+
+// --- 拾取与详情卡 ---
+const zoneRay = new THREE.Raycaster(), zoneNdc = new THREE.Vector2(), _zv = new THREE.Vector3();
+const _vf = new THREE.Vector3();                                // 相机前向（准星角度容差、标签朝向判断用）
+const _CENTER = new THREE.Vector2(0, 0);                          // 屏幕中心（walk 准星拾取用）
+const zoneCard = document.getElementById('zoneCard');
+const zoneLabel = document.getElementById('zoneLabel');
+let hoverZone = -1, selectedZone = -1, downX = 0, downY = 0;
+
+function setHoverZone(zi, boostOn = 1.3) {              // hover 状态唯一入口：高亮 + 标签内容
+  if (zi === hoverZone) return;
+  hoverZone = zi;
+  zoneVisuals.forEach((v, i) => v.boost = (i === zi) ? boostOn : 1);
+  updateZones(dayT);
+  if (zi >= 0) {
+    const z = ZONES[zi];
+    zoneLabel.innerHTML = `<b>${z.name}</b> · ${z.desc}`;
+  } else zoneLabel.style.display = 'none';
+}
+
+function pickZone(e) {
+  zoneNdc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  zoneRay.setFromCamera(zoneNdc, camera);
+  const hit = zoneRay.intersectObjects(zonePickers, false)[0];
+  return hit ? hit.object.userData.zoneIndex : -1;
+}
+
+renderer.domElement.addEventListener('pointermove', e => {
+  if (mode !== 'orbit' || selectedZone >= 0) return;      // walk 模式（准星拾取属步骤 3）/ 卡片打开时不走鼠标 hover
+  const zi = pickZone(e);
+  if (zi !== hoverZone) {
+    setHoverZone(zi);
+    renderer.domElement.style.cursor = zi >= 0 ? 'pointer' : '';
+  }
+});
+renderer.domElement.addEventListener('pointerdown', e => { downX = e.clientX; downY = e.clientY; });
+renderer.domElement.addEventListener('pointerup', e => {
+  if (mode !== 'orbit') return;                                     // walk 模式点击留给「重新锁定」与步骤 3 准星拾取
+  if (Math.hypot(e.clientX - downX, e.clientY - downY) > 6) return;   // 拖拽视角不算点击
+  const zi = pickZone(e);
+  if (zi >= 0) selectZone(zi); else closeZoneCard();                // 点空白处关闭
+});
+
+renderer.domElement.addEventListener('dblclick', e => {   // 双击热区：0.9s 飞过去聚焦（热区系统步骤 5）
+  if (mode !== 'orbit' || camTween.active) return;
+  const zi = pickZone(e);
+  if (zi < 0) return;
+  const v = zoneVisuals[zi];
+  zonePickers[zi].getWorldPosition(_zv);
+  const tgt = new THREE.Vector3(_zv.x, v.baseY + 1.1, _zv.z);       // 对准热区人眼高度
+  const dir = camera.position.clone().sub(controls.target).normalize();
+  const pos = tgt.clone().addScaledVector(dir, 5.2);                // 保持当前方位角，距离收到 5.2m
+  pos.y = Math.max(pos.y, 0.9);
+  userMoved = true;
+  controls.enabled = false;
+  startCamTween(pos, { toT: tgt, dur: 0.9, onDone: () => { controls.enabled = true; controls.update(); } });
+});
+
+function selectZone(zi) {
+  selectedZone = zi;
+  zoneLabel.style.display = 'none';                               // 开卡后标签让位
+  zoneVisuals.forEach((v, i) => v.boost = (i === zi) ? 1.5 : 1);    // 选中态更亮
+  updateZones(dayT);
+  renderZoneCard();
+  zoneCard.style.display = 'block';
+  if (mode === 'walk' && document.pointerLockElement) document.exitPointerLock();   // 开卡要放鼠标去点 ×
+}
+function renderZoneCard() {
+  const z = ZONES[selectedZone];
+  const hex = '#' + ZONE_COLORS[z.category].toString(16).padStart(6, '0');
+  zoneCard.style.setProperty('--zc', hex);                        // 类别色 → 顶条/强调色
+  zoneCard.classList.toggle('walk', mode === 'walk');             // 漫游模式用加大版
+  const n = NEEDS.filter(x => x.zoneId === z.id && x.publishT <= dayT).length;   // 当前时段已发布条数
+  zoneCard.innerHTML = `
+    <div class="zc-head">
+      <span class="zc-chip" style="background:${hex}">${z.category}</span><b>${z.name}</b>
+      <button class="zc-x">×</button>
+    </div>
+    <div class="zc-desc">${z.intro}</div>
+    <div class="zc-meta">当前时段 ${n} 条「${z.category}」需求等待被接住 · 演示数据</div>
+    <div class="zc-foot">留白 WriteSpace · 此刻埋下的胶囊，给未来的人们考古</div>`;
+  zoneCard.querySelector('.zc-x').addEventListener('click', closeZoneCard);
+}
+function closeZoneCard() {
+  selectedZone = -1;
+  zoneCard.style.display = 'none';
+  zoneVisuals.forEach(v => v.boost = 1);
+  updateZones(dayT);
+  if (mode === 'walk' && !document.pointerLockElement) {      // 关卡立即收回鼠标，不让光标游离出窗口
+    const p = renderer.domElement.requestPointerLock();       // ×/空白点击/Esc 都是用户激活，可直接回锁
+    if (p && p.catch) p.catch(() => { walkHint.style.display = 'block'; });  // Esc 后 1.25s 冷却期回锁被拒 → 退回提示
+  }
+}
+addEventListener('keydown', e => { if (e.key === 'Escape') closeZoneCard(); });
+
+// === 动画循环 ===
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.getElapsedTime();
+
+  if (playing) {                                              // 自动走时间：约 2 分钟过完一天
+    dayT += dt * 0.0085;
+    if (dayT > 1.08) dayT = 0.24;
+    setTime(dayT);
+  }
+
+  lanterns.forEach(({ g, phase, light, mat }) => {            // 灯笼摆动 + 随入夜点亮
+    g.rotation.z = Math.sin(t * 0.7 + phase) * 0.035;
+    g.rotation.x = Math.cos(t * 0.55 + phase) * 0.025;
+    light.intensity = (2.6 + Math.sin(t * 1.3 + phase) * 0.4) * lanternGain;
+    mat.emissiveIntensity = 0.06 + lanternGain * 0.55;
+  });
+  stoveLight.intensity = 4.5 + Math.sin(t * 2.1) * 1.2;       // 灶火呼吸
+
+  if (selectedZone >= 0 && zoneVisuals) {                     // 详情卡跟随热区（取代理圆柱的世界坐标，自动含店铺翻转）
+    zonePickers[selectedZone].getWorldPosition(_zv);
+    _zv.y += 1.8; _zv.project(camera);
+    let cx = (_zv.x * 0.5 + 0.5) * innerWidth, cy = (-_zv.y * 0.5 + 0.5) * innerHeight;
+    const cw = zoneCard.offsetWidth, ch = zoneCard.offsetHeight;    // 按实测尺寸定位，保证完整不出屏
+    cx = Math.min(Math.max(cx, cw / 2 + 8), innerWidth - cw / 2 - 8);
+    const above = cy - 14 - ch >= 8;                                // 上方放得下才向上弹，否则翻到锚点下方
+    zoneCard.classList.toggle('below', !above);
+    cy = above ? Math.min(Math.max(cy, ch + 14 + 8), innerHeight - 8)
+               : Math.min(Math.max(cy, 8), innerHeight - ch - 14 - 8);
+    zoneCard.style.left = cx + 'px';
+    zoneCard.style.top = cy + 'px';
+  }
+
+  if (mode === 'walk' && document.pointerLockElement === renderer.domElement && selectedZone < 0) {
+    zoneRay.setFromCamera(_CENTER, camera);                       // 准星拾取：从屏幕中心发射
+    const hit = zoneRay.intersectObjects(zonePickers, false)[0];
+    let zi = (hit && hit.distance <= 4.5) ? hit.object.userData.zoneIndex : -1;   // 直接命中：4.5m 内
+    if (zi < 0) {                                                 // 角度容差：准星 6° 内的最近热区也算对准
+      camera.getWorldDirection(_vf);
+      let best = 0.105;                                           // ≈6°，越小越优先
+      zonePickers.forEach((p, i) => {
+        p.getWorldPosition(_zv); _zv.y = zoneVisuals[i].baseY + 1.2;
+        _zv.sub(camera.position);
+        const d = _zv.length();
+        if (d > 4.5 || d < 0.4) return;
+        const a = _vf.angleTo(_zv.normalize());
+        if (a < best) { best = a; zi = i; }
+      });
+    }
+    if (zi !== hoverZone) setHoverZone(zi);
+    crosshair.classList.toggle('on', zi >= 0);
+    crossTip.style.display = zi >= 0 ? 'block' : 'none';
+  }
+
+  // 悬浮标签跟随 + 对准热区的呼吸脉冲
+  if (hoverZone >= 0 && selectedZone < 0) {
+    const v = zoneVisuals[hoverZone];
+    zonePickers[hoverZone].getWorldPosition(_zv);
+    _zv.y = v.baseY + v.beam.scale.y + 0.35;                      // 标签浮在光柱顶上方
+    const facing = _zv.clone().sub(camera.position).dot(camera.getWorldDirection(_vf)) > 0;
+    _zv.project(camera);
+    if (facing && Math.abs(_zv.x) < 1.05 && Math.abs(_zv.y) < 1.05) {
+      zoneLabel.style.left = (_zv.x * 0.5 + 0.5) * innerWidth + 'px';
+      zoneLabel.style.top = (-_zv.y * 0.5 + 0.5) * innerHeight + 'px';
+      zoneLabel.style.display = 'block';
+    } else zoneLabel.style.display = 'none';
+    if (v.beam.visible) {                                         // 脉冲：光柱呼吸 + 感应环明灭
+      v.beamMat.uniforms.uOpacity.value = v._baseOp * (1 + 0.18 * Math.sin(t * 5));
+      v.ringMat.opacity = 0.45 + 0.2 * Math.sin(t * 5);
+    }
+  } else zoneLabel.style.display = 'none';
+
+  if (updateCamTween(dt)) {                           // 运镜补间期间：相机由补间接管，跳过 walk/orbit 控制
+  } else if (mode === 'walk') updateWalk(dt); else controls.update();    // walk 模式下 OrbitControls 已禁用
+  renderer.render(scene, camera);
+}
+animate();
+
+const sceneHelp = document.getElementById('sceneHelp');
+document.getElementById('aboutBtn').addEventListener('click', () => {
+  if (document.pointerLockElement) document.exitPointerLock();
+  sceneHelp.showModal();
+});
+document.getElementById('closeSceneHelp').addEventListener('click', () => sceneHelp.close());
+
+// === 窗口自适应 ===
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  if (mode === 'orbit' && !userMoved && introDone) placeCamera();   // walk 模式/开场运镜期间 resize 不得重置视角
+});
+document.body.dataset.sceneReady = 'true';
+</script>
+</body>
+</html>

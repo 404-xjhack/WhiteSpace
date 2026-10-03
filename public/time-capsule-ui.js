@@ -20,7 +20,7 @@ export function createTimeCapsuleUI() {
     </dialog>
     <dialog id="capsuleHistory" class="capsule-dialog" aria-labelledby="capsuleHistoryTitle">
       <div class="capsule-header"><div><h2 id="capsuleHistoryTitle">生活时间胶囊</h2><p>看看自己做过什么，重新打开那些愿意留下的瞬间。</p></div><button class="capsule-button" type="button" data-capsule-close aria-label="关闭时间胶囊历史">关闭</button></div>
-      <div class="capsule-body"><p id="capsuleHistoryError" class="capsule-error" role="alert" hidden></p><div id="capsuleList" class="capsule-list"></div><div id="capsuleEmpty" class="capsule-empty" hidden><span class="capsule-eyebrow">为一次尝试留一个位置</span><h3>你的第一份时间胶囊，还在等待一次体验</h3><p>先完成一次饺子工坊体验，在工艺回顾中点击「保存为时间胶囊」，写下自己的作品和感受。</p><a class="capsule-button capsule-primary" href="/dumpling-house.html">去体验饺子工坊</a></div></div>
+      <div class="capsule-body"><p id="capsuleHistoryError" class="capsule-error" role="alert" hidden></p><div id="capsuleList" class="capsule-list"></div><div id="capsuleEmpty" class="capsule-empty" hidden><span class="capsule-eyebrow">为一次尝试留一个位置</span><h3>你的第一份时间胶囊，还在等待一次体验</h3><p>先完成一次饺子工坊体验，在工艺回顾中点击「保存为时间胶囊」，写下自己的作品和感受。</p><div class="capsule-empty-actions"><a class="capsule-button capsule-primary" href="/dumpling-house.html">去体验饺子工坊</a><button class="capsule-button capsule-primary" id="openShop3dFromCapsule" type="button">逛逛 3D 饺子店</button></div></div></div>
       <div class="capsule-actions"><p class="capsule-hint">按保存时间排列，最近的一次在最前面。仅保存在当前浏览器。</p></div>
     </dialog>
     <dialog id="capsuleDetail" class="capsule-dialog" aria-labelledby="capsuleDetailTitle">
@@ -38,6 +38,7 @@ export function createTimeCapsuleUI() {
   function close(dialog) { dialog.close(); syncLock(); }
   for (const dialog of document.querySelectorAll("dialog")) dialog.addEventListener("close", syncLock);
   container.querySelectorAll("[data-capsule-close]").forEach((button) => button.addEventListener("click", () => close(button.closest("dialog"))));
+  $("#openShop3dFromCapsule").addEventListener("click", () => { window.location.assign("/neighborhood-dumpling.html"); });
   function errorMessage(error) {
     return ["read_failed", "invalid_data"].includes(error)
       ? "暂时无法完整读取时间胶囊记录，原记录没有被覆盖。请检查浏览器是否允许本地存储，或稍后重试。"

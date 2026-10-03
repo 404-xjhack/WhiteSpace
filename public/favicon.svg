@@ -1,1 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#28735a"/><path d="M18 19v26h28M45 19v18H26" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="6"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180" role="img" aria-labelledby="title">
+  <title id="title">留白标志</title>
+  <rect width="180" height="180" rx="44" fill="#28735a"/>
+  <path
+    d="M75.5 40.5 104.5 53.5
+       M114.5 44.5 126.5 74
+       M140 75.5 127.5 104.5
+       M135 114.5 106 127.5
+       M104.5 139.5 75.5 126.5
+       M65 135.5 53 105.5
+       M40 104.5 53 75.5
+       M44.5 65 74.5 53"
+    fill="none"
+    stroke="#fff"
+    stroke-width="4"
+    stroke-linecap="round"
+  />
+</svg>
