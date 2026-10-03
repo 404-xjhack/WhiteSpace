@@ -13,6 +13,13 @@ test("Public map meeting point requires explicit confirmation and valid coordina
   assert.deepEqual(draft.data.locationPoint, { lng: 120.067974, lat: 30.298083 });
   assert.deepEqual(normalizedPost(draft.data).locationPoint, draft.data.locationPoint);
   assert.equal(normalizedPost(draft.data).firstStep, "先一起辨认三张旧照片的拍摄地点");
+  const shortStep = make({ location: "map", locationName: "文化中心", locationLng: "120.06", locationLat: "30.29", publicPlaceConfirmed: "yes", firstStep: "先问好" });
+  assert.deepEqual(shortStep.errors, {});
+  assert.equal(normalizedPost(shortStep.data).firstStep, "先问好");
+  assert.equal(make({ location: "map", locationName: "文化中心", locationLng: "120.06", locationLat: "30.29", publicPlaceConfirmed: "yes", firstStep: "问好" }).errors.firstStep, "请用 3–80 字说明见面后先做什么。");
+  assert.equal(normalizedPost({ ...shortStep.data, firstStep: "问好" }), null);
+  assert.equal(normalizedPost({ ...shortStep.data, firstStep: "文".repeat(80) }).firstStep.length, 80);
+  assert.equal(normalizedPost({ ...shortStep.data, firstStep: "文".repeat(81) }), null);
   assert.ok(make({ location: "map", locationName: "文化中心", locationLng: "120.06", locationLat: "30.29", publicPlaceConfirmed: "yes" }).errors.firstStep);
   assert.ok(make({ location: "map", locationName: "住宅门口", locationLng: "120.06", locationLat: "30.29" }).errors.location);
   assert.ok(make({ location: "map", locationName: "文化中心", locationLng: "", locationLat: "30.29", publicPlaceConfirmed: "yes" }).errors.location);

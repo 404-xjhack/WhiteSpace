@@ -127,7 +127,7 @@ export function validateDraft(values, selectedCategories) {
     locationPoint = normalizeLocationPoint({ lng: values.locationLng, lat: values.locationLat });
     if (!location || location.length > LIMITS.location || !locationPoint || values.publicPlaceConfirmed !== "yes") errors.location = "请在真实地图上选择并确认一个公共集合点。";
     firstStep = String(values.firstStep || "").trim();
-    if (firstStep.length < 8 || firstStep.length > 80) errors.firstStep = "请用 8–80 字说明见面后先做什么。";
+    if (firstStep.length < 3 || firstStep.length > 80) errors.firstStep = "请用 3–80 字说明见面后先做什么。";
   } else if (location === "negotiable" && type === "offer") location = "地点可协商";
   else if (!LOCATIONS.includes(location)) errors.location = "请选择地点。";
 
@@ -183,7 +183,7 @@ export function normalizedPost(raw) {
   const locationPoint = raw.locationPoint === undefined ? null : normalizeLocationPoint(raw.locationPoint);
   if (raw.locationPoint !== undefined && !locationPoint) return null;
   const firstStep = typeof raw.firstStep === "string" ? raw.firstStep.trim() : "";
-  if (raw.firstStep !== undefined && (!locationPoint || firstStep.length < 8 || firstStep.length > 80)) return null;
+  if (raw.firstStep !== undefined && (!locationPoint || firstStep.length < 3 || firstStep.length > 80)) return null;
   const text = (key, limit) => typeof raw[key] === "string" ? raw[key].trim().slice(0, limit) : "";
   return { id: text("id", 80), type: raw.type, title: raw.title.trim(), description: raw.description.trim(), categories, category: categories[0],
     tags: uniqueCategories([...categories, ...(Array.isArray(raw.tags) ? raw.tags.filter((tag) => typeof tag === "string").slice(0, 6).map((tag) => tag.slice(0, 30)) : [])]),

@@ -523,7 +523,7 @@ try {
   assert.equal(await evaluate("document.querySelector('#mapLocationName').value"), "");
   await set("#mapLocationName", "社区文化中心正门"); await click("#publicPointCheck"); await click("#saveLocationPoint");
   await until("document.querySelector('#createDialog').open");
-  await set("#mapFirstStep", "先一起辨认三张旧照片的拍摄地点");
+  await set("#mapFirstStep", "先问好");
   await click("#publishButton");
   await until("document.querySelector('#realMissionList [data-real-post]') !== null");
   assert.equal(await evaluate("document.querySelector('#realMissionDetail h4')"), null);
@@ -532,6 +532,7 @@ try {
   await until("document.querySelector('#realMissionDetail h4')?.textContent === '一起整理社区故事'");
   const mappedPost = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0]");
   assert.deepEqual(mappedPost.locationPoint, { lng: 120.068, lat: 30.2984 });
+  assert.equal(mappedPost.firstStep, "先问好");
   await evaluate("window.__maps[0].emit('click',{lnglat:new AMap.LngLat(120.067,30.297)})");
   await until("/高德路线/.test(document.querySelector('#realRouteStatus').textContent)");
   const firstStart = await evaluate("new URL(window.__serviceWalkingCalls.at(-1),location.origin).searchParams.get('from')");
