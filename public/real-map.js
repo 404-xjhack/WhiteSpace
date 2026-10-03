@@ -5,7 +5,7 @@ import { DEMO_MAP_CENTER } from "./demo-map.js";
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 const coordinates = (point) => [point.lng, point.lat];
-const mapLocation = (post) => post.demoMap ? "学军紫金港附近 · 随机示意点" : post.location;
+const mapLocation = (post) => post.demoMap ? "学军紫金港附近" : post.location;
 const taskPinIcon = {
   need: '<path d="M36 46 25.5 36.5c-8.5-7.7 1.5-17.5 10.5-8 9-9.5 19 0.3 10.5 8L36 46Z" fill="currentColor"/>',
   offer: '<path d="m36 22 3.1 8.9L48 34l-8.9 3.1L36 46l-3.1-8.9L24 34l8.9-3.1L36 22Z" fill="currentColor"/><circle cx="48" cy="24" r="2" fill="currentColor"/><circle cx="24" cy="44" r="1.6" fill="currentColor"/>'
@@ -118,7 +118,7 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
     } catch (error) {
       if (requestVersion !== selectionVersion) return;
       $("#realMapArea").textContent = "学军紫金港附近 · 演示区域";
-      $("#realMapStatus").textContent = error?.code === 1 ? "未获得定位许可，当前展示随机演示任务。可搜索地点，或点击地图选出发点。" : "暂时无法定位，当前展示随机演示任务。可搜索地点，或点击地图选出发点。";
+      $("#realMapStatus").textContent = error?.code === 1 ? "未获得定位许可。可搜索地点，或点击地图选出发点。" : "暂时无法定位。可搜索地点，或点击地图选出发点。";
     } finally { $("#realLocateButton").disabled = false; }
   }
 
@@ -141,8 +141,8 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
         map.on("click", (event) => {
           setStart({ lng: event.lnglat.getLng(), lat: event.lnglat.getLat() });
         });
-        $("#realMapArea").textContent = "学军紫金港附近 · 演示区域";
-        $("#realMapStatus").textContent = "随机演示任务并非真实约见点；点击地图空白处可设置出发点。";
+        $("#realMapArea").textContent = "学军紫金港附近";
+        $("#realMapStatus").textContent = "点击地图空白处可设置出发点。";
       } else map.resize();
       render();
       if (!locationAttempted) { locationAttempted = true; locateUser(); }
@@ -171,7 +171,7 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
     else if (!startPoint) routeSummaryText.textContent = "请先定位，或点击地图空白处选出发点。";
     else if (!config.servicesEnabled) routeSummaryText.textContent = "步行路线需配置高德 Web 服务 Key；任务地点仍可查看。";
     else if (!routesVisible) routeSummaryText.textContent = "路线已隐藏。可点击任务点，或选择显示路线。";
-    else if (routeResult) routeSummaryText.textContent = `蓝色当前任务路线 · ${selected.title}：${routeText(routeResult)}${selected.demoMap ? "；演示点随机生成，仅供功能参考，不可按此赴约。" : ""}`;
+    else if (routeResult) routeSummaryText.textContent = `蓝色当前任务路线 · ${selected.title}：${routeText(routeResult)}`;
     else if (routeState === "loading") routeSummaryText.textContent = "正在计算这件任务的步行路线…";
     else routeSummaryText.textContent = "这件任务的步行路线暂不可用；可重选出发点后重试。";
     routeSummary.dataset.state = selected && !routesVisible ? "hidden" : selected ? routeState : "idle";
@@ -181,7 +181,7 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
     if (!detailStatus) return;
     if (!map || !startPoint || !config.servicesEnabled) detailStatus.textContent = routeSummary.textContent;
     else if (!routesVisible) detailStatus.textContent = "路线已隐藏；可在上方重新显示。";
-    else if (routeResult) detailStatus.textContent = `蓝色当前任务路线 · ${routeText(routeResult)}${selected.demoMap ? "；随机演示点，仅供功能参考，不可按此赴约。" : ""}`;
+    else if (routeResult) detailStatus.textContent = `蓝色当前任务路线 · ${routeText(routeResult)}`;
     else if (routeState === "loading") detailStatus.textContent = "正在计算这件任务的步行路线…";
     else detailStatus.textContent = "这件任务的步行路线暂不可用；可重选出发点后重试。";
   }
@@ -218,7 +218,6 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
 
   function render() {
     const posts = mappedPosts();
-    $("#realMapCanvas").classList.toggle("has-demo-posts", Boolean(map) && posts.some((post) => post.demoMap));
     if (!posts.some((post) => post.id === selectedId)) selectedId = null;
     const selected = posts.find((post) => post.id === selectedId);
     $("#realJumpMission").textContent = selected ? `查看任务：${selected.title} ↓` : posts.length ? "查看街区任务 ↓" : "查看发布指引 ↓";
@@ -230,7 +229,7 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
           const pin = document.createElement("div");
           pin.className = `real-task-marker ${post.type === "offer" ? "is-offer" : "is-need"}`;
           pin.dataset.postId = post.id;
-          pin.setAttribute("aria-label", `${post.title}${post.demoMap ? "，随机演示任务" : ""}`);
+          pin.setAttribute("aria-label", post.title);
           pin.innerHTML = `<svg class="real-task-pin" viewBox="0 0 72 86" aria-hidden="true"><path class="real-task-pin-body" d="M36 3C18 3 4 17 4 35c0 19 32 48 32 48s32-29 32-48C68 17 54 3 36 3Z"/><circle class="real-task-pin-ring" cx="36" cy="34" r="24"/><circle class="real-task-pin-face" cx="36" cy="34" r="19"/>${taskPinIcon[post.type === "offer" ? "offer" : "need"]}</svg>`;
           pin.addEventListener("pointerdown", (event) => event.stopPropagation());
           pin.addEventListener("mousedown", (event) => event.stopPropagation());
@@ -251,11 +250,11 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
         const isSelected = post.id === selectedId;
         pin.classList.toggle("is-selected", isSelected);
         pin.querySelector(".real-task-callout")?.remove();
-        if (isSelected) pin.insertAdjacentHTML("afterbegin", `<div class="real-task-callout"><span>${post.demoMap ? "随机演示 · " : ""}${post.type === "offer" ? "愿意分享" : "想去体验"}</span><strong>${escapeHtml(post.title)}</strong><small>${escapeHtml(mapLocation(post))}</small></div>`);
+        if (isSelected) pin.insertAdjacentHTML("afterbegin", `<div class="real-task-callout"><strong>${escapeHtml(post.title)}</strong></div>`);
         marker.setzIndex?.(isSelected ? 120 : 110);
       }
     }
-    $("#realMissionList").innerHTML = posts.filter((post) => post.id !== selectedId).map((post) => `<button type="button" data-real-post="${escapeHtml(post.id)}"><strong>${escapeHtml(post.title)}</strong><span>${post.demoMap ? "演示 · " : ""}${escapeHtml(post.name || "我")} · ${escapeHtml(mapLocation(post))}</span></button>`).join("");
+    $("#realMissionList").innerHTML = posts.filter((post) => post.id !== selectedId).map((post) => `<button type="button" data-real-post="${escapeHtml(post.id)}"><strong>${escapeHtml(post.title)}</strong><span>${escapeHtml(post.name || "我")} · ${escapeHtml(mapLocation(post))}</span></button>`).join("");
     if (!selected) {
       $("#realMissionDetail").innerHTML = posts.length
         ? '<p>点击地图上的任务点，或从下方列表选择一件事，查看详情和步行路线。</p>'
@@ -266,7 +265,7 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
     }
     const mine = selected.id.startsWith("mine-");
     const joined = isInterested(selected.id);
-    $("#realMissionDetail").innerHTML = `<div class="real-mission-type">${selected.demoMap ? "随机演示 · " : ""}${escapeHtml(selected.type === "offer" ? "愿意分享" : "想去体验")}${mine ? " · 我的发布" : ""}</div><h4>${escapeHtml(selected.title)}</h4><p>${escapeHtml(selected.name || "我")} · ${escapeHtml(mapLocation(selected))} · ${escapeHtml(selected.time || "时间待确认")}</p><p class="real-first-step"><strong>见面后先做</strong><span>${escapeHtml(selected.firstStep || "先了解这件事，再确认双方方便的时间。")}</span></p><p id="realRouteStatus" role="status"></p><div class="mission-actions"><button id="realJoin" class="primary-button" type="button">${mine ? "查看我的发布" : joined ? "取消参与意向" : "我愿意做这一步"}</button><button id="realDetail" class="ghost-button" type="button">完整说明</button>${mine ? '<button id="realEdit" class="ghost-button" type="button">编辑</button><button id="realDelete" class="ghost-button danger-text" type="button">删除</button>' : ""}</div>`;
+    $("#realMissionDetail").innerHTML = `<div class="real-mission-type">${escapeHtml(selected.type === "offer" ? "愿意分享" : "想去体验")}${mine ? " · 我的发布" : ""}</div><h4>${escapeHtml(selected.title)}</h4><p>${escapeHtml(selected.name || "我")} · ${escapeHtml(mapLocation(selected))} · ${escapeHtml(selected.time || "时间待确认")}</p><p class="real-first-step"><strong>见面后先做</strong><span>${escapeHtml(selected.firstStep || "先了解这件事，再确认双方方便的时间。")}</span></p><p id="realRouteStatus" role="status"></p><div class="mission-actions"><button id="realJoin" class="primary-button" type="button">${mine ? "查看我的发布" : joined ? "取消参与意向" : "我愿意做这一步"}</button><button id="realDetail" class="ghost-button" type="button">完整说明</button>${mine ? '<button id="realEdit" class="ghost-button" type="button">编辑</button><button id="realDelete" class="ghost-button danger-text" type="button">删除</button>' : ""}</div>`;
     $("#realJoin").addEventListener("click", () => mine ? showDetail(selected) : toggleInterest(selected));
     $("#realDetail").addEventListener("click", () => showDetail(selected));
     if (mine) { $("#realEdit").addEventListener("click", () => editPost(selected)); $("#realDelete").addEventListener("click", () => deletePost(selected)); }
@@ -318,11 +317,11 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
     selectionVersion++;
     map.setZoom(16);
     map.setCenter(coordinates(DEMO_MAP_CENTER));
-    $("#realMapArea").textContent = "学军紫金港附近 · 演示区域";
-    $("#realMapStatus").textContent = "正在查看随机演示任务；这些标记不是实际约见点。";
+    $("#realMapArea").textContent = "学军紫金港附近";
+    $("#realMapStatus").textContent = "已回到学军紫金港附近；点击地图可更换出发点。";
   });
   $("#realPublishButton").addEventListener("click", openCreate);
-  $("#realMissionList").addEventListener("click", (event) => { const button = event.target.closest("[data-real-post]"); if (button) { selectedId = button.dataset.realPost; routesVisible = true; const post = mappedPosts().find((item) => item.id === selectedId); if (post && map) { map.setZoom(16); map.setCenter(coordinates(post.locationPoint)); $("#realMapArea").textContent = post.demoMap ? "学军紫金港附近 · 演示区域" : "正在查看任务位置"; } render(); } });
+  $("#realMissionList").addEventListener("click", (event) => { const button = event.target.closest("[data-real-post]"); if (button) { selectedId = button.dataset.realPost; routesVisible = true; const post = mappedPosts().find((item) => item.id === selectedId); if (post && map) { map.setZoom(16); map.setCenter(coordinates(post.locationPoint)); $("#realMapArea").textContent = "正在查看任务位置"; } render(); } });
   async function searchPlaces(query, output, status, isCurrent) {
     if (!isCurrent()) return null;
     if (!config.servicesEnabled) { status.textContent = "地点搜索需配置高德 Web 服务 Key；仍可直接在地图上选点。"; return null; }

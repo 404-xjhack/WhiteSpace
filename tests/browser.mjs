@@ -513,7 +513,11 @@ try {
   await evaluate(`window.__markers.find(marker=>marker.title===${JSON.stringify(farthestDemoTitle)}).emit('click',{originEvent:{stopPropagation(){}}})`);
   await until(`document.querySelector('#realMissionDetail h4')?.textContent === ${JSON.stringify(farthestDemoTitle)}`);
   await until("document.querySelector('#realRouteSummary').dataset.state === 'ready'");
-  assert.match(await evaluate("document.querySelector('#realRouteStatus').textContent"), /蓝色当前任务路线.*随机演示点/);
+  assert.match(await evaluate("document.querySelector('#realRouteStatus').textContent"), /蓝色当前任务路线/);
+  assert.equal(await evaluate("document.querySelector('#realMapCanvas').classList.contains('has-demo-posts')"), false);
+  assert.equal(await evaluate(`window.__markers.find(marker=>marker.title===${JSON.stringify(farthestDemoTitle)}).content.querySelector('.real-task-callout').textContent`), farthestDemoTitle);
+  assert.equal(await evaluate(`window.__markers.find(marker=>marker.title===${JSON.stringify(farthestDemoTitle)}).content.querySelector('.real-task-callout').children.length`), 1);
+  assert.equal(await evaluate("document.querySelector('#realMissionDetail').textContent.includes('随机示意点')"), false);
   assert.equal(await evaluate("window.__polylines.filter(line=>line.active && line.strokeColor==='#2c82cf').length"), 1);
   assert.equal(await evaluate("window.__serviceWalkingCalls.length"), 1, "Only the selected task requests a route");
   assert.equal(await evaluate(`JSON.stringify(window.__polylines.find(line=>line.active).path.at(-1)) === JSON.stringify(window.__markers.find(marker=>marker.title===${JSON.stringify(farthestDemoTitle)}).position)`), true);

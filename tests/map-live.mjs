@@ -158,6 +158,7 @@ try {
   await still(clickedPin, "点击任务点后移动鼠标");
   await until("document.querySelector('#realMapCanvas .real-task-marker.is-selected .real-task-callout strong')", "真实地图选中标记气泡");
   assert.equal(await evaluate("document.querySelector('#realMapCanvas .real-task-callout strong').textContent"), "一起整理街区故事");
+  assert.equal(await evaluate("document.querySelector('#realMapCanvas .real-task-callout').getBoundingClientRect().width <= 161"), true, "任务气泡应保持紧凑");
   for (const [selected, label] of [[false, "再次点击关闭任务"], [true, "再次点击打开任务"]]) {
     const markerBox = await evaluate("(() => { const r=document.querySelector('#realMapCanvas .real-task-marker[data-post-id=\"mine-live-smoke\"]').getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height*0.4}; })()");
     await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: markerBox.x, y: markerBox.y, buttons: 0 });
@@ -188,6 +189,7 @@ try {
   await writeFile(path.join(root, ".tmp", "real-map-live-mobile.png"), Buffer.from(mobileShot.data, "base64"));
   await evaluate("document.querySelector('#realMissionList [data-real-post=\"mine-live-smoke\"]').click()");
   await until("document.querySelector('#realMapCanvas .real-task-marker.is-selected .real-task-callout')", "移动端点击后出现标记气泡");
+  assert.equal(await evaluate("document.querySelector('#realMapCanvas .real-task-callout').getBoundingClientRect().width <= 151"), true, "移动端任务气泡应保持紧凑");
   if (config.servicesEnabled) await until("document.querySelector('#realRouteSummary').dataset.state === 'ready'", "移动端手动点选后的步行路线");
   const mobileSelectedShot = await send("Page.captureScreenshot", { format: "png" });
   await writeFile(path.join(root, ".tmp", "real-map-live-mobile-selected.png"), Buffer.from(mobileSelectedShot.data, "base64"));
