@@ -79,16 +79,8 @@ try {
   const status = await evaluate("document.querySelector('#realMapStatus').textContent");
   assert.doesNotMatch(status, /暂不可用/, `高德地图未加载：${status}`);
   await until("document.querySelector('#realMapCanvas .amap-maps')", "高德底图容器");
-  if (config.servicesEnabled) {
-    await until("document.querySelector('#realRouteSummary')?.dataset.state === 'ready'", "最近步行路线出现在地图");
-    assert.match(await evaluate("document.querySelector('#realRouteSummary').textContent"), /绿色最近路线.*随机生成/);
-    const routeButton = await evaluate("(() => { const r=document.querySelector('#realRouteToggle').getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height/2}; })()");
-    for (const state of ["hidden", "ready"]) {
-      await send("Input.dispatchMouseEvent", { type: "mousePressed", ...routeButton, button: "left", buttons: 1, clickCount: 1 });
-      await send("Input.dispatchMouseEvent", { type: "mouseReleased", ...routeButton, button: "left", buttons: 0, clickCount: 1 });
-      await until(`document.querySelector('#realRouteSummary').dataset.state === '${state}'`, `地图内路线按钮切换到 ${state}`);
-    }
-  }
+  assert.equal(await evaluate("document.querySelector('#realRouteSummary').dataset.state"), "idle", "初始地图不自动选路线");
+  assert.equal(await evaluate("document.querySelector('#realRouteToggle').hidden"), true);
   await pause(300);
   assert.match(await evaluate("document.querySelector('#realMapArea').textContent"), /已定位到你的附近/);
   const shot = await send("Page.captureScreenshot", { format: "png" });
@@ -151,6 +143,16 @@ try {
   await send("Input.dispatchMouseEvent", { type: "mousePressed", x: pinBox.x, y: pinBox.y, button: "left", buttons: 1, clickCount: 1 });
   await send("Input.dispatchMouseEvent", { type: "mouseReleased", x: pinBox.x, y: pinBox.y, button: "left", buttons: 0, clickCount: 1 });
   await until("document.querySelector('#realMissionDetail h4')?.textContent === '一起整理街区故事'", "点击后出现任务详情");
+  if (config.servicesEnabled) {
+    await until("document.querySelector('#realRouteSummary').dataset.state === 'ready'", "手动点选任务后显示步行路线");
+    assert.match(await evaluate("document.querySelector('#realRouteSummary').textContent"), /蓝色当前任务路线/);
+    const routeButton = await evaluate("(() => { const r=document.querySelector('#realRouteToggle').getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height/2}; })()");
+    for (const state of ["hidden", "ready"]) {
+      await send("Input.dispatchMouseEvent", { type: "mousePressed", ...routeButton, button: "left", buttons: 1, clickCount: 1 });
+      await send("Input.dispatchMouseEvent", { type: "mouseReleased", ...routeButton, button: "left", buttons: 0, clickCount: 1 });
+      await until(`document.querySelector('#realRouteSummary').dataset.state === '${state}'`, `地图内路线按钮切换到 ${state}`);
+    }
+  }
   const clickedPin = await markerAt();
   await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: pinBox.x + 50, y: pinBox.y + 30, buttons: 0 });
   await still(clickedPin, "点击任务点后移动鼠标");
@@ -162,7 +164,8 @@ try {
     await send("Input.dispatchMouseEvent", { type: "mousePressed", x: markerBox.x, y: markerBox.y, button: "left", buttons: 1, clickCount: 1 });
     await send("Input.dispatchMouseEvent", { type: "mouseReleased", x: markerBox.x, y: markerBox.y, button: "left", buttons: 0, clickCount: 1 });
     await until(selected ? "document.querySelector('#realMissionDetail h4')?.textContent === '一起整理街区故事'" : "document.querySelector('#realMissionDetail h4') === null", label);
-    if (!selected) assert.equal(await evaluate("document.querySelector('#realRouteSummary').dataset.state"), "hidden", "关闭任务时最近路线也应消失");
+    if (!selected) assert.equal(await evaluate("document.querySelector('#realRouteSummary').dataset.state"), "idle", "关闭任务后路线应消失");
+    else if (config.servicesEnabled) await until("document.querySelector('#realRouteSummary').dataset.state === 'ready'", "重新点选任务后显示路线");
     const beforeMove = await markerAt();
     await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: markerBox.x + 46, y: markerBox.y + 24, buttons: 0 });
     await still(beforeMove, `${label}后空手移动鼠标`);
@@ -176,7 +179,7 @@ try {
   await evaluate("document.querySelector('#mapToggle').click()");
   await until("/已定位到你的附近/.test(document.querySelector('#realMapArea')?.textContent || '')", "移动端地图定位");
   await until("document.querySelector('#realMapCanvas .real-task-marker[data-post-id=\"mine-live-smoke\"]')", "移动端地图个人任务标记");
-  if (config.servicesEnabled) await until("document.querySelector('#realRouteSummary')?.dataset.state === 'ready'", "移动端最近步行路线");
+  assert.equal(await evaluate("document.querySelector('#realRouteSummary').dataset.state"), "idle", "移动端初始地图不自动画路线");
   assert.equal(await evaluate("document.querySelector('#realMapCanvas .real-task-callout')"), null);
   assert.equal(await evaluate("(() => { const map=document.querySelector('#realMapCanvas').getBoundingClientRect(), pin=document.querySelector('#realMapCanvas .real-task-marker[data-post-id=\"mine-live-smoke\"]').getBoundingClientRect(); return pin.top >= map.top && pin.bottom <= map.bottom; })()"), true, "移动端附近任务应在首屏地图内");
   await pause(700);
@@ -185,6 +188,7 @@ try {
   await writeFile(path.join(root, ".tmp", "real-map-live-mobile.png"), Buffer.from(mobileShot.data, "base64"));
   await evaluate("document.querySelector('#realMissionList [data-real-post=\"mine-live-smoke\"]').click()");
   await until("document.querySelector('#realMapCanvas .real-task-marker.is-selected .real-task-callout')", "移动端点击后出现标记气泡");
+  if (config.servicesEnabled) await until("document.querySelector('#realRouteSummary').dataset.state === 'ready'", "移动端手动点选后的步行路线");
   const mobileSelectedShot = await send("Page.captureScreenshot", { format: "png" });
   await writeFile(path.join(root, ".tmp", "real-map-live-mobile-selected.png"), Buffer.from(mobileSelectedShot.data, "base64"));
   if (!config.servicesEnabled) throw new Error("地点搜索和步行路线还需在 .env 填写 AMAP_SERVICE_KEY。");
