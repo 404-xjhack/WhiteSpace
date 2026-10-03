@@ -40,3 +40,13 @@
 .theme-control select { font: inherit; min-height: 36px; max-width: 120px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--surface); cursor: pointer; }
 .theme-control select:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
 .theme-save-status { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 60; width: max-content; max-width: calc(100vw - 32px); padding: 11px 15px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--surface); box-shadow: var(--shadow); font-size: 12px; pointer-events: none; }
+/* Standalone pages and location results reuse the site's 6px transparent-track scrollbar. */
+html,.place-results { --scroll-thumb: var(--scroll-thumb-default); scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) transparent; }
+html:is(:hover,:focus-within),.place-results:is(:hover,:focus-within) { --scroll-thumb: var(--scroll-thumb-active); }
+@supports selector(::-webkit-scrollbar) {
+  html,.place-results { scrollbar-width: auto; scrollbar-color: auto; }
+  html::-webkit-scrollbar,.place-results::-webkit-scrollbar { width: 6px; }
+  html::-webkit-scrollbar-track,.place-results::-webkit-scrollbar-track { background: transparent; }
+  html::-webkit-scrollbar-thumb,.place-results::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border: 1px solid transparent; background-clip: padding-box; border-radius: 999px; min-height: 36px; }
+  html::-webkit-scrollbar-button,.place-results::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+}

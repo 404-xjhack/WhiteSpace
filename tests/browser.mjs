@@ -25,6 +25,7 @@ let connection;
 let aiApp;
 let aiMock;
 let mapApp;
+let mapScriptRequest;
 const errors = [];
 const checks = [];
 
@@ -39,6 +40,7 @@ class CDP {
         this.pending.delete(data.id); clearTimeout(request.timer);
         if (data.error) request.reject(new Error(data.error.message)); else request.resolve(data.result);
       } else if (data.method === "Runtime.exceptionThrown") errors.push(data.params.exceptionDetails.exception?.description || data.params.exceptionDetails.text);
+      else if (data.method === "Fetch.requestPaused") mapScriptRequest = data.params;
     });
   }
   async send(method, params = {}) {
@@ -627,16 +629,27 @@ try {
       return originalFetch(url, options);
     };
     class FakeLngLat { constructor(lng, lat) { this.lng=lng; this.lat=lat; } getLng() { return this.lng; } getLat() { return this.lat; } }
-    class FakeMap { constructor(id, opts={}) { this.events={}; this.options=opts; this.center=opts.center || [120.067,30.297]; this.zoom=opts.zoom; document.getElementById(id).dataset.fakeMap='ready'; window.__maps.push(this); } on(name, fn) { this.events[name]=fn; } emit(name, data) { this.events[name]?.(data); } resize() {} setCenter(point) { this.center=point; } setZoom(zoom) { this.zoom=zoom; } getCenter() { return new FakeLngLat(...this.center); } }
+    class FakeMap { constructor(id, opts={}) { this.events={}; this.options=opts; this.mapStyle=opts.mapStyle; this.styleCalls=[]; this.center=opts.center || [120.067,30.297]; this.zoom=opts.zoom; document.getElementById(id).dataset.fakeMap='ready'; window.__maps.push(this); } on(name, fn) { this.events[name]=fn; } emit(name, data) { this.events[name]?.(data); } resize() {} setCenter(point) { this.center=point; } setZoom(zoom) { this.zoom=zoom; } getCenter() { return new FakeLngLat(...this.center); } setMapStyle(style) { this.styleCalls.push(style); if(this.failStyle)throw new Error('Test map style unavailable'); this.mapStyle=style; } }
     class FakeMarker { constructor(opts) { this.position=opts.position; this.title=opts.title; this.content=opts.content; this.events={}; window.__markers.push(this); } on(name, fn) { this.events[name]=fn; } emit(name, data) { if (name==='click' && this.content) this.content.click(); else this.events[name]?.(data); } setMap() {} setPosition(point) { this.position=point; } getPosition() { return new FakeLngLat(...this.position); } }
     class FakePolyline { constructor(opts) { this.path=opts.path; this.strokeColor=opts.strokeColor; this.active=true; window.__polylines.push(this); } setMap(map) { this.active=Boolean(map); } }
-    window.AMap={Map:FakeMap,Marker:FakeMarker,Polyline:FakePolyline,LngLat:FakeLngLat,convertFrom:(point,_kind,callback)=>callback('complete',{locations:[new FakeLngLat(point[0]+.0005,point[1]+.0005)]})};
+    window.__fakeAMap={Map:FakeMap,Marker:FakeMarker,Polyline:FakePolyline,LngLat:FakeLngLat,convertFrom:(point,_kind,callback)=>callback('complete',{locations:[new FakeLngLat(point[0]+.0005,point[1]+.0005)]})};
+    window.AMap=window.__fakeAMap;
   ` });
   await connection.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
   await connection.send("Page.navigate", { url: mapApp.url });
   await until("document.querySelectorAll('.post-card').length === 6 && !document.querySelector('#mapLocationOption').disabled");
+  await evaluate("WriteSpaceTheme.setPreference('light');window.AMap=undefined");
+  mapScriptRequest=null;
+  await connection.send("Fetch.enable",{patterns:[{urlPattern:"https://webapi.amap.com/maps*",requestStage:"Request"}]});
   await click("#mapToggle");
+  for(let i=0;i<80&&!mapScriptRequest;i++)await pause(80);
+  assert.ok(mapScriptRequest,"Map SDK request is intercepted before using any external service");
+  await evaluate("WriteSpaceTheme.setPreference('dark')");
+  assert.equal(await evaluate("window.__maps.length"),0,"A theme change must not initialize a map while its SDK is pending");
+  await connection.send("Fetch.fulfillRequest",{requestId:mapScriptRequest.requestId,responseCode:200,responseHeaders:[{name:"Content-Type",value:"application/javascript"}],body:Buffer.from("window.AMap=window.__fakeAMap;window.__writeSpaceAMapReady();").toString("base64")});
+  await connection.send("Fetch.disable");
   await until("document.querySelector('#realMapCanvas').dataset.fakeMap === 'ready' && /已定位/.test(document.querySelector('#realMapArea').textContent)");
+  assert.equal(await evaluate("window.__maps[0].options.mapStyle"),'amap://styles/dark',"Deferred SDK initialization uses the latest theme");
   assert.equal(await evaluate("window.__maps[0].zoom"), 16);
   assert.equal(await evaluate("window.__maps[0].options.jogEnable"), false);
   assert.equal(await evaluate("window.__maps[0].options.animateEnable"), false);
@@ -659,6 +672,16 @@ try {
   assert.equal(await evaluate("document.querySelector('#realMissionDetail').textContent.includes('随机示意点')"), false);
   assert.equal(await evaluate("window.__polylines.filter(line=>line.active && line.strokeColor==='#2c82cf').length"), 1);
   assert.equal(await evaluate("window.__serviceWalkingCalls.length"), 1, "Only the selected task requests a route");
+  const activeRouteBeforeTheme=await evaluate("({calls:__serviceWalkingCalls.length,markers:__markers.length,center:__maps[0].center,zoom:__maps[0].zoom,title:document.querySelector('#realMissionDetail h4').textContent})");
+  await evaluate("window.originalMap=__maps[0];window.originalLine=__polylines.find(line=>line.active);WriteSpaceTheme.setPreference('light')");
+  assert.equal(await evaluate("__maps[0].mapStyle"),'amap://styles/normal');
+  await evaluate("__maps[0].failStyle=true;WriteSpaceTheme.setPreference('dark')");
+  assert.equal(await evaluate("__maps[0].mapStyle"),'amap://styles/normal',"Rejected style retains the existing usable map");
+  await evaluate("__maps[0].failStyle=false;WriteSpaceTheme.setPreference('light');WriteSpaceTheme.setPreference('dark');__maps[0].setMapStyle=undefined;WriteSpaceTheme.setPreference('light');delete __maps[0].setMapStyle;WriteSpaceTheme.setPreference('dark')");
+  assert.equal(await evaluate("__maps[0].mapStyle"),'amap://styles/dark');
+  assert.equal(await evaluate("__maps.length===1 && originalMap===__maps[0] && originalLine===__polylines.find(line=>line.active)"),true);
+  assert.deepEqual(await evaluate("({calls:__serviceWalkingCalls.length,markers:__markers.length,center:__maps[0].center,zoom:__maps[0].zoom,title:document.querySelector('#realMissionDetail h4').textContent})"),activeRouteBeforeTheme);
+  await assertTextContrast(evaluate,['.real-map-route-toggle','.real-route-summary','#realRouteStatus']);
   assert.equal(await evaluate(`JSON.stringify(window.__polylines.find(line=>line.active).path.at(-1)) === JSON.stringify(window.__markers.find(marker=>marker.title===${JSON.stringify(farthestDemoTitle)}).position)`), true);
   assert.equal(await evaluate("window.__markers.length"), markerCount, "Selecting a task keeps existing map markers");
   const nextDemoTitle = await evaluate(`window.__markers.find(marker=>marker.title && marker.title!==${JSON.stringify(farthestDemoTitle)}).title`);
@@ -704,7 +727,23 @@ try {
   assert.equal(await evaluate("document.querySelector('#mapLocationName').value"), "蒋村社区文化中心");
   await evaluate("window.__markers.at(-1).setPosition([120.068,30.2984]); window.__markers.at(-1).emit('dragend')");
   assert.equal(await evaluate("document.querySelector('#mapLocationName').value"), "");
-  await set("#mapLocationName", "社区文化中心正门"); await click("#publicPointCheck"); await click("#saveLocationPoint");
+  await set("#mapLocationName", "社区文化中心正门"); await click("#publicPointCheck");
+  assert.equal(await evaluate("__maps[1].options.mapStyle"),'amap://styles/dark');
+  const selectedPointBeforeTheme=await evaluate("({centers:__maps.map(m=>m.center),zooms:__maps.map(m=>m.zoom),point:__markers.at(-1).position,name:document.querySelector('#mapLocationName').value,confirmed:document.querySelector('#publicPointCheck').checked,title:document.querySelector('#postTitle').value,calls:__serviceWalkingCalls.length,markers:__markers.length})");
+  await evaluate("window.originalPicker=__maps[1];WriteSpaceTheme.setPreference('light')");
+  assert.deepEqual(await evaluate("__maps.map(m=>m.mapStyle)"),['amap://styles/normal','amap://styles/normal']);
+  await evaluate("WriteSpaceTheme.setPreference('dark');__maps[0].failStyle=true;WriteSpaceTheme.setPreference('light')");
+  assert.deepEqual(await evaluate("__maps.map(m=>m.mapStyle)"),['amap://styles/dark','amap://styles/normal'],"One styling failure does not prevent the other instance updating");
+  await evaluate("__maps[0].failStyle=false;WriteSpaceTheme.setPreference('system')");
+  await connection.send("Emulation.setEmulatedMedia",{features:[{name:'prefers-color-scheme',value:'dark'}]});
+  await until("__maps.every(m=>m.mapStyle==='amap://styles/dark')");
+  await connection.send("Emulation.setEmulatedMedia",{features:[{name:'prefers-color-scheme',value:'light'}]});
+  await until("__maps.every(m=>m.mapStyle==='amap://styles/normal')");
+  await evaluate("WriteSpaceTheme.setPreference('dark')");
+  assert.equal(await evaluate("__maps.length===2 && originalMap===__maps[0] && originalPicker===__maps[1] && document.querySelector('#locationPickerDialog').open"),true);
+  assert.deepEqual(await evaluate("({centers:__maps.map(m=>m.center),zooms:__maps.map(m=>m.zoom),point:__markers.at(-1).position,name:document.querySelector('#mapLocationName').value,confirmed:document.querySelector('#publicPointCheck').checked,title:document.querySelector('#postTitle').value,calls:__serviceWalkingCalls.length,markers:__markers.length})"),selectedPointBeforeTheme);
+  passed("Map themes: delayed SDK uses latest mode; manual/system updates, missing/throwing methods preserve route, map instances and picker draft");
+  await click("#saveLocationPoint");
   await until("document.querySelector('#createDialog').open");
   await set("#mapFirstStep", "先问好");
   await click("#publishButton");

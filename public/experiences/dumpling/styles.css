@@ -21,6 +21,7 @@ body.embedded .experience-header{display:none}body.embedded .experience-shell{pa
 .experience-header .brand{color:var(--ink);text-decoration:none}.experience-header img.brand-mark{background:none;border-radius:0;object-fit:contain}.experience-header .brand:hover img.brand-mark{opacity:.85}.experience-header .brand:focus-visible{outline:3px solid #89bea0;outline-offset:3px;border-radius:8px}
 
 .experience-header{gap:20px}
+@media(max-width:420px){body{min-width:0}}
 @media(max-width:1000px){.experience-header .header-label{display:none}.experience-header #open-capsule-history{margin-left:auto}}
 @media(max-width:760px){
   .experience-header{height:auto;min-height:80px;flex-wrap:wrap;gap:4px 12px;padding:6px 16px}
