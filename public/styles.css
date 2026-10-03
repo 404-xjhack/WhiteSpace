@@ -163,6 +163,57 @@ html.modal-open,html.modal-open body{overflow:hidden}
 @media(max-width:760px){.page-intro{flex-direction:column;gap:13px}.today-entry{margin-top:0}.today-dialog{width:min(720px,calc(100% - 20px))}.today-choices{grid-template-columns:1fr;gap:0}.today-card{padding:14px}.today-card-actions button{min-height:40px}.today-checkboxes{gap:12px}.today-options{padding:12px}.today-source{margin-top:12px}}
 .detail-experience h3{margin:0 0 8px;font-size:16px;line-height:1.5}
 .detail-experience p{margin:0 0 15px;font-size:13px;line-height:1.8;color:var(--muted)}
+
+/* Product story follows the viewport-height workspace without changing its columns. */
+.page-shell{overflow-anchor:none}
+.intro-context{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px;color:var(--muted);font-size:11px;line-height:1.6}
+#pageTitle{scroll-margin-top:130px}
+.intro-context a,.site-footer a{color:var(--green);font-weight:650;text-underline-offset:3px}
+.intro-context a:hover,.site-footer a:hover{text-decoration:underline}
+.intro-context a:focus-visible,.site-footer a:focus-visible{outline:3px solid #8bc5a8;outline-offset:4px;border-radius:3px}
+.product-story,.site-footer{max-width:1272px;margin:0 auto;padding:0 28px}
+.product-story{scroll-margin-top:100px;padding-top:36px;padding-bottom:36px}
+.product-story>div+div{margin-top:32px}
+.product-story h2{font-size:23px;line-height:1.45;letter-spacing:-.015em;margin-bottom:12px}
+.product-story p{font-size:14px;line-height:1.85;color:var(--muted);max-width:850px;margin-bottom:12px}
+.product-story .story-label{font-size:11px;color:var(--green);font-weight:700;margin-bottom:9px}
+.story-problem{border-top:1px solid var(--line);padding-top:28px}
+.story-steps{list-style:none;margin:18px 0 14px;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.story-steps li{border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:20px}
+.story-step-number{display:block;color:var(--green);font-size:12px;font-weight:700;margin-bottom:14px}
+.story-steps h3{font-size:16px;line-height:1.5;margin-bottom:9px}
+.story-steps p{font-size:13px;margin-bottom:0}
+.product-story .story-demo-note{font-size:12px;max-width:none}
+.story-vision{background:var(--green-soft);border-radius:14px;padding:24px}
+.product-story .vision-line{color:var(--green-dark);font-weight:650;margin-bottom:0}
+.site-footer{display:flex;align-items:center;justify-content:space-between;gap:15px;padding-top:20px;padding-bottom:28px;border-top:1px solid var(--line);color:var(--muted);font-size:12px}
+.site-footer p{margin:0}
+.page-shell.map-active~.product-story,.page-shell.map-active~.site-footer{display:none}
+html{--scroll-thumb:#bdcfc3;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) transparent}
+html:is(:hover,:focus-within){--scroll-thumb:#789a85}
+@supports selector(::-webkit-scrollbar){
+  html{scrollbar-width:auto;scrollbar-color:auto}
+  html::-webkit-scrollbar{width:6px}
+  html::-webkit-scrollbar-track{background:transparent}
+  html::-webkit-scrollbar-thumb{background:var(--scroll-thumb);border:1px solid transparent;background-clip:padding-box;border-radius:999px;min-height:36px}
+  html::-webkit-scrollbar-button{display:none;width:0;height:0}
+}
+@media(max-width:960px){.product-story,.site-footer{padding-left:20px;padding-right:20px}}
+@media(max-width:760px){
+  .product-story,.site-footer{padding-left:16px;padding-right:16px}
+  .product-story{padding-top:0;scroll-margin-top:85px}
+  .product-story h2{font-size:20px}
+  .story-steps{grid-template-columns:1fr;gap:12px}
+  .story-steps li,.story-vision{padding:18px}
+  .site-footer{flex-wrap:wrap}
+  .site-footer p{flex-basis:100%;order:1}
+}
+@media(max-width:420px){
+  body{min-width:0}
+  .header-inner,.header-actions{gap:6px}
+  .header-actions .primary-button{padding:0 9px;white-space:nowrap;flex-shrink:0}
+  .map-nav-button{white-space:nowrap}
+}
 .experience-entry-actions{display:flex;align-items:center;flex-wrap:wrap;gap:15px}
 .experience-entry-actions a{font-size:12px;color:var(--green-dark);text-underline-offset:3px}
 .experience-dialog{width:min(1440px,calc(100% - 32px));height:min(94dvh,1000px);max-height:94dvh}

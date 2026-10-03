@@ -12,31 +12,33 @@ Delegated for this prototype: dependency-free Node.js server and plain HTML/CSS/
 
 ## Users
 
-People in an imagined future where production and everyday tasks are highly automated, who want to explore meaningful ways to spend their free time, experience former human crafts and routines, or share their own experience. Community organizers may later facilitate safe offline activities.
+People who want to do something with others nearby: find company for an activity, learn from someone, work on a shared idea, or ask for practical help. People with time, skills, experience or resources to share are equally important. Community organizers may later facilitate safe offline activities.
 
 ## Product Purpose
 
-Help people discover something they want to do themselves, understand how people once lived and worked, and find a complementary partner for a first shared experience. The central question is: when machines can do everything, what would you like to do with your own hands?
+Rework the everyday process of finding someone to do something together. People often post in group chats or social feeds, wait for replies and repeat conversations to check suitability. Nearby interests, capabilities and needs can remain invisible to each other. Start with a concrete intent and make the first shared action easier to identify.
 
 ## Positioning
 
-WriteSpace is a life exploration platform for the automation era. Matching connects an experience someone wants to try with knowledge or skills another person is willing to share, considering what both hope to receive from participating. It produces a small, concrete first action instead of only a similarity score.
+WriteSpace is a local collaboration network prototype, built around intent rather than credentials or a social feed alone. Its headline is “想做一件事，找到一起做的人。” Matching considers the task, relevant help, complementary participation and time conditions, with an explanation and a small first action. The aim is to find people who can start this particular thing together, rather than rank the most accomplished person.
 
 ## Operating Context
 
-People browse future-life examples, publish an experience idea or an offer to share knowledge, review suggested matches, and express interest. Examples include handmade cooking beyond automated kitchens, furniture repair after robots take over maintenance, walking through an automated neighborhood, and personal writing in an AI era. The future setting, people and activities are fictional; the prototype does not contact real users or operate real automation systems.
+People browse community examples, describe what they want to do or can share, add time and place conditions, review suggested partners and express interest. Current examples include cooking dumplings together, neighborhood walks, repairing old chairs, family crafts, writing and phone photography. The people and activities are fictional demo data; interest actions do not contact real users or establish a team.
 
 ## Capabilities and Constraints
 
 - Functional post creation, search, category filtering, detail view, interest action, and matching flow.
+- Matching candidates are six illustrative profiles. Content and time are considered; location text can provide a shared-place signal, but there is no real-user geographic matching or proximity ranking.
 - A real AMap neighborhood surface supports browser location, manual point selection, public meeting points, walking routes, and local edit/delete; there is no fictional fallback map.
 - The AI gateway is called from the server only. Its key must never be embedded in client code or committed to source.
 - If AI is unavailable, a clearly labeled local rule-based match keeps the demo usable.
 - Real accounts, cross-device persistence, messaging, and moderation are future decisions, not claims of this prototype. Illustrative profiles never appear as real neighbors on the map.
+- The dumpling workshop demonstrates a concrete skill-sharing activity through six interactive steps and local learning records. Time capsules preserve the user's writing and reflections; neither feature proves that an offline collaboration occurred.
 
 ## Brand Commitments
 
-Name: WriteSpace 留白. The UI should be familiar and accessible to a broad audience. Its warm, everyday language invites curiosity and voluntary participation in a future with more free time.
+Name: WriteSpace 留白. Keep the warm, familiar community workspace and accessible everyday language. Lead with a concrete thing the user wants to do and who might help. Explain the prototype boundary near its first-screen promise. Use current community situations instead of speculative automation as the problem statement.
 
 ## Evidence on Hand
 
@@ -44,9 +46,13 @@ No real user database or validated matching outcomes were supplied. All visible 
 
 ## Product Principles
 
-- Start from a specific experience someone wants to try.
-- Give each example a future context, a reason to participate personally, and concrete actions.
-- Make learning about former human life one part of exploring life in the future.
+- Start from a specific thing someone wants to do.
+- Give examples an everyday need, useful skills or resources, and concrete actions.
+- Help existing time, interests, skills and experience become visible to people who need them; do not claim measured community impact without evidence.
 - Explain matches in plain language.
 - Make the first offline action small and safe.
 - Let people see and revise what they share.
+
+## Long-term Vision
+
+If more repetitive tasks become automated, people may have more time for creativity, interests and helping others. WriteSpace hopes to make human collaboration as easy to begin as using an internet service. AI should make human collaboration easier. This is a long-term direction, presented after today's problem, solution and community value; it is not a claim that automation has made people lose their purpose.

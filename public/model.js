@@ -102,7 +102,7 @@ export function validateDraft(values, selectedCategories) {
   const type = values.type === "offer" ? "offer" : "need";
   const title = String(values.title || "").trim();
   const description = String(values.description || "").trim();
-  const titleLabel = type === "offer" ? "技能或体验名称" : "标题";
+  const titleLabel = type === "offer" ? "分享或帮助的内容" : "标题";
   const descriptionLabel = type === "offer" ? "分享说明" : "具体说明";
   if (!title) errors.title = `请填写${titleLabel}。`;
   else if (String(values.title).length > LIMITS.title) errors.title = `${titleLabel}最多 ${LIMITS.title} 字。`;
@@ -215,7 +215,7 @@ export function timeCompatibility(a, b) {
   return "overlap";
 }
 
-export const MATCH_VERSION = "content-v2";
+export const MATCH_VERSION = "content-v3";
 const normalizeText = (value) => String(value ?? "").normalize("NFKC").toLowerCase().trim();
 const segmenter = new Intl.Segmenter("zh-CN", { granularity: "word" });
 const stopTerms = new Set(["一起", "可以", "希望", "愿意", "自己", "有人", "邻居", "社区", "需要", "提供", "分享", "参与", "帮忙", "帮助", "想要", "想找", "找到", "学习", "基础", "简单", "经验", "具体", "一点", "一次", "一些", "如何", "怎样", "真正", "能够", "维修", "修理", "修好", "指导", "认识", "了解", "交流", "活动", "时候", "事情", "内容", "适合", "时候"]);

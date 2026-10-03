@@ -109,7 +109,7 @@ function renderPosts() {
   $("#resultCount").textContent = `${visible.length} 条内容`;
   $("#myPostCount").textContent = String(myPosts.length); $("#myPostCount").hidden = myPosts.length === 0;
   postList.innerHTML = visible.map((post) => `<article class="post-card">
-    <div class="post-meta">${avatar(post)}<div class="author-lines"><strong>${escapeHtml(post.name || "我")} <span class="type-label ${post.type === "need" ? "need" : ""}">${post.type === "need" ? "想去体验" : "愿意分享"}</span></strong><span>${escapeHtml(personLine(post))}</span></div><span class="post-age" data-published-id="${escapeHtml(post.id)}">${escapeHtml(formatPublished(post))}</span></div>
+    <div class="post-meta">${avatar(post)}<div class="author-lines"><strong>${escapeHtml(post.name || "我")} <span class="type-label ${post.type === "need" ? "need" : ""}">${post.type === "need" ? "找人一起做" : "可以分享或帮忙"}</span></strong><span>${escapeHtml(personLine(post))}</span></div><span class="post-age" data-published-id="${escapeHtml(post.id)}">${escapeHtml(formatPublished(post))}</span></div>
     <h3>${escapeHtml(post.title)}</h3><p class="post-description">${escapeHtml(post.description)}</p><div class="post-tags">${tagHtml(post)}</div>
     <div class="post-footer"><span class="post-foot-item">${icon("place")}${escapeHtml(post.location || "地点待确认")}</span><span class="post-foot-item">${icon("time")}${escapeHtml(displayTime(post))}</span><button type="button" class="post-card-action" data-post-id="${escapeHtml(post.id)}">查看详情 →</button></div></article>`).join("");
   $("#emptyState").hidden = visible.length > 0;
@@ -193,7 +193,7 @@ function renderToday() {
     const post = item.post;
     return `<article class="today-card" data-experience-id="${escapeHtml(item.id)}">
       <div class="post-meta">${avatar(post)}<div class="author-lines"><strong>${escapeHtml(post.name)}</strong><span>${escapeHtml(post.role)}</span></div></div>
-      <h3>${escapeHtml(post.title)}</h3><div class="today-meta"><span>${post.type === "offer" ? "愿意分享" : "寻找同行或帮助"}</span><span>参与条件需确认</span>${post.categories.map((category) => `<span>${escapeHtml(category)}</span>`).join("")}</div>
+      <h3>${escapeHtml(post.title)}</h3><div class="today-meta"><span>${post.type === "offer" ? "可以分享或帮忙" : "寻找同行或帮助"}</span><span>参与条件需确认</span>${post.categories.map((category) => `<span>${escapeHtml(category)}</span>`).join("")}</div>
       <p class="today-post-description">${escapeHtml(post.description)}</p><p><strong>为什么适合你：</strong>${escapeHtml(item.reason)}</p>
       <p><strong>原发布安排：</strong>${escapeHtml(displayTime(post))}<br />${escapeHtml(post.location)} · ${escapeHtml(post.participants)}</p>
       <p class="today-first-step"><strong>建议的第一步</strong>${escapeHtml(item.firstStep)}</p>
@@ -464,12 +464,12 @@ function syncConditionalFields() {
 }
 function syncType() {
   const offer = createForm.elements.type.value === "offer";
-  $("#createTitle").textContent = offer ? "分享我的经验" : "发起一次体验";
-  $("#createSubtitle").textContent = offer ? "介绍愿意分享的手艺或经验，带大家体验一段不同的日常。" : "说说想亲手体验的事，以及希望谁一起参与。";
-  $("#titleLabel").textContent = offer ? "技能或体验名称" : "标题"; $("#titleHint").textContent = offer ? "你愿意带大家体验什么？" : "一句话说明想体验的事";
-  $("#descriptionLabel").textContent = offer ? "分享说明" : "具体说说"; $("#descriptionHint").textContent = offer ? "适合谁，希望获得什么收获？" : "为什么想尝试，希望谁一起参与？";
-  $("#postTitle").placeholder = offer ? "例如：分享手机摄影，记录自动化街区的日常" : "例如：想亲手修好一把旧椅子，体验过去的木工";
-  $("#postDescription").placeholder = offer ? "说说愿意分享的经验、大家可以亲手尝试什么、适合谁，以及你希望获得的收获…" : "说说为什么想体验、准备亲手做什么，以及你能带来什么…";
+  $("#createTitle").textContent = offer ? "我能分享或帮忙" : "我想做一件事";
+  $("#createSubtitle").textContent = offer ? "说说可以分享的技能、经验或时间，以及适合怎样的事。" : "说说想做什么、需要什么帮助，以及你能带来什么。";
+  $("#titleLabel").textContent = offer ? "分享或帮助的内容" : "标题"; $("#titleHint").textContent = offer ? "你可以分享什么、帮上什么忙？" : "一句话说明想做的事";
+  $("#descriptionLabel").textContent = offer ? "分享说明" : "具体说说"; $("#descriptionHint").textContent = offer ? "适合谁，希望获得什么收获？" : "需要什么帮助，希望谁一起参与？";
+  $("#postTitle").placeholder = offer ? "例如：可以教手机摄影，也想听听街区故事" : "例如：想修好一把旧椅子，找会木工的人一起";
+  $("#postDescription").placeholder = offer ? "说说能提供什么帮助、适合谁，以及你希望从交流中获得什么…" : "说说想做什么、需要什么帮助，以及你能带来什么…";
   $("#timeLabel").textContent = offer ? "可交流的时间" : "活动时间"; $("#locationLabel").textContent = offer ? "交流地点" : "活动地点";
   for (const option of [$("#negotiableTime"), $("#negotiableLocation")]) { option.disabled = !offer; option.hidden = !offer; }
   if (offer) {
@@ -508,16 +508,16 @@ function fillExample(example) {
   selectedCategories = []; categoryError = ""; formAttempted = false; $("#categoryPicker").value = ""; $("#customCategory").value = "";
   createForm.elements.type.value = example === "photo" ? "offer" : "need";
   if (example === "food") {
-    $("#postTitle").value = "自动厨房之外，想带孩子体验手工包饺子";
-    $("#postDescription").value = "孩子从小习惯自动厨房，很好奇以前的人为什么要一起做饭。想找愿意教手工包饺子的人，从和面、擀皮开始体验；我会准备材料并全程陪同，也想听听过去餐桌上的故事。";
+    $("#postTitle").value = "想带孩子学包饺子，找愿意教的人";
+    $("#postDescription").value = "孩子想学手工包饺子，但我也不太会。想找愿意教的人，从和面、擀皮开始一起动手；我会准备材料并全程陪同，也想听听家乡餐桌上的故事。";
     selectedCategories = ["亲子共学", "生活手艺"]; $("#postLocation").value = "other"; $("#locationOther").value = "公共集合点待确认"; $("#postWeekday").value = "6"; $("#postStart").value = "14:00"; $("#postEnd").value = "16:00";
   } else if (example === "repair") {
-    $("#postTitle").value = "想亲手修好一把旧椅子，体验过去的木工";
-    $("#postDescription").value = "维修机器人能很快修好这把靠背松动的木椅，但我想亲自试试。希望和会木工的人一起修，学习看木纹、打磨和基础维修，感受过去的人让旧物继续使用的过程。";
+    $("#postTitle").value = "想修好一把旧椅子，找会木工的人一起";
+    $("#postDescription").value = "家里一把木椅靠背松动，舍不得丢，但自己不会修。希望找会木工的人一起检查和修复，学习看木纹、打磨和基础维修；我可以带来椅子，也愿意一起动手。";
     selectedCategories = ["旧物新生"]; $("#postLocation").value = "other"; $("#locationOther").value = "公共集合点待确认"; $("#postWeekday").value = "0"; $("#postStart").value = "09:00"; $("#postEnd").value = "11:00";
   } else {
-    $("#postTitle").value = "分享手机摄影，记录自动化街区的日常";
-    $("#postDescription").value = "自动影像系统已经能记录整座城市，我仍想和大家亲自选择值得拍下的瞬间。可以教手机摄影和简单修图，也希望听你分享照片背后的社区故事；具体交流方式可先商量。";
+    $("#postTitle").value = "可以教手机摄影，也想听听街区故事";
+    $("#postDescription").value = "如果你想用手机拍好日常照片，我可以教手机摄影和简单修图。也希望听你分享照片背后的社区故事，一起发现街区值得记录的角落；具体交流方式可先商量。";
     selectedCategories = ["数码互助", "社区生活"]; $("#postLocation").value = "negotiable";
   }
   $("#timeMode").value = example === "photo" ? "negotiable" : "weekly";
@@ -534,7 +534,7 @@ function openCreate() {
   $(".form-examples").open = false;
   $("#profileRole").value = typeof profile.role === "string" ? profile.role : ""; $("#profileAge").value = Number.isInteger(profile.age) ? profile.age : "";
   $("#agePublic").checked = profile.agePublic === true; $("#profileSummary").textContent = profile.role || "社区成员"; $("#profileSection").open = false;
-  $("#publishButton").textContent = "发布并寻找匹配";
+  $("#publishButton").textContent = "发布并找伙伴";
   renderCategories(); syncType(); updateErrors(); openDialog(createDialog); $("#postTitle").focus();
 }
 function openEdit(post) {
@@ -584,7 +584,7 @@ function showDetail(post) {
     <div class="detail-grid"><div><span>${post.type === "offer" ? "可以分享" : "可以带来"}</span><strong>${escapeHtml(post.offer || "愿意一起参与")}</strong></div><div><span>希望获得${hasAINeed(post) ? '<small class="need-source">AI 提炼</small>' : ""}</span><strong>${escapeHtml(post.need || "未说明")}</strong></div></div>
     <div class="detail-info"><span>${icon("place")}${escapeHtml(post.demoMap ? "学军紫金港附近" : post.location || "地点待确认")}</span><span>${icon("time")}${escapeHtml(displayTime(post))}</span><span>参与人数：${escapeHtml(post.participants || "协商决定")}</span></div>
     ${post.id === "p1" ? `<section class="detail-experience" aria-labelledby="dumplingEntryTitle"><span class="detail-label">先动手试一试</span><h3 id="dumplingEntryTitle">从一碗面粉，到一盘饺子</h3><p>跟着六道工序，认识工具，试着擀皮、放馅与捏合，了解每一步该观察和调整什么。</p><div class="experience-entry-actions"><button id="openDumplingExperience" class="primary-button" type="button">进入饺子工坊 →</button><a href="/dumpling-house.html" target="_blank" rel="noopener">独立打开</a></div></section>` : ""}
-    <p class="detail-footnote">${post.demoMap ? "内置任务仅用于演示，见面地点需双方确认。" : "未来生活演示 · 参与意向仅保存在当前浏览器，不会发送给真实用户。"}</p>`;
+    <p class="detail-footnote">${post.demoMap ? "内置任务仅用于演示，见面地点需双方确认。" : "附近协作原型 · 参与意向仅保存在当前浏览器，不会发送给真实用户。"}</p>`;
   const mine = isMine(post); $("#interestButton").hidden = mine; $("#interestButton").disabled = false;
   $("#interestButton").textContent = interestedIds.has(post.id) ? "取消参与意向" : "我想参与";
   $("#detailMatchButton").hidden = !mine; $("#detailMatchButton").textContent = cachedMatch(post) ? "查看上次匹配" : "寻找匹配";
@@ -651,11 +651,11 @@ function renderMatchList() {
   const collapsed = primary.slice(0, 3);
   const extraCount = displayedMatches.length - collapsed.length;
   const visible = matchesExpanded ? displayedMatches : collapsed;
-  let emptyMessage = "当前资料里还未找到适合一起体验的伙伴，可以补充想尝试的事，或浏览其他生活体验。";
+  let emptyMessage = "当前示例资料里还未找到合适的伙伴，可以补充想做的事和需要的帮助，或看看其他发布。";
   if (data.source === "ai" && displayedMatches.length) emptyMessage = "AI 本次未推荐人选。点击上方“展开其他候选”，查看本地内容候选并进一步确认。";
   else if (data.summary?.emptyReason === "time_conflict") emptyMessage = "有内容相关的人，但与你填写的时间冲突。可调整活动时间后重新匹配。";
   else if (data.summary?.emptyReason === "no_candidates") emptyMessage = "社区资料暂未载入，刷新后可以重新匹配。";
-  $("#matchList").innerHTML = visible.length ? visible.map(({ post, score, reason, first_step, source }) => `<article class="match-card"><div class="match-card-top">${avatar(post)}<strong>${escapeHtml(post.name)}</strong><em>参考分 ${Math.round(score)}</em></div>${data.source === "ai" && source === "local" ? '<span class="candidate-source">本地内容匹配</span>' : ""}<h3>${escapeHtml(post.title)}</h3><p>${escapeHtml(reason)}</p><div class="match-first-step"><strong>建议的第一步</strong>${escapeHtml(first_step)}</div><button type="button" data-match-id="${escapeHtml(post.id)}">了解这次体验 →</button></article>`).join("") : `<p class="match-empty">${escapeHtml(emptyMessage)}</p>`;
+  $("#matchList").innerHTML = visible.length ? visible.map(({ post, score, reason, first_step, source }) => `<article class="match-card"><div class="match-card-top">${avatar(post)}<strong>${escapeHtml(post.name)}</strong><em>参考分 ${Math.round(score)}</em></div>${data.source === "ai" && source === "local" ? '<span class="candidate-source">本地内容匹配</span>' : ""}<h3>${escapeHtml(post.title)}</h3><p>${escapeHtml(reason)}</p><div class="match-first-step"><strong>建议的第一步</strong>${escapeHtml(first_step)}</div><button type="button" data-match-id="${escapeHtml(post.id)}">了解这件事 →</button></article>`).join("") : `<p class="match-empty">${escapeHtml(emptyMessage)}</p>`;
   const more = $("#moreMatches");
   more.hidden = extraCount === 0;
   more.textContent = matchesExpanded ? "收起其他候选" : `展开其他候选（${extraCount}）`;
@@ -756,7 +756,7 @@ function publishDraft(data, nextProfile) {
     showToast("已发布到真实地图；集合点可见，参与意向仍只保存在本机。");
     runMatch(post, { keepMap: true });
   } else {
-    mapView.showFeed(); showToast("想法已发布！正在寻找一起探索的伙伴。"); runMatch(post);
+    mapView.showFeed(); showToast("想法已发布！正在寻找一起做事的伙伴。"); runMatch(post);
   }
 }
 function saveEditedDraft(data, nextProfile) {
@@ -789,7 +789,7 @@ createForm.addEventListener("submit", (event) => {
 async function init() {
   if (hadLegacyNeeds) save(storagePosts, myPosts);
   try { const response = await fetch("/data.json"); if (!response.ok) throw new Error("data_failed"); const data = await response.json(); if (!Array.isArray(data)) throw new Error("data_failed"); seedPosts = data; mapDemoPosts = placeDemoPosts(data); seedLoaded = true; }
-  catch { showToast("未来生活示例载入失败，你的发布仍可查看，请刷新重试。"); }
+  catch { showToast("社区示例载入失败，你的发布仍可查看，请刷新重试。"); }
   seedReady = true; todayState = restoreTodayState(todayState, seedLoaded ? seedPosts : null);
   if (todayDialog.open) { $("#recommendToday").disabled = false; renderToday(); }
   renderPosts(); const lastPost = myPosts.find((post) => post.id === matchState.lastPostId); if (lastPost && !restoreMatch(lastPost)) runMatch(lastPost);

@@ -7,6 +7,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import http from "node:http";
 import { root, startServer } from "./helpers.mjs";
+import { MATCH_VERSION } from "../public/model.js";
 
 if (typeof WebSocket === "undefined") throw new Error("Browser checks require Node.js 22+ (WebSocket).");
 const browserPath = process.env.BROWSER_PATH || [
@@ -42,6 +43,7 @@ class CDP {
   }
   async send(method, params = {}) {
     await this.ready;
+    if (method === "Page.captureScreenshot") await this.send("Page.bringToFront");
     return new Promise((resolve, reject) => {
       const id = ++this.nextId;
       const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(`CDP timeout: ${method}`)); }, 10000);
@@ -101,15 +103,37 @@ try {
   const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
   connection = new CDP(targets.find((target) => target.type === "page").webSocketDebuggerUrl);
   await connection.send("Runtime.enable"); await connection.send("Page.enable"); await connection.send("Network.enable");
+  await connection.send("Page.bringToFront");
   await connection.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
   await connection.send("Page.navigate", { url: app.url });
   await until("document.querySelectorAll('.post-card').length === 6");
   assert.equal(await evaluate("document.querySelectorAll('#openCreateIntro,#openCreatePanel').length"), 0);
   assert.equal(await evaluate("document.querySelector('#emptyState').hidden"), true);
-  passed("U09: one main publishing entry; examples live in form");
+  assert.equal(await evaluate("document.title"), "留白 WriteSpace · 找到附近一起做事的人");
+  assert.equal(await evaluate("document.querySelector('#pageTitle').textContent"), "想做一件事，找到一起做的人。");
+  assert.match(await evaluate("document.querySelector('meta[property=\"og:description\"]').content"), /示例人物.*本机/);
+  assert.equal(await evaluate("document.querySelector('.page-shell').contains(document.querySelector('.product-story'))"), false);
+  for (const [width, height] of [[1280, 800], [375, 667], [320, 568]]) {
+    await connection.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
+    await evaluate("scrollTo({top:0,behavior:'instant'})");
+    assert.equal(await evaluate("document.documentElement.scrollWidth>document.documentElement.clientWidth+1"), false);
+    const homeShot = await connection.send("Page.captureScreenshot", { format: "png" });
+    await writeFile(path.join(root, ".tmp", `narrative-home-${width}.png`), Buffer.from(homeShot.data, "base64"));
+    await click('.intro-context a');
+    await until("Math.abs(document.querySelector('.product-story').getBoundingClientRect().top-(innerWidth<=760?85:100))<2");
+    assert.equal(await evaluate("getComputedStyle(document.querySelector('.story-steps')).gridTemplateColumns.split(' ').length"), width <= 760 ? 1 : 3);
+    const storyShot = await connection.send("Page.captureScreenshot", { format: "png" });
+    await writeFile(path.join(root, ".tmp", `narrative-story-${width}.png`), Buffer.from(storyShot.data, "base64"));
+    await click('.site-footer a');
+    await until("scrollY<2");
+  }
+  await connection.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
+  passed("U09: one publishing entry; honest positioning, metadata and reachable product story at 1280/375/320 px");
 
   await click("#mapToggle");
   assert.equal(await evaluate("document.querySelector('#neighborhoodMap').hidden"), false);
+  assert.equal(await evaluate("getComputedStyle(document.querySelector('.product-story')).display"), "none");
+  assert.equal(await evaluate("getComputedStyle(document.querySelector('.site-footer')).display"), "none");
   assert.equal(await evaluate("document.querySelector('.main-grid').hidden"), true);
   assert.equal(await evaluate("document.querySelector('#demoMapLayout')"), null);
   await until("/真实地图尚未配置/.test(document.querySelector('#realMapCanvas').textContent)");
@@ -124,6 +148,7 @@ try {
   await connection.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
   await click("#mapToggle");
   assert.equal(await evaluate("document.querySelector('.main-grid').hidden"), false);
+  assert.notEqual(await evaluate("getComputedStyle(document.querySelector('.product-story')).display"), "none");
   passed("Only the real map is shown; missing keys fail gracefully at desktop and mobile sizes");
   await click("#openCreateTop"); await until("document.querySelector('#createDialog').open");
   await assertModal("#createDialog", true);
@@ -174,7 +199,7 @@ try {
   passed("U07: interest → cancel → rejoin, retained across reload and scoped to one post");
 
   await click("#openCreateTop"); await click('[name="type"][value="offer"]');
-  assert.equal(await evaluate("document.querySelector('#titleLabel').textContent"), "技能或体验名称");
+  assert.equal(await evaluate("document.querySelector('#titleLabel').textContent"), "分享或帮助的内容");
   assert.equal(await evaluate("document.querySelector('#timeMode').value"), "negotiable");
   await click('[name="type"][value="need"]');
   assert.equal(await evaluate("document.querySelector('#timeMode').value"), "");
@@ -237,13 +262,14 @@ try {
   await click("#openCreateTop");
   await click('.form-examples summary'); await click('[data-example="food"]');
   assert.equal(await evaluate("document.querySelectorAll('.selected-category').length"), 2);
-  await click("#publishButton"); await readyMatch("自动厨房之外，想带孩子体验手工包饺子");
+  await click("#publishButton"); await readyMatch("想带孩子学包饺子，找愿意教的人");
   passed("B02/U09: single modal scroll at 1280/375/320 px, long details, reachable actions and usable example");
 
   await evaluate("(() => { const posts=JSON.parse(localStorage.getItem('writespace.posts.v1')); posts[0].createdAt=new Date(Date.now()-120000).toISOString(); localStorage.setItem('writespace.posts.v1',JSON.stringify(posts)); })()");
   await reload();
   assert.equal(await evaluate("document.querySelector('.post-age').textContent"), "2分钟前");
   await click(".post-card-action"); assert.equal(await evaluate("document.querySelector('#detailContent [data-published-id]').textContent"), "2分钟前"); await click('#detailDialog [data-close="detailDialog"]');
+  await connection.send("Page.bringToFront"); await until("!document.hidden");
   await evaluate("window.__clockNow=Date.now; Date.now=()=>window.__clockNow()+60000; document.dispatchEvent(new Event('visibilitychange'))");
   assert.equal(await evaluate("document.querySelector('.post-age').textContent"), "3分钟前");
   await evaluate("Date.now=window.__clockNow");
@@ -273,9 +299,13 @@ try {
   assert.match(await evaluate("document.querySelector('#matchList').textContent"), /陈师傅/);
   passed("Reported case: full chair repair + custom test + Sunday visibly returns Chen and survives reload");
 
-  await evaluate(`(() => { const cache=JSON.parse(localStorage.getItem('writespace.matches.v1')); cache.byPost[${JSON.stringify(reportedId)}].algorithmVersion='legacy'; cache.byPost[${JSON.stringify(reportedId)}].matches=[]; localStorage.setItem('writespace.matches.v1',JSON.stringify(cache)); })()`);
+  const beforeCacheUpdate = await evaluate("Object.fromEntries(['writespace.posts.v1','writespace.profile.v1','writespace.interest.v1','writespace.experience.dumpling.v1','writespace.capsules.v1'].map(key=>[key,localStorage.getItem(key)]))");
+  await evaluate(`(() => { const cache=JSON.parse(localStorage.getItem('writespace.matches.v1')); cache.byPost[${JSON.stringify(reportedId)}].algorithmVersion='content-v2'; cache.byPost[${JSON.stringify(reportedId)}].matches[0].reason='旧的未来自动化匹配理由'; localStorage.setItem('writespace.matches.v1',JSON.stringify(cache)); })()`);
   await reload(); await readyMatch(reportedTitle);
   assert.equal(await evaluate("document.querySelector('[data-match-id=\"p3\"]') !== null"), true);
+  assert.doesNotMatch(await evaluate("document.querySelector('#matchList').textContent"), /旧的未来自动化匹配理由/);
+  assert.equal(await evaluate(`JSON.parse(localStorage.getItem('writespace.matches.v1')).byPost[${JSON.stringify(reportedId)}].algorithmVersion`), MATCH_VERSION);
+  assert.deepEqual(await evaluate("Object.fromEntries(['writespace.posts.v1','writespace.profile.v1','writespace.interest.v1','writespace.experience.dumpling.v1','writespace.capsules.v1'].map(key=>[key,localStorage.getItem(key)]))"), beforeCacheUpdate);
   await evaluate("(() => { const posts=JSON.parse(localStorage.getItem('writespace.posts.v1')); posts[0].schedule.days=[1]; localStorage.setItem('writespace.posts.v1',JSON.stringify(posts)); })()");
   await reload(); await readyMatch(reportedTitle);
   assert.equal(await evaluate("document.querySelectorAll('.match-card').length"), 0);
@@ -364,7 +394,8 @@ try {
 
   for (const [width, height] of [[1280, 800], [900, 600]]) {
     await connection.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
-    await evaluate("document.querySelector('.feed-section').scrollTop=0; document.querySelector('.match-column').scrollTop=0");
+    await pause(180);
+    await evaluate("scrollTo({top:0,behavior:'instant'}); document.querySelector('.feed-section').scrollTop=0; document.querySelector('.match-column').scrollTop=0");
     const layout = await evaluate("(() => { const feed=document.querySelector('.feed-section'), match=document.querySelector('.match-column'), button=document.querySelector('#moreMatches'), rect=match.getBoundingClientRect(), buttonRect=button.getBoundingClientRect(); return {feedScrollable:feed.scrollHeight>feed.clientHeight+2,matchScrollable:match.scrollHeight>match.clientHeight+2,top:rect.top,bottom:rect.bottom,buttonVisible:!button.hidden && buttonRect.top>=rect.top && buttonRect.bottom<=rect.bottom,buttonAboveList:buttonRect.bottom<=document.querySelector('#matchList').getBoundingClientRect().top+1,wide:document.documentElement.scrollWidth>innerWidth+1,height:innerHeight,padding:getComputedStyle(feed).paddingRight,margin:getComputedStyle(feed).marginRight}; })()");
     assert.equal(layout.feedScrollable, true); assert.equal(layout.matchScrollable, true);
     assert.equal(layout.padding, "6px"); assert.equal(layout.margin, "-6px");
@@ -436,7 +467,7 @@ try {
   passed("An empty AI recommendation keeps local candidates available with truthful per-card source labels");
 
   await click("#openCreateTop"); await click('.form-examples summary'); await click('[data-example="photo"]');
-  const aiOfferTitle = "分享手机摄影，记录自动化街区的日常";
+  const aiOfferTitle = "可以教手机摄影，也想听听街区故事";
   await click("#publishButton"); await until("document.querySelector('#needDialog').open && !document.querySelector('#extractNeed').disabled");
   assert.equal(await evaluate("document.querySelector('#needValue').value"), aiNeedReply.need);
   assert.match(await evaluate("document.querySelector('#needEvidence').textContent"), /希望听你分享照片背后的社区故事/);
@@ -660,7 +691,7 @@ try {
   assert.match(await evaluate("document.querySelector('#todayNotesWarning').textContent"), /文字限制请向发布者确认/);
   assert.equal(await evaluate("document.querySelector('#todayNotesWarning b')"), null);
   assert.match(await evaluate("document.querySelector('.today-card').textContent"), /陈师傅/);
-  assert.equal(await evaluate("document.querySelector('.today-card h3').textContent"), "机器人接管维修后，一起体验木工修家具");
+  assert.equal(await evaluate("document.querySelector('.today-card h3').textContent"), "有旧椅子要修？我可以带工具一起修");
   assert.match(await evaluate("document.querySelector('.today-card').textContent"), /每周日 09:00–12:00/);
   assert.equal(await evaluate("document.querySelector('[data-today-create]')"), null);
   await click('[data-experience-id="p3"] details summary');
@@ -705,7 +736,7 @@ try {
   assert.match(await evaluate("document.querySelector('#todayList').textContent"), /没有符合已知条件/);
   await click('#todayMaterials [value="phone"]'); await click("#recommendToday");
   await until("!document.querySelector('#recommendToday').disabled && document.querySelectorAll('.today-card').length===1");
-  assert.equal(await evaluate("document.querySelector('.today-card h3').textContent"), "自动影像之外，用手机摄影记录未来日常");
+  assert.equal(await evaluate("document.querySelector('.today-card h3').textContent"), "想学手机摄影？带上手机一起拍");
   await set("#todayParticipants", "2"); await click("#recommendToday");
   await until("!document.querySelector('#recommendToday').disabled && document.querySelectorAll('.today-card').length===1");
   assert.match(await evaluate("document.querySelector('.today-card').textContent"), /参与条件需确认/);
@@ -818,10 +849,10 @@ try {
   await click("#openCreateTop"); await click('.form-examples summary'); await click('[data-example="photo"]');
   await click("#profileSection summary"); await set("#profileRole", "摄影爱好者");
   await click("#publishButton"); await until("document.querySelector('#needDialog').open && !document.querySelector('#extractNeed').disabled");
-  await click("#saveNeed"); await readyMatch("分享手机摄影，记录自动化街区的日常");
+  await click("#saveNeed"); await readyMatch("可以教手机摄影，也想听听街区故事");
   const deleteOffer = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0]");
   await click("#openCreateTop"); await click('.form-examples summary'); await click('[data-example="repair"]');
-  await click("#publishButton"); await readyMatch("想亲手修好一把旧椅子，体验过去的木工");
+  await click("#publishButton"); await readyMatch("想修好一把旧椅子，找会木工的人一起");
   const deleteNeed = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0]");
   const beforeDelete = await evaluate("Object.fromEntries(['posts','matches','profile','interest','today'].map(key=>[key,localStorage.getItem('writespace.'+key+'.v1')]))");
   await click(`[data-post-id="${deleteOffer.id}"]`);
