@@ -180,7 +180,7 @@ try {
   await connection.send("Page.reload");
   await until("document.querySelector('.site-header [data-theme-select]')?.value==='dark' && window.themeAtFirstContent==='dark'");
   assert.equal(await evaluate("document.querySelectorAll('.post-card').length"),0,"Theme startup does not wait for business initialization");
-  assert.equal(await evaluate("getComputedStyle(document.documentElement).backgroundColor"),"rgb(20, 27, 23)");
+  assert.equal(await evaluate("getComputedStyle(document.documentElement).backgroundColor"),"rgb(24, 26, 29)");
   const startupShot=await connection.send("Page.captureScreenshot",{format:"png"});
   await writeFile(path.join(root,".tmp","theme-cold-start-dark.png"),Buffer.from(startupShot.data,"base64"));
   await set('.site-header [data-theme-select]', 'light');

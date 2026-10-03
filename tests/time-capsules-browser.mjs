@@ -104,7 +104,7 @@ try {
   await shot("capsules-empty-375.png");
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
   await click('#openShop3dFromCapsule');
-  await until("location.pathname==='/neighborhood-dumpling.html' && document.body.dataset.sceneReady==='true'");
+  await until("location.pathname==='/neighborhood-dumpling.html' && document.body?.dataset.sceneReady==='true'");
   await until("document.querySelector('.scene-home-mark')?.naturalWidth>0");
   assert.equal(await evaluate("document.querySelector('.scene-home-mark').getAttribute('src')"), "/favicon.svg");
   assert.equal(await evaluate("document.querySelector('#startScreen')"), null);

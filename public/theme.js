@@ -34,7 +34,7 @@
     preference = nextPreference; resolvedTheme = nextTheme;
     root.dataset.theme = resolvedTheme;
     root.style.colorScheme = resolvedTheme;
-    const background = resolvedTheme === "dark" ? "#141b17" : "#f8f8f4";
+    const background = resolvedTheme === "dark" ? "#181a1d" : "#f8f8f4";
     root.style.backgroundColor = background;
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", background);
     syncControls();

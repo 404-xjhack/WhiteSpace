@@ -12,26 +12,26 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #141b17; --paper: var(--bg); --surface: #1c2721; --surface-2: #25332b;
-  --ink: #e8eee9; --muted: #b0beb3; --line: #435449;
-  --green: #8fcba9; --green-dark: #b0ddbf; --green-soft: #203d2e; --soft: var(--green-soft);
-  --orange: #e5a273; --apricot: var(--orange); --peach: #3b2b22; --danger: #f2a69e;
-  --on-green: #102219; --on-danger: #2f1310; --focus-ring: #8fcba9;
-  --scroll-thumb-default: #526b5d; --scroll-thumb-active: #8ca897;
-  --overlay: rgba(28,39,33,.96); --backdrop: rgba(0,0,0,.65);
+  --bg: #181a1d; --paper: var(--bg); --surface: #222529; --surface-2: #2b2f34;
+  --ink: #eef0f2; --muted: #b7bdc4; --line: #41464e;
+  --green: #96c9af; --green-dark: #b0dbc5; --green-soft: #293b32; --soft: var(--green-soft);
+  --orange: #dcb08b; --apricot: var(--orange); --peach: #332e29; --danger: #f2a69e;
+  --on-green: #14251c; --on-danger: #2f1310; --focus-ring: #96c9af;
+  --scroll-thumb-default: #565e67; --scroll-thumb-active: #929ca8;
+  --overlay: rgba(34,37,41,.96); --backdrop: rgba(0,0,0,.65);
   --shadow: 0 12px 36px rgba(0,0,0,.3);
 }
 /* Only used when startup JavaScript is unavailable; explicit choices always win. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
     color-scheme: dark;
-    --bg: #141b17; --paper: var(--bg); --surface: #1c2721; --surface-2: #25332b;
-    --ink: #e8eee9; --muted: #b0beb3; --line: #435449;
-    --green: #8fcba9; --green-dark: #b0ddbf; --green-soft: #203d2e; --soft: var(--green-soft);
-    --orange: #e5a273; --apricot: var(--orange); --peach: #3b2b22; --danger: #f2a69e;
-    --on-green: #102219; --on-danger: #2f1310; --focus-ring: #8fcba9;
-    --scroll-thumb-default: #526b5d; --scroll-thumb-active: #8ca897;
-    --overlay: rgba(28,39,33,.96); --backdrop: rgba(0,0,0,.65);
+    --bg: #181a1d; --paper: var(--bg); --surface: #222529; --surface-2: #2b2f34;
+    --ink: #eef0f2; --muted: #b7bdc4; --line: #41464e;
+    --green: #96c9af; --green-dark: #b0dbc5; --green-soft: #293b32; --soft: var(--green-soft);
+    --orange: #dcb08b; --apricot: var(--orange); --peach: #332e29; --danger: #f2a69e;
+    --on-green: #14251c; --on-danger: #2f1310; --focus-ring: #96c9af;
+    --scroll-thumb-default: #565e67; --scroll-thumb-active: #929ca8;
+    --overlay: rgba(34,37,41,.96); --backdrop: rgba(0,0,0,.65);
     --shadow: 0 12px 36px rgba(0,0,0,.3);
   }
 }

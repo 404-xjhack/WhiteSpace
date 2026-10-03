@@ -20,12 +20,11 @@ body.embedded .experience-header{display:none}body.embedded .experience-shell{pa
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 .experience-header .brand{color:var(--ink);text-decoration:none}.experience-header img.brand-mark{background:none;border-radius:0;object-fit:contain}.experience-header .brand:hover img.brand-mark{opacity:.85}.experience-header .brand:focus-visible{outline:3px solid #89bea0;outline-offset:3px;border-radius:8px}
 
-.experience-header{gap:20px}
 @media(max-width:420px){body{min-width:0}}
-@media(max-width:1000px){.experience-header .header-label{display:none}.experience-header #open-capsule-history{margin-left:auto}}
+@media(max-width:1000px){.experience-header .header-label{display:none}.experience-header .theme-control{margin-left:auto}}
 @media(max-width:760px){
   .experience-header{height:auto;min-height:80px;flex-wrap:wrap;gap:4px 12px;padding:6px 16px}
-  .experience-header .theme-control{flex-basis:100%;justify-content:flex-end}
+  .experience-header .theme-control{flex-basis:100%;justify-content:flex-end;order:1}
   .experience-header .theme-control select{min-height:28px;padding:3px 6px}
   .experience-header>.text-button{margin-left:0}
   .experience-header #open-capsule-history{margin-left:auto}
@@ -42,7 +41,7 @@ body.embedded .experience-header{display:none}body.embedded .experience-shell{pa
 :root[data-theme="dark"] :is(.scene-heading>span,.scene-heading small,.scene-hint){background:var(--overlay);color:var(--ink)}
 :root[data-theme="dark"] .eyebrow span{background:var(--peach);color:var(--orange)}
 :root[data-theme="dark"] .drag-tool{background:var(--green);border-color:var(--on-green)}
-:root[data-theme="dark"] .drop-target{background:#203d2e99}
+:root[data-theme="dark"] .drop-target{background:color-mix(in srgb,var(--green-soft) 60%,transparent)}
 :root[data-theme="dark"] dialog::backdrop{background:var(--backdrop)}
 :root[data-theme="dark"] :is(button,input,[tabindex]):focus-visible{outline-color:var(--focus-ring)}
 :root[data-theme="dark"] button:disabled{opacity:.75}
