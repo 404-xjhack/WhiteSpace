@@ -599,6 +599,15 @@ B. a simple reliable solution
 
 prefer B during the hackathon.
 
+### Default Scrollbar Style
+
+By default, new or modified scrollable areas must reuse the site's existing
+scrollbar styles in `public/styles.css` or the relevant page stylesheet.
+This applies to pages, panels, lists, and dialogs. Keep scrollbar width,
+thumb colors, rounded corners, transparent tracks, and hover/focus behavior
+consistent with the existing site. Use a different scrollbar style only
+when the user explicitly requests it.
+
 ---
 
 ## 25. Final Principle
