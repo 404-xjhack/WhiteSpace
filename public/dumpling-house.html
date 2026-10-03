@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f8f8f4">
+  <meta name="description" content="在家庭制饺已经自动化的未来，了解传统饺子怎样由双手完成。六步导览，可观察，也可轻量动手。">
+  <title>手工饺子工坊 · 留白 WriteSpace</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/experiences/dumpling/styles.css">
+  <link rel="stylesheet" href="/time-capsules.css">
+  <script type="importmap">{"imports":{"three":"/experiences/dumpling/vendor/three.module.js"}}</script>
+  <script type="module" src="/experiences/dumpling/main.js"></script>
+</head>
+<body>
+  <header class="experience-header" id="standalone-header">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">留</span><span><strong>留白</strong><small>WriteSpace</small></span></div>
+    <span class="header-label">未来生活体验 <i></i> 传统手工艺</span>
+    <button class="text-button" id="open-capsule-history" type="button">时间胶囊</button>
+    <button class="text-button" id="open-summary" type="button">查看工艺总览</button>
+  </header>
+  <main class="experience-shell">
+    <section class="intro">
+      <div><p class="eyebrow">手工饺子工坊 <span>六步体验</span></p><h1>一只饺子，怎样由双手完成？</h1><p class="intro-copy">在家庭制饺已经自动化的未来，走进一间传统工坊，了解材料、工具与双手怎样配合。</p></div>
+      <button id="reset" class="quiet-button" type="button">重新开始</button><button id="exit" class="quiet-button" type="button" hidden>关闭体验</button>
+    </section>
+    <nav id="step-nav" class="step-nav" aria-label="制作步骤"></nav>
+    <div class="workspace">
+      <section class="stage-card" aria-label="饺子工坊三维场景">
+        <div class="scene-toolbar">
+          <div class="mode-switch" role="group" aria-label="观察方式"><button id="guide-mode" class="active" type="button" aria-pressed="true">步骤导览</button><button id="observe-mode" type="button" aria-pressed="false">自由观察</button></div>
+          <div class="scene-tools"><button id="walk" class="text-button desktop-only" type="button" hidden>进入漫游</button><button id="reset-view" class="text-button" type="button">恢复视角</button></div>
+        </div>
+        <div id="viewport" class="viewport" tabindex="0" aria-label="工坊场景；制作操作也可使用右侧按钮">
+          <div class="scene-heading"><span id="station-name">和面分剂台</span><small id="scene-status">正在准备工坊…</small></div>
+          <div id="diagram" class="diagram" hidden aria-label="制作步骤示意"></div><div id="loading" class="loading"><span></span><p>正在打开工坊</p></div><div id="crosshair" hidden aria-hidden="true">+</div>
+          <button id="drag-tool" class="drag-tool" type="button" hidden aria-label="拖动制作工具；也可点击当前操作按钮"><span id="drag-label">拖动擀面杖</span><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 16h18M10 12v8M22 12v8M3 16h4m18 0h4"/></svg></button>
+          <div id="drop-target" class="drop-target" hidden aria-hidden="true">放在中央</div><p id="scene-hint" class="scene-hint">导览会自动靠近制作台；可用旁边的按钮完成每次操作。</p>
+        </div>
+        <div class="stage-footer"><span><i></i>材料与动作的过程示意</span></div>
+      </section>
+      <aside class="learning-panel" aria-labelledby="step-title">
+        <div class="panel-heading"><p class="eyebrow" id="step-number">工序 01 / 06</p><h2 id="step-title">和面与醒面</h2><p id="step-question"></p></div>
+        <div class="panel-content"><p id="step-intro"></p><div class="tool-line"><span>使用工具</span><strong id="step-tools"></strong></div>
+          <div id="amount-control" class="amount-control" hidden><fieldset><legend>尝试不同馅量</legend><label><input type="radio" name="amount" value="small">少量</label><label><input type="radio" name="amount" value="fit" checked>适量</label><label><input type="radio" name="amount" value="large">过量</label></fieldset></div>
+          <div class="knowledge"><h3>为什么这样做</h3><p id="step-why"></p><h3>留意这些变化</h3><p id="step-observe"></p></div><div id="tool-browser" class="tool-browser" hidden><h3>查看制作工具</h3><div id="tool-list"></div></div><div id="tool-detail" class="tool-detail" hidden></div><div id="step-insight" class="insight" hidden></div><button id="rest-compare" class="text-button" type="button" hidden>比较醒面前的状态</button>
+        </div>
+        <div class="panel-actions"><p id="feedback" class="feedback" role="status" aria-live="polite">从当前操作开始，观察模型怎样变化。</p><button id="action" class="primary-button" type="button">逐渐加水</button><div class="step-controls"><button id="previous" class="quiet-button" type="button">上一步</button><button id="replay" class="text-button" type="button">重演本步</button><button id="next" class="quiet-button" type="button">下一步</button></div></div>
+      </aside>
+    </div>
+    <div class="experience-note"><p>了解流程，也理解判断：水分、厚薄、馅量与封口，都需要人根据食材状态调整。</p><span id="progress">已动手体验 0 / 6 步</span></div>
+  </main>
+  <dialog id="summary-dialog" aria-labelledby="summary-title">
+    <div class="dialog-heading"><div><p class="eyebrow">传统手工制饺</p><h2 id="summary-title">从材料到一盘饺子</h2></div><button id="close-summary" class="quiet-button" type="button" aria-label="关闭工艺总览">关闭</button></div>
+    <div class="summary-body">
+      <p id="summary-intro">每一步既有动作，也有需要观察的变化。</p>
+      <section id="capsule-completion" class="capsule-completion" hidden><h3>把这次亲手尝试，留给以后的自己</h3><p>写下自己的体验记录，再留下两个具体的感受。以后可以重新打开或导出。</p><button id="save-experience-capsule" class="capsule-button capsule-primary" type="button">保存为时间胶囊</button></section>
+      <ol id="summary-list"></ol>
+      <p class="summary-note">未来自动化的设定用于这次体验；展示的是传统工艺的一种常见流程，具体做法随地域、食材和习惯而不同。</p>
+    </div>
+    <div class="summary-actions"><button id="continue" class="primary-button" type="button">继续体验</button></div>
+  </dialog>
+  <dialog id="reset-dialog" aria-labelledby="reset-title"><h2 id="reset-title">重新开始六步体验？</h2><p>将清除本工坊的操作记录。你仍可随时跳转步骤查看。</p><div class="reset-actions"><button id="cancel-reset" class="quiet-button" type="button">保留记录</button><button id="confirm-reset" class="primary-button" type="button">重新开始</button></div></dialog>
+  <noscript><p class="noscript">请启用 JavaScript 体验制作步骤。制作流程：和面与醒面 → 制馅 → 搓条分剂 → 擀皮 → 放馅包合 → 煮制装盘。</p></noscript>
+</body>
+</html>

@@ -2,23 +2,33 @@ import { cleanCategory, postTags, validateDraft, validateSchedule, normalizeSche
 import { initMapView } from "./map-ui.js";
 import { initRealMap } from "./real-map.js";
 import { placeDemoPosts } from "./demo-map.js";
+import { MATERIALS, TIME_PREFERENCES, DEFAULT_CRITERIA, normalizeCriteria, criteriaKey, localRecommendations, validRecommendationData, restoreTodayState } from "./experience-planner.js";
+import { createTimeCapsuleUI } from "./time-capsule-ui.js";
+import { CAPSULE_STORAGE_KEY } from "./time-capsules.js";
 
 const $ = (selector) => document.querySelector(selector);
 const postList = $("#postList");
 const createDialog = $("#createDialog");
 const detailDialog = $("#detailDialog");
+const deleteDialog = $("#deleteDialog");
+const experienceDialog = $("#experienceDialog");
 const createForm = $("#createForm");
 const scheduleDialog = $("#scheduleDialog");
 const scheduleForm = $("#scheduleForm");
 const needDialog = $("#needDialog");
 const locationPickerDialog = $("#locationPickerDialog");
-const deleteDialog = $("#deleteDialog");
 const needForm = $("#needForm");
 const toast = $("#toast");
+const todayDialog = $("#todayDialog");
+const todayForm = $("#todayForm");
+const storageToday = "writespace.today.v1";
 const storagePosts = "writespace.posts.v1";
 const storageInterest = "writespace.interest.v1";
 const storageProfile = "writespace.profile.v1";
 const storageMatches = "writespace.matches.v1";
+const storageDumpling = "writespace.experience.dumpling.v1";
+const capsules = createTimeCapsuleUI();
+$("#openCapsuleHistory").addEventListener("click", capsules.openHistory);
 
 function readSaved(key, fallback) {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
@@ -36,9 +46,15 @@ if (!matchState || typeof matchState !== "object" || Array.isArray(matchState)) 
 if (!matchState.byPost || typeof matchState.byPost !== "object" || Array.isArray(matchState.byPost)) matchState.byPost = {};
 let seedPosts = [];
 let mapDemoPosts = [];
+let seedReady = false;
+let seedLoaded = false;
 let selectedCategories = [];
 let filter = "all";
 let currentDetail = null;
+let deletePostId = null;
+let experiencePost = null;
+let experienceFrame = null;
+const dumplingStepIds = ["dough", "filling", "portion", "roll", "wrap", "cook"];
 let matchingPost = null;
 let matchController = null;
 let matchVersion = 0;
@@ -56,10 +72,12 @@ let categoryError = "";
 let toastTimer;
 let realMap;
 let editingPostId = null;
-let deletingPostId = null;
+let todayState = restoreTodayState(readSaved(storageToday, {}));
+let todayController = null;
+let todayVersion = 0;
 
 function save(key, value) {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch { showToast("浏览器暂时无法保存，当前页面仍可继续体验。"); }
+  try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch { showToast("浏览器暂时无法保存，当前页面仍可继续体验。"); return false; }
 }
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
@@ -110,23 +128,18 @@ function setFilter(next) {
   });
   renderPosts();
 }
-function syncDialogLock() { document.documentElement.classList.toggle("modal-open", createDialog.open || detailDialog.open || scheduleDialog.open || needDialog.open || locationPickerDialog.open || deleteDialog.open); }
+function syncDialogLock() { document.documentElement.classList.toggle("modal-open", Boolean(document.querySelector("dialog[open]"))); }
 function openDialog(dialog) { if (!dialog.open) dialog.showModal(); syncDialogLock(); }
-function closeDialog(dialog) { dialog.close(); syncDialogLock(); }
-for (const dialog of [createDialog, detailDialog, scheduleDialog, needDialog, locationPickerDialog, deleteDialog]) dialog.addEventListener("close", syncDialogLock);
+function closeDialog(dialog) { if (dialog.open) dialog.close(); syncDialogLock(); }
+for (const dialog of [createDialog, detailDialog, deleteDialog, scheduleDialog, needDialog, locationPickerDialog, experienceDialog, todayDialog]) dialog.addEventListener("close", syncDialogLock);
 realMap = initRealMap({
   getPosts: () => [...myPosts, ...mapDemoPosts],
   showDetail: (post) => showDetail(post),
   isInterested: (id) => interestedIds.has(id),
-  toggleInterest: (post) => {
-    const cancelling = interestedIds.has(post.id);
-    if (cancelling) interestedIds.delete(post.id); else interestedIds.add(post.id);
-    save(storageInterest, [...interestedIds]); realMap.render();
-    showToast(cancelling ? "已取消参与意向。" : "已记录参与意向；演示中不会通知真实用户。");
-  },
+  toggleInterest: (post) => toggleInterest(post),
   openCreate: () => openCreate(),
   editPost: (post) => openEdit(post),
-  deletePost: (post) => confirmDelete(post),
+  deletePost: (post) => openDelete(post),
   onPick: ({ name, lng, lat }) => {
     $("#postLocation").value = "map";
     $("#locationName").value = name; $("#locationLng").value = String(lng); $("#locationLat").value = String(lat);
@@ -136,6 +149,165 @@ realMap = initRealMap({
   }
 });
 locationPickerDialog.addEventListener("close", () => { if (!createDialog.open) openDialog(createDialog); });
+
+const todayFallbackMessages = {
+  unconfigured: "AI 尚未配置，按你的条件筛选他人发布。", timeout: "AI 响应超时，已切换为本地发布筛选。",
+  upstream: "AI 服务暂不可用，已切换为本地发布筛选。", invalid_response: "返回的发布推荐无效，已切换为本地筛选。",
+  network: "未连接到推荐服务，使用已载入的他人发布进行本地筛选。", no_candidates: "当前他人发布中没有符合已知条件的想法。"
+};
+$("#todayMaterials").innerHTML = MATERIALS.map((material) => `<label><input type="checkbox" name="materials" value="${material.id}" />${escapeHtml(material.label)}</label>`).join("");
+function fillTodayConditions() {
+  const criteria = todayState.criteria;
+  $("#todayTimePreference").value = criteria.timePreference; $("#todayParticipants").value = String(criteria.participants);
+  $("#todayTheme").value = criteria.theme; $("#todayNotes").value = criteria.notes;
+  for (const key of ["indoorsOnly", "noPurchase", "lightOnly"]) todayForm.elements[key].checked = criteria[key];
+  todayForm.querySelectorAll('[name="materials"]').forEach((input) => { input.checked = criteria.materials.includes(input.value); });
+  $("#todayError").hidden = true;
+  todayForm.querySelectorAll("[aria-invalid]").forEach((element) => element.removeAttribute("aria-invalid"));
+}
+function readTodayConditions() {
+  return normalizeCriteria({ timePreference: $("#todayTimePreference").value, participants: Number($("#todayParticipants").value),
+    theme: $("#todayTheme").value, notes: $("#todayNotes").value,
+    materials: [...todayForm.querySelectorAll('[name="materials"]:checked')].map((input) => input.value),
+    ...Object.fromEntries(["indoorsOnly", "noPurchase", "lightOnly"].map((key) => [key, todayForm.elements[key].checked])) });
+}
+function cancelToday() {
+  todayVersion++; todayController?.abort(); todayController = null;
+  $("#recommendToday").disabled = false;
+  $("#recommendToday").textContent = todayState.result ? "重新筛选" : "找适合我的想法";
+}
+function renderToday() {
+  const result = todayState.result;
+  $("#todayResults").hidden = !result;
+  $("#recommendToday").textContent = result ? "重新筛选" : "找适合我的想法";
+  if (!result) { $("#todayList").replaceChildren(); $("#todayStatus").textContent = "选好条件后，看看他人发布中有哪些想法适合你参与。"; return; }
+  const criteria = todayState.criteria;
+  $("#todayStatus").textContent = result.recommendations.length ? `找到 ${result.recommendations.length} 条可以进一步了解的他人发布。` : "暂时没有符合已知条件的发布。";
+  $("#todaySource").textContent = result.source === "ai" ? "AI 筛选推荐" : "本地发布筛选";
+  $("#todaySource").classList.toggle("local", result.source === "local");
+  $("#todaySourceDetail").textContent = `${result.source === "ai" ? "根据原始发布整理适合参与的理由；时长、材料和余位等未明确条件需向发布者确认。" : todayFallbackMessages[result.fallbackReason] || "按你的条件筛选他人发布，未明确条件仍需确认。"} · 生成于 ${new Date(result.generatedAt).toLocaleString("zh-CN")}`;
+  $("#todayConditions").textContent = `时间倾向：${TIME_PREFERENCES.find((item) => item.id === criteria.timePreference).label} · 同行 ${criteria.participants} 人（含自己） · ${criteria.theme === "all" ? "不限主题" : criteria.theme}${criteria.indoorsOnly ? " · 不外出" : ""}${criteria.noPurchase ? " · 不添购材料" : ""}${criteria.lightOnly ? " · 轻量活动" : ""}`;
+  $("#todayNotesWarning").hidden = !criteria.notes;
+  $("#todayNotesWarning").textContent = `你的补充：${criteria.notes}\n${result.source === "local" ? "本地筛选参考兴趣、参与节奏与已知准备条件，文字限制请向发布者确认。" : "AI 已参考补充内容，是否符合实际参与条件仍需确认。"}`;
+  $("#todayList").innerHTML = result.recommendations.length ? result.recommendations.map((item) => {
+    const post = item.post;
+    return `<article class="today-card" data-experience-id="${escapeHtml(item.id)}">
+      <div class="post-meta">${avatar(post)}<div class="author-lines"><strong>${escapeHtml(post.name)}</strong><span>${escapeHtml(post.role)}</span></div></div>
+      <h3>${escapeHtml(post.title)}</h3><div class="today-meta"><span>${post.type === "offer" ? "愿意分享" : "寻找同行或帮助"}</span><span>参与条件需确认</span>${post.categories.map((category) => `<span>${escapeHtml(category)}</span>`).join("")}</div>
+      <p class="today-post-description">${escapeHtml(post.description)}</p><p><strong>为什么适合你：</strong>${escapeHtml(item.reason)}</p>
+      <p><strong>原发布安排：</strong>${escapeHtml(displayTime(post))}<br />${escapeHtml(post.location)} · ${escapeHtml(post.participants)}</p>
+      <p class="today-first-step"><strong>建议的第一步</strong>${escapeHtml(item.firstStep)}</p>
+      <details><summary>查看参与建议与待确认条件</summary><ul>${item.preparations.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul><ol>${item.steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}</ol></details>
+      <div class="today-card-actions"><button class="primary-button" type="button" data-today-post="${escapeHtml(post.id)}">查看发布 →</button><button class="ghost-button" type="button" data-today-interest="${escapeHtml(post.id)}" aria-pressed="${interestedIds.has(post.id)}">${interestedIds.has(post.id) ? "取消参与意向" : "我想参与"}</button></div>
+      </article>`;
+  }).join("") : `<p class="today-empty">${escapeHtml(result.emptyReason)}</p>`;
+}
+function openToday() {
+  cancelToday(); todayState = restoreTodayState(todayState, seedLoaded ? seedPosts : null); fillTodayConditions(); renderToday(); openDialog(todayDialog); $("#todayTimePreference").focus();
+  if (!seedReady) { $("#recommendToday").disabled = true; $("#todayStatus").textContent = "正在载入他人发布…"; }
+}
+function todayConditionsChanged() {
+  const criteria = readTodayConditions();
+  $("#todayError").hidden = true;
+  todayForm.querySelectorAll("[aria-invalid]").forEach((element) => element.removeAttribute("aria-invalid"));
+  if (criteria && criteriaKey(criteria) === criteriaKey(todayState.criteria)) return;
+  cancelToday(); todayState = { criteria: criteria || todayState.criteria, result: null }; save(storageToday, todayState); renderToday();
+}
+async function recommendToday(event) {
+  event.preventDefault(); const criteria = readTodayConditions();
+  if (!criteria) {
+    const invalidCount = !/^\d+$/.test($("#todayParticipants").value) || Number($("#todayParticipants").value) < 1 || Number($("#todayParticipants").value) > 50;
+    $("#todayError").hidden = false; $("#todayError").textContent = invalidCount ? "同行人数须为 1–50 的整数，包含自己。" : "请选择短、中或长的时间倾向，并检查主题及补充内容（最多160字）。";
+    const field = invalidCount ? $("#todayParticipants") : $("#todayNotes"); field.setAttribute("aria-invalid", "true"); field.focus(); return;
+  }
+  cancelToday(); const version = todayVersion; const controller = new AbortController(); todayController = controller;
+  const timer = setTimeout(() => controller.abort(), 22000);
+  todayState = { criteria, result: null }; save(storageToday, todayState);
+  $("#todayError").hidden = true; $("#todayResults").hidden = true;
+  $("#todayStatus").textContent = "正在筛选他人发布，整理适合你参与的理由…";
+  $("#recommendToday").disabled = true; $("#recommendToday").textContent = "正在推荐…";
+  let result;
+  try {
+    const response = await fetch("/api/recommend-experiences", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ criteria }), signal: controller.signal });
+    if (!response.ok) throw new Error("network"); result = await response.json();
+    if (!validRecommendationData(result, criteria, seedLoaded ? seedPosts : null)) throw new Error("invalid_response");
+  } catch (error) {
+    if (version !== todayVersion) return;
+    result = localRecommendations(criteria, seedPosts, error.name === "AbortError" ? "timeout" : error.message === "invalid_response" ? "invalid_response" : "network");
+  } finally {
+    clearTimeout(timer);
+    if (todayController === controller) { todayController = null; $("#recommendToday").disabled = false; }
+  }
+  if (version !== todayVersion) return;
+  todayState = { criteria, result }; save(storageToday, todayState); renderToday();
+  $("#todayResults").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+$("#openToday").addEventListener("click", openToday);
+todayForm.addEventListener("input", todayConditionsChanged);
+todayForm.addEventListener("change", todayConditionsChanged);
+todayForm.addEventListener("submit", recommendToday);
+todayDialog.addEventListener("close", () => { cancelToday(); renderToday(); });
+$("#todayList").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-today-post], [data-today-interest]");
+  if (!button) return;
+  const id = button.dataset.todayPost || button.dataset.todayInterest;
+  const post = allPosts().find((candidate) => candidate.id === id && !isMine(candidate)) || todayState.result?.recommendations.find((item) => item.id === id)?.post;
+  if (!post) { showToast("这条发布暂不可用，请重新筛选。"); return; }
+  if (button.dataset.todayInterest) { toggleInterest(post); return; }
+  closeDialog(todayDialog); showDetail(post);
+});
+
+function toggleInterest(post) {
+  if (!post || isMine(post)) return;
+  const cancelling = interestedIds.has(post.id);
+  if (cancelling) interestedIds.delete(post.id); else interestedIds.add(post.id);
+  save(storageInterest, [...interestedIds]);
+  if (currentDetail?.id === post.id) $("#interestButton").textContent = cancelling ? "我想参与" : "取消参与意向";
+  document.querySelectorAll("[data-today-interest]").forEach((button) => {
+    if (button.dataset.todayInterest !== post.id) return;
+    button.textContent = cancelling ? "我想参与" : "取消参与意向";
+    button.setAttribute("aria-pressed", String(!cancelling));
+  });
+  realMap.render();
+  showToast(cancelling ? "已取消参与意向，可以随时再次参与。" : "已记录参与意向，可随时取消。");
+}
+
+function openDumplingExperience() {
+  if (currentDetail?.id !== "p1" || experienceDialog.open) return;
+  experiencePost = currentDetail;
+  closeDialog(detailDialog);
+  $("#experienceStatus").textContent = "正在打开工坊…";
+  experienceFrame = document.createElement("iframe");
+  experienceFrame.id = "dumplingExperience";
+  experienceFrame.title = "传统手工饺子制作体验";
+  // Capsules use a local form and a user-triggered text download inside the scene.
+  experienceFrame.sandbox = "allow-scripts allow-same-origin allow-pointer-lock allow-forms allow-downloads";
+  experienceFrame.src = "/dumpling-house.html?embed=1";
+  $("#experienceContainer").replaceChildren(experienceFrame);
+  openDialog(experienceDialog);
+}
+
+experienceDialog.addEventListener("close", () => {
+  // Unmount the scene so a closed experience stops drawing and using GPU resources.
+  experienceFrame?.remove(); experienceFrame = null;
+  const post = experiencePost; experiencePost = null;
+  if (post) { showDetail(post); $("#openDumplingExperience")?.focus(); }
+});
+$("#detailContent").addEventListener("click", (event) => {
+  if (event.target.closest("#openDumplingExperience")) openDumplingExperience();
+});
+window.addEventListener("message", (event) => {
+  if (!experienceDialog.open || !experienceFrame || event.source !== experienceFrame.contentWindow || event.origin !== location.origin) return;
+  const message = event.data;
+  if (message?.version !== 1 || message.experienceId !== "dumpling-house") return;
+  if (message.type === "exit") { closeDialog(experienceDialog); return; }
+  if (!["ready", "progress", "complete"].includes(message.type)) return;
+  const data = message.data;
+  if (!data || !dumplingStepIds.includes(data.currentStepId) || !Array.isArray(data.completedStepIds)
+    || data.completedStepIds.some((id) => !dumplingStepIds.includes(id))) return;
+  const count = new Set(data.completedStepIds).size;
+  $("#experienceStatus").textContent = count === 6 ? "六步已体验完成 · 可继续重演与查看工艺回顾" : `已动手体验 ${count} / 6 步 · 可随时返回详情`;
+});
 
 const needFallbackMessages = {
   unconfigured: "AI 尚未配置，可自行补充或留空，留空将显示“未说明”。",
@@ -405,19 +577,14 @@ function openEdit(post) {
   if (detailDialog.open) closeDialog(detailDialog);
   openDialog(createDialog); $("#postTitle").focus();
 }
-function confirmDelete(post) {
-  if (!isMine(post)) return;
-  deletingPostId = post.id;
-  $("#deletePostTitle").textContent = post.title;
-  if (detailDialog.open) closeDialog(detailDialog);
-  openDialog(deleteDialog);
-}
 function showDetail(post) {
   currentDetail = post; $("#detailTitle").textContent = post.title;
   $("#detailContent").innerHTML = `<div class="detail-person">${avatar(post)}<div><strong>${escapeHtml(post.name || "我")}</strong><small>${escapeHtml(personLine(post))} · <span data-published-id="${escapeHtml(post.id)}">${escapeHtml(formatPublished(post))}</span></small></div></div>
     <p class="detail-description">${escapeHtml(post.description)}</p>${post.firstStep ? `<p class="detail-first-step"><strong>见面后先做：</strong>${escapeHtml(post.firstStep)}</p>` : ""}<div class="post-tags">${tagHtml(post)}</div>
     <div class="detail-grid"><div><span>${post.type === "offer" ? "可以分享" : "可以带来"}</span><strong>${escapeHtml(post.offer || "愿意一起参与")}</strong></div><div><span>希望获得${hasAINeed(post) ? '<small class="need-source">AI 提炼</small>' : ""}</span><strong>${escapeHtml(post.need || "未说明")}</strong></div></div>
-    <div class="detail-info"><span>${icon("place")}${escapeHtml(post.demoMap ? "学军紫金港附近" : post.location || "地点待确认")}</span><span>${icon("time")}${escapeHtml(displayTime(post))}</span><span>参与人数：${escapeHtml(post.participants || "协商决定")}</span></div><p class="detail-footnote">${post.demoMap ? "内置任务仅用于演示，见面地点需双方确认。" : "未来生活演示 · 参与意向仅保存在当前浏览器，不会发送给真实用户。"}</p>`;
+    <div class="detail-info"><span>${icon("place")}${escapeHtml(post.demoMap ? "学军紫金港附近" : post.location || "地点待确认")}</span><span>${icon("time")}${escapeHtml(displayTime(post))}</span><span>参与人数：${escapeHtml(post.participants || "协商决定")}</span></div>
+    ${post.id === "p1" ? `<section class="detail-experience" aria-labelledby="dumplingEntryTitle"><span class="detail-label">先动手试一试</span><h3 id="dumplingEntryTitle">从一碗面粉，到一盘饺子</h3><p>跟着六道工序，认识工具，试着擀皮、放馅与捏合，了解每一步该观察和调整什么。</p><div class="experience-entry-actions"><button id="openDumplingExperience" class="primary-button" type="button">进入饺子工坊 →</button><a href="/dumpling-house.html" target="_blank" rel="noopener">独立打开</a></div></section>` : ""}
+    <p class="detail-footnote">${post.demoMap ? "内置任务仅用于演示，见面地点需双方确认。" : "未来生活演示 · 参与意向仅保存在当前浏览器，不会发送给真实用户。"}</p>`;
   const mine = isMine(post); $("#interestButton").hidden = mine; $("#interestButton").disabled = false;
   $("#interestButton").textContent = interestedIds.has(post.id) ? "取消参与意向" : "我想参与";
   $("#detailMatchButton").hidden = !mine; $("#detailMatchButton").textContent = cachedMatch(post) ? "查看上次匹配" : "寻找匹配";
@@ -427,6 +594,41 @@ function showDetail(post) {
   $("#detailNeedButton").hidden = !mine || post.type !== "offer";
   openDialog(detailDialog);
 }
+function openDelete(target = currentDetail) {
+  const post = myPosts.find((item) => item.id === target?.id);
+  if (!post || !isMine(post)) return;
+  deletePostId = post.id;
+  $("#deletePostTitle").textContent = post.title;
+  $("#deleteError").hidden = true;
+  openDialog(deleteDialog); $("#cancelDelete").focus();
+}
+function deletePost() {
+  if (!deleteDialog.open) return;
+  const post = myPosts.find((item) => item.id === deletePostId);
+  if (!post || !isMine(post)) return;
+  const remainingPosts = myPosts.filter((item) => item.id !== post.id);
+  try { localStorage.setItem(storagePosts, JSON.stringify(remainingPosts)); }
+  catch {
+    $("#deleteError").textContent = "删除未完成，浏览器暂时无法保存。请稍后重试。";
+    $("#deleteError").hidden = false; return;
+  }
+  myPosts = remainingPosts;
+  delete matchState.byPost[post.id];
+  if (matchState.lastPostId === post.id) delete matchState.lastPostId;
+  interestedIds.delete(post.id);
+  const matchesSaved = save(storageMatches, matchState);
+  const interestSaved = save(storageInterest, [...interestedIds]);
+  if (matchingPost?.id === post.id) {
+    cancelMatch(); matchingPost = null; displayedMatchData = null; displayedMatches = []; matchesExpanded = false;
+    $("#matchResults").hidden = true; $("#matchLoading").hidden = true; $("#matchWelcome").hidden = false;
+    $("#matchList").replaceChildren(); $("#matchingPostTitle").textContent = ""; $("#matchingPostConditions").textContent = "";
+    $("#moreMatches").hidden = true; $("#matchDiagnostics").hidden = true;
+  }
+  currentDetail = null; closeDialog(deleteDialog); closeDialog(detailDialog); renderPosts();
+  (postList.querySelector("[data-post-id]") || $(".filter-chip.is-active")).focus({ preventScroll: true });
+  showToast(matchesSaved && interestSaved ? "发布已删除" : "发布已删除，部分关联记录暂时无法保存。");
+}
+deleteDialog.addEventListener("close", () => { deletePostId = null; });
 const fallbackMessages = {
   unconfigured: "未配置 AI，使用主题、供需和时间地点的本地规则", timeout: "AI 响应超时，已切换本地规则",
   upstream: "AI 服务暂不可用，已切换本地规则", invalid_response: "AI 返回内容无效，已切换本地规则", network: "未连接到匹配服务，使用浏览器中的本地规则",
@@ -523,39 +725,27 @@ $("#myPostsButton").addEventListener("click", () => { mapView.showFeed(); $("#se
 postList.addEventListener("click", (event) => { const button = event.target.closest("[data-post-id]"); if (button) { const post = allPosts().find((item) => item.id === button.dataset.postId); if (post) showDetail(post); } });
 $("#matchList").addEventListener("click", (event) => { const button = event.target.closest("[data-match-id]"); if (button) { const post = displayedMatches.find((item) => item.id === button.dataset.matchId)?.post; if (post) showDetail(post); } });
 $("#moreMatches").addEventListener("click", () => { matchesExpanded = !matchesExpanded; renderMatchList(); });
-$("#interestButton").addEventListener("click", () => {
-  if (!currentDetail || isMine(currentDetail)) return; const cancelling = interestedIds.has(currentDetail.id);
-  if (cancelling) interestedIds.delete(currentDetail.id); else interestedIds.add(currentDetail.id); save(storageInterest, [...interestedIds]);
-  $("#interestButton").textContent = cancelling ? "我想参与" : "取消参与意向"; realMap.render(); showToast(cancelling ? "已取消参与意向，可以随时再次参与。" : "已记录参与意向，可随时取消。");
-});
+$("#interestButton").addEventListener("click", () => toggleInterest(currentDetail));
 $("#detailMatchButton").addEventListener("click", () => { if (!currentDetail || !isMine(currentDetail)) return; const post = currentDetail; closeDialog(detailDialog); mapView.showFeed(); if (restoreMatch(post)) $("#matchPanel").scrollIntoView({ behavior: "smooth", block: "start" }); else runMatch(post); });
 $("#detailEditButton").addEventListener("click", () => { if (currentDetail) openEdit(currentDetail); });
-$("#detailDeleteButton").addEventListener("click", () => { if (currentDetail) confirmDelete(currentDetail); });
-$("#confirmDeleteButton").addEventListener("click", () => {
-  const id = deletingPostId;
-  if (!id || !myPosts.some((post) => post.id === id)) return;
-  myPosts = myPosts.filter((post) => post.id !== id);
-  interestedIds.delete(id);
-  delete matchState.byPost[id];
-  if (matchState.lastPostId === id || matchingPost?.id === id) {
-    cancelMatch(); matchState.lastPostId = null; matchingPost = null;
-    $("#matchResults").hidden = true; $("#matchLoading").hidden = true; $("#matchWelcome").hidden = false;
-  }
-  save(storagePosts, myPosts); save(storageInterest, [...interestedIds]); save(storageMatches, matchState);
-  currentDetail = null; deletingPostId = null; closeDialog(deleteDialog);
-  renderPosts(); showToast("已从本机删除这条发布。");
-});
-deleteDialog.addEventListener("close", () => { deletingPostId = null; });
 $("#rerunMatch").addEventListener("click", () => { if (matchingPost) runMatch(matchingPost); });
 $("#editMatchTime").addEventListener("click", () => { if (matchingPost) openSchedule(matchingPost); });
 $("#detailTimeButton").addEventListener("click", () => { if (currentDetail && isMine(currentDetail)) { const post = currentDetail; closeDialog(detailDialog); openSchedule(post); } });
 $("#detailNeedButton").addEventListener("click", () => { if (currentDetail && isMine(currentDetail) && currentDetail.type === "offer") { const post = currentDetail; closeDialog(detailDialog); openNeedEditor({ kind: "edit", post }); } });
+$("#detailDeleteButton").addEventListener("click", () => openDelete());
+$("#confirmDelete").addEventListener("click", deletePost);
 $("#resetDemo").addEventListener("click", () => {
+  cancelToday(); todayState = { criteria: { ...DEFAULT_CRITERIA, materials: [] }, result: null }; save(storageToday, todayState); fillTodayConditions(); renderToday();
   cancelMatch(); myPosts = []; interestedIds = new Set(); matchingPost = null; currentDetail = null; profile = {}; matchState = { byPost: {} };
   displayedMatchData = null; displayedMatches = []; matchesExpanded = false;
   for (const [key, value] of [[storagePosts, []], [storageInterest, []], [storageProfile, {}], [storageMatches, matchState]]) save(key, value);
+  try { localStorage.removeItem(storageDumpling); } catch { showToast("浏览器暂时无法保存，当前页面仍可继续体验。"); }
+  let capsulesCleared = true;
+  try { localStorage.removeItem(CAPSULE_STORAGE_KEY); } catch { capsulesCleared = false; }
+  experienceFrame?.contentWindow.postMessage({ version: 1, experienceId: "dumpling-house", type: "reset" }, location.origin);
   $("#searchInput").value = ""; $("#matchResults").hidden = true; $("#matchLoading").hidden = true; $("#matchWelcome").hidden = false;
-  setFilter("all"); window.scrollTo({ top: 0, behavior: "smooth" }); showToast("演示内容、资料和匹配记录已重置。");
+  setFilter("all"); window.scrollTo({ top: 0, behavior: "smooth" });
+  showToast(capsulesCleared ? "演示内容、资料、匹配记录、饺子工坊进度和时间胶囊已重置。" : "时间胶囊未能清空，浏览器可能不允许本地存储，请重试。");
 });
 function publishDraft(data, nextProfile) {
   const post = { ...data, id: `mine-${crypto.randomUUID()}`, name: "我", avatar: "我", color: "self", createdAt: new Date().toISOString() };
@@ -598,8 +788,10 @@ createForm.addEventListener("submit", (event) => {
 });
 async function init() {
   if (hadLegacyNeeds) save(storagePosts, myPosts);
-  try { const response = await fetch("/data.json"); if (!response.ok) throw new Error("data_failed"); const data = await response.json(); if (!Array.isArray(data)) throw new Error("data_failed"); seedPosts = data; mapDemoPosts = placeDemoPosts(data); }
+  try { const response = await fetch("/data.json"); if (!response.ok) throw new Error("data_failed"); const data = await response.json(); if (!Array.isArray(data)) throw new Error("data_failed"); seedPosts = data; mapDemoPosts = placeDemoPosts(data); seedLoaded = true; }
   catch { showToast("未来生活示例载入失败，你的发布仍可查看，请刷新重试。"); }
+  seedReady = true; todayState = restoreTodayState(todayState, seedLoaded ? seedPosts : null);
+  if (todayDialog.open) { $("#recommendToday").disabled = false; renderToday(); }
   renderPosts(); const lastPost = myPosts.find((post) => post.id === matchState.lastPostId); if (lastPost && !restoreMatch(lastPost)) runMatch(lastPost);
 }
 setInterval(refreshPublished, 30000);

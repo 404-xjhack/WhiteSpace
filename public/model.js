@@ -290,9 +290,12 @@ function rankScore(evidence) {
     + (evidence.availability === "overlap" ? 6 : 0) + (evidence.samePlace ? 4 : 0) + Math.min(evidence.labels.length * 2, 4));
 }
 
-function explainMatch(post, candidate, evidence) {
+export function contentEvidenceLabels(evidence) {
   const conceptLabels = evidence.concepts.map((id) => concepts.find((concept) => concept.id === id)?.label || "电子设备维修");
-  const shared = [...new Set([...conceptLabels, ...evidence.terms])].slice(0, 2).join("、");
+  return [...new Set([...conceptLabels, ...evidence.terms])];
+}
+function explainMatch(post, candidate, evidence) {
+  const shared = contentEvidenceLabels(evidence).slice(0, 2).join("、");
   const fit = `你的“${post.title}”与对方的“${candidate.title}”在“${shared}”方面相关。`;
   const benefit = evidence.complementary
     ? post.type === "need" ? `对方可提供${candidate.offer || candidate.title}；希望获得${candidate.need || "共同参与"}。`
