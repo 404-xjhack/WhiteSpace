@@ -23,6 +23,7 @@ const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 let connection;
 let aiApp;
 let aiMock;
+let mapApp;
 const errors = [];
 const checks = [];
 
@@ -107,6 +108,23 @@ try {
   assert.equal(await evaluate("document.querySelector('#emptyState').hidden"), true);
   passed("U09: one main publishing entry; examples live in form");
 
+  await click("#mapToggle");
+  assert.equal(await evaluate("document.querySelector('#neighborhoodMap').hidden"), false);
+  assert.equal(await evaluate("document.querySelector('.main-grid').hidden"), true);
+  assert.equal(await evaluate("document.querySelector('#demoMapLayout')"), null);
+  await until("/真实地图尚未配置/.test(document.querySelector('#realMapCanvas').textContent)");
+  assert.equal(await evaluate("document.querySelector('#mapLocationOption').disabled"), true);
+  const unconfiguredMapShot = await connection.send("Page.captureScreenshot", { format: "png" });
+  await writeFile(path.join(root, ".tmp", "real-map-unconfigured.png"), Buffer.from(unconfiguredMapShot.data, "base64"));
+  for (const width of [375, 320]) {
+    await connection.send("Emulation.setDeviceMetricsOverride", { width, height: 800, deviceScaleFactor: 1, mobile: true });
+    await pause(120);
+    assert.equal(await evaluate("document.documentElement.scrollWidth > innerWidth + 1"), false, `Map has no horizontal overflow at ${width}px`);
+  }
+  await connection.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
+  await click("#mapToggle");
+  assert.equal(await evaluate("document.querySelector('.main-grid').hidden"), false);
+  passed("Only the real map is shown; missing keys fail gracefully at desktop and mobile sizes");
   await click("#openCreateTop"); await until("document.querySelector('#createDialog').open");
   await assertModal("#createDialog", true);
   await click("#publishButton");
@@ -121,7 +139,7 @@ try {
   await set("#customCategory", "  邻里 修理  "); await click("#addCategory");
   await set("#categoryPicker", "数码互助"); await click("#addCategory"); await click('[data-remove-category="2"]');
   await set("#timeMode", "weekly"); await set("#postWeekday", "0"); await set("#postStart", "09:00"); await set("#postEnd", "08:00");
-  await set("#postLocation", "社区共享工坊"); await set("#participantMode", "range"); await set("#participantMin", "5"); await set("#participantMax", "2");
+  await set("#postLocation", "other"); await set("#locationOther", "公共集合点待确认"); await set("#participantMode", "range"); await set("#participantMin", "5"); await set("#participantMax", "2");
   await click("#profileSection summary"); await set("#profileRole", "新搬来的邻居"); await set("#profileAge", "121");
   await click("#publishButton");
   const invalid = await evaluate("document.querySelector('#formError').textContent");
@@ -130,6 +148,7 @@ try {
   assert.equal(await evaluate("document.querySelector('#formError').hidden"), true);
   await assertModal("#createDialog", true); await click("#publishButton"); await readyMatch("修椅");
   assert.equal(await evaluate("document.querySelector('#matchSource').textContent"), "本地规则匹配");
+  assert.equal(await evaluate("document.querySelector('#demoMapLayout')"), null);
   let posts = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))");
   const repairId = posts[0].id;
   assert.deepEqual(posts[0].categories, ["旧物新生", "邻里 修理"]); assert.ok(!posts[0].tags.includes("数码互助"));
@@ -249,7 +268,7 @@ try {
   await click("#publishButton"); await readyMatch(reportedTitle);
   const reportedId = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0].id");
   assert.equal(await evaluate("document.querySelector('[data-match-id=\"p3\"]') !== null"), true);
-  assert.match(await evaluate("document.querySelector('#matchingPostConditions').textContent"), /每周日 09:00–11:00.*社区共享工坊/);
+  assert.match(await evaluate("document.querySelector('#matchingPostConditions').textContent"), /每周日 09:00–11:00.*公共集合点待确认/);
   await reload(); await readyMatch(reportedTitle);
   assert.match(await evaluate("document.querySelector('#matchList').textContent"), /陈师傅/);
   passed("Reported case: full chair repair + custom test + Sunday visibly returns Chen and survives reload");
@@ -475,6 +494,151 @@ try {
   await click('#detailDialog [data-close="detailDialog"]');
   passed("Unstated expectations stay empty; offline extraction permits manual save; legacy canned wishes are removed");
 
+  mapApp = await startServer({ AMAP_WEB_KEY: "public-test-key", AMAP_SECURITY_CODE: "private-test-code", AMAP_SERVICE_KEY: "service-test-key" });
+  await connection.send("Page.addScriptToEvaluateOnNewDocument", { source: `
+    window.__maps = []; window.__markers = []; window.__serviceWalkingCalls = []; window.__polylines = [];
+    Object.defineProperty(navigator, 'geolocation', {configurable:true,value:{getCurrentPosition(success){success({coords:{longitude:120.067,latitude:30.297}})}}});
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = (url, options) => {
+      const path = typeof url === 'string' ? url : url.url;
+      if (path.startsWith('/api/map/places?')) return Promise.resolve(new Response(JSON.stringify({ places:[{name:'蒋村社区文化中心',address:'杭州市 · 西湖区 · 文一路',point:{lng:120.0678,lat:30.2982}}] }), {status:200,headers:{'content-type':'application/json'}}));
+      if (path.startsWith('/api/map/walking?')) { const params=new URL(path,location.origin).searchParams; const from=params.get('from').split(',').map(Number), to=params.get('to').split(',').map(Number); const distance=Math.round(Math.hypot((to[0]-from[0])*96000,(to[1]-from[1])*111000)*1.35)+50; window.__serviceWalkingCalls.push(path); return Promise.resolve(new Response(JSON.stringify({duration:Math.round(distance/1.2),distance,path:[{lng:from[0],lat:from[1]},{lng:to[0],lat:to[1]}]}), {status:200,headers:{'content-type':'application/json'}})); }
+      return originalFetch(url, options);
+    };
+    class FakeLngLat { constructor(lng, lat) { this.lng=lng; this.lat=lat; } getLng() { return this.lng; } getLat() { return this.lat; } }
+    class FakeMap { constructor(id, opts={}) { this.events={}; this.options=opts; this.center=opts.center || [120.067,30.297]; this.zoom=opts.zoom; document.getElementById(id).dataset.fakeMap='ready'; window.__maps.push(this); } on(name, fn) { this.events[name]=fn; } emit(name, data) { this.events[name]?.(data); } resize() {} setCenter(point) { this.center=point; } setZoom(zoom) { this.zoom=zoom; } getCenter() { return new FakeLngLat(...this.center); } }
+    class FakeMarker { constructor(opts) { this.position=opts.position; this.title=opts.title; this.content=opts.content; this.events={}; window.__markers.push(this); } on(name, fn) { this.events[name]=fn; } emit(name, data) { if (name==='click' && this.content) this.content.click(); else this.events[name]?.(data); } setMap() {} setPosition(point) { this.position=point; } getPosition() { return new FakeLngLat(...this.position); } }
+    class FakePolyline { constructor(opts) { this.path=opts.path; this.strokeColor=opts.strokeColor; this.active=true; window.__polylines.push(this); } setMap(map) { this.active=Boolean(map); } }
+    window.AMap={Map:FakeMap,Marker:FakeMarker,Polyline:FakePolyline,LngLat:FakeLngLat,convertFrom:(point,_kind,callback)=>callback('complete',{locations:[new FakeLngLat(point[0]+.0005,point[1]+.0005)]})};
+  ` });
+  await connection.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
+  await connection.send("Page.navigate", { url: mapApp.url });
+  await until("document.querySelectorAll('.post-card').length === 6 && !document.querySelector('#mapLocationOption').disabled");
+  await click("#mapToggle");
+  await until("document.querySelector('#realMapCanvas').dataset.fakeMap === 'ready' && /已定位/.test(document.querySelector('#realMapArea').textContent)");
+  assert.equal(await evaluate("window.__maps[0].zoom"), 16);
+  assert.equal(await evaluate("window.__maps[0].options.jogEnable"), false);
+  assert.equal(await evaluate("window.__maps[0].options.animateEnable"), false);
+  assert.equal(await evaluate("document.querySelector('#demoMapLayout')"), null);
+  await until("document.querySelectorAll('#realMissionList [data-real-post]').length === 6");
+  assert.match(await evaluate("document.querySelector('.real-demo-notice').textContent"), /位置随机/);
+  assert.match(await evaluate("document.querySelector('#realRouteSummary').textContent"), /点击一个任务点/);
+  assert.equal(await evaluate("window.__serviceWalkingCalls.length"), 0, "Opening the map does not request walking routes");
+  assert.equal(await evaluate("window.__polylines.filter(line=>line.active).length"), 0);
+  assert.equal(await evaluate("document.querySelector('#realRouteToggle').hidden"), true);
+  const markerCount = await evaluate("window.__markers.length");
+  const farthestDemoTitle = await evaluate("(() => { const from=[120.0675,30.2975]; return window.__markers.filter(marker=>marker.title).map(marker=>({title:marker.title,distance:Math.hypot((marker.position[0]-from[0])*96000,(marker.position[1]-from[1])*111000)})).sort((a,b)=>b.distance-a.distance)[0].title; })()");
+  await evaluate(`window.__markers.find(marker=>marker.title===${JSON.stringify(farthestDemoTitle)}).emit('click',{originEvent:{stopPropagation(){}}})`);
+  await until(`document.querySelector('#realMissionDetail h4')?.textContent === ${JSON.stringify(farthestDemoTitle)}`);
+  await until("document.querySelector('#realRouteSummary').dataset.state === 'ready'");
+  assert.match(await evaluate("document.querySelector('#realRouteStatus').textContent"), /蓝色当前任务路线/);
+  assert.equal(await evaluate("document.querySelector('#realMapCanvas').classList.contains('has-demo-posts')"), false);
+  assert.equal(await evaluate(`window.__markers.find(marker=>marker.title===${JSON.stringify(farthestDemoTitle)}).content.querySelector('.real-task-callout').textContent`), farthestDemoTitle);
+  assert.equal(await evaluate(`window.__markers.find(marker=>marker.title===${JSON.stringify(farthestDemoTitle)}).content.querySelector('.real-task-callout').children.length`), 1);
+  assert.equal(await evaluate("document.querySelector('#realMissionDetail').textContent.includes('随机示意点')"), false);
+  assert.equal(await evaluate("window.__polylines.filter(line=>line.active && line.strokeColor==='#2c82cf').length"), 1);
+  assert.equal(await evaluate("window.__serviceWalkingCalls.length"), 1, "Only the selected task requests a route");
+  assert.equal(await evaluate(`JSON.stringify(window.__polylines.find(line=>line.active).path.at(-1)) === JSON.stringify(window.__markers.find(marker=>marker.title===${JSON.stringify(farthestDemoTitle)}).position)`), true);
+  assert.equal(await evaluate("window.__markers.length"), markerCount, "Selecting a task keeps existing map markers");
+  const nextDemoTitle = await evaluate(`window.__markers.find(marker=>marker.title && marker.title!==${JSON.stringify(farthestDemoTitle)}).title`);
+  await evaluate(`window.__markers.find(marker=>marker.title===${JSON.stringify(nextDemoTitle)}).emit('click',{originEvent:{stopPropagation(){}}})`);
+  await until(`document.querySelector('#realMissionDetail h4')?.textContent === ${JSON.stringify(nextDemoTitle)}`);
+  await until("document.querySelector('#realRouteSummary').dataset.state === 'ready'");
+  assert.equal(await evaluate("window.__polylines.filter(line=>line.active).length"), 1, "Switching tasks removes the previous route");
+  assert.equal(await evaluate("window.__polylines.find(line=>line.active).strokeColor"), "#2c82cf", "Only the blue selected route remains");
+  assert.equal(await evaluate(`JSON.stringify(window.__polylines.find(line=>line.active).path.at(-1)) === JSON.stringify(window.__markers.find(marker=>marker.title===${JSON.stringify(nextDemoTitle)}).position)`), true);
+  await evaluate(`window.__markers.find(marker=>marker.title===${JSON.stringify(farthestDemoTitle)}).emit('click',{originEvent:{stopPropagation(){}}})`);
+  await until(`document.querySelector('#realMissionDetail h4')?.textContent === ${JSON.stringify(farthestDemoTitle)}`);
+  await until("document.querySelector('#realRouteSummary').dataset.state === 'ready'");
+  assert.equal(await evaluate("window.__polylines.filter(line=>line.active).length"), 1, "Switching back does not leave a second route");
+  await click("#realRouteToggle");
+  assert.equal(await evaluate("document.querySelector('#realRouteSummary').dataset.state"), "hidden");
+  assert.equal(await evaluate("window.__polylines.filter(line=>line.active).length"), 0);
+  await click("#realRouteToggle");
+  assert.equal(await evaluate("document.querySelector('#realRouteSummary').dataset.state"), "ready");
+  assert.equal(await evaluate("window.__polylines.filter(line=>line.active).length"), 1);
+  await evaluate(`window.__markers.findLast(marker=>marker.title===${JSON.stringify(farthestDemoTitle)}).emit('click',{originEvent:{stopPropagation(){}}})`);
+  await until("document.querySelector('#realMissionDetail h4') === null");
+  assert.equal(await evaluate("document.querySelector('#realRouteSummary').dataset.state"), "idle");
+  assert.equal(await evaluate("window.__polylines.filter(line=>line.active).length"), 0, "Deselecting the task hides its route");
+  assert.equal(await evaluate("document.querySelector('#realRouteToggle').hidden"), true);
+  assert.equal(await evaluate("window.__markers.length"), markerCount, "Toggling routes does not rebuild markers");
+  await set("#mapAreaSearch", "文化中心"); await click('#mapAreaSearchForm button[type="submit"]');
+  await until("document.querySelectorAll('#mapAreaSearchResults [data-poi-index]').length === 1");
+  assert.match(await evaluate("document.querySelector('#mapAreaSearchResults').textContent"), /西湖区/);
+  await click('#mapAreaSearchResults [data-poi-index="0"]');
+  assert.equal(await evaluate("window.__maps[0].center[0]"), 120.0678);
+  await click("#realDemoAreaButton");
+  assert.equal(await evaluate("window.__maps[0].center[0]"), 120.067672);
+  await click("#realPublishButton"); await until("document.querySelector('#createDialog').open");
+  await set("#postTitle", "一起整理社区故事"); await set("#postDescription", "想在公共地点和邻居一起整理旧照片，记录社区的记忆。");
+  await set("#categoryPicker", "社区生活"); await click("#addCategory");
+  await set("#timeMode", "weekly"); await set("#postWeekday", "6"); await set("#postStart", "14:00"); await set("#postEnd", "15:00");
+  await set("#postLocation", "map"); await click("#openLocationPicker");
+  await until("document.querySelector('#locationPickerDialog').open && document.querySelector('#locationPickerCanvas').dataset.fakeMap === 'ready'");
+  assert.equal(await evaluate("window.__maps[1].options.jogEnable"), false);
+  await set("#locationSearch", "文化中心"); await click('#locationSearchForm button[type="submit"]');
+  await until("document.querySelectorAll('#locationSearchResults [data-poi-index]').length === 1");
+  await click('#locationSearchResults [data-poi-index="0"]');
+  assert.equal(await evaluate("document.querySelector('#mapLocationName').value"), "蒋村社区文化中心");
+  await evaluate("window.__markers.at(-1).setPosition([120.068,30.2984]); window.__markers.at(-1).emit('dragend')");
+  assert.equal(await evaluate("document.querySelector('#mapLocationName').value"), "");
+  await set("#mapLocationName", "社区文化中心正门"); await click("#publicPointCheck"); await click("#saveLocationPoint");
+  await until("document.querySelector('#createDialog').open");
+  await set("#mapFirstStep", "先问好");
+  await click("#publishButton");
+  await until("document.querySelector('#realMissionList [data-real-post]') !== null");
+  assert.equal(await evaluate("document.querySelector('#realMissionDetail h4')"), null);
+  assert.match(await evaluate("document.querySelector('#realMissionDetail').textContent"), /点击地图上的任务点/);
+  await evaluate("window.__markers.findLast(marker=>marker.title==='一起整理社区故事').emit('click',{originEvent:{stopPropagation(){}}})");
+  await until("document.querySelector('#realMissionDetail h4')?.textContent === '一起整理社区故事'");
+  const mappedPost = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0]");
+  assert.deepEqual(mappedPost.locationPoint, { lng: 120.068, lat: 30.2984 });
+  assert.equal(mappedPost.firstStep, "先问好");
+  await evaluate("window.__maps[0].emit('click',{lnglat:new AMap.LngLat(120.067,30.297)})");
+  await until("/高德路线/.test(document.querySelector('#realRouteStatus').textContent)");
+  const firstStart = await evaluate("new URL(window.__serviceWalkingCalls.at(-1),location.origin).searchParams.get('from')");
+  await evaluate("window.__maps[0].emit('click',{lnglat:new AMap.LngLat(120.069,30.299)})");
+  await until("new URL(window.__serviceWalkingCalls.at(-1),location.origin).searchParams.get('from') === '120.069,30.299'");
+  assert.notEqual(await evaluate("new URL(window.__serviceWalkingCalls.at(-1),location.origin).searchParams.get('from')"), firstStart);
+  await evaluate("window.__markers.findLast(marker=>marker.title==='一起整理社区故事').emit('click',{originEvent:{stopPropagation(){}}})");
+  await until("document.querySelector('#realMissionDetail h4') === null");
+  await evaluate("window.__markers.findLast(marker=>marker.title==='一起整理社区故事').emit('click',{originEvent:{stopPropagation(){}}})");
+  await until("document.querySelector('#realMissionDetail h4')?.textContent === '一起整理社区故事'");
+  await evaluate("Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(success){window.__releaseGeo=success}}})");
+  await click("#realLocateButton");
+  await until("typeof window.__releaseGeo === 'function'");
+  await evaluate("window.__maps[0].emit('click',{lnglat:new AMap.LngLat(120.071,30.301)})");
+  await until("new URL(window.__serviceWalkingCalls.at(-1),location.origin).searchParams.get('from') === '120.071,30.301'");
+  await evaluate("window.__releaseGeo({coords:{longitude:120.067,latitude:30.297}})");
+  await pause(50);
+  assert.equal(await evaluate("new URL(window.__serviceWalkingCalls.at(-1),location.origin).searchParams.get('from')"), "120.071,30.301");
+  assert.match(await evaluate("document.querySelector('#realMapArea').textContent"), /已选定出发点/);
+  const configuredMapShot = await connection.send("Page.captureScreenshot", { format: "png" });
+  await writeFile(path.join(root, ".tmp", "real-map-mock.png"), Buffer.from(configuredMapShot.data, "base64"));
+  await connection.send("Emulation.setDeviceMetricsOverride", { width: 375, height: 800, deviceScaleFactor: 1, mobile: true });
+  assert.equal(await evaluate("document.documentElement.scrollWidth > innerWidth + 1"), false);
+  const configuredMobileShot = await connection.send("Page.captureScreenshot", { format: "png" });
+  await writeFile(path.join(root, ".tmp", "real-map-mock-mobile.png"), Buffer.from(configuredMobileShot.data, "base64"));
+  await click("#realJumpMission"); await pause(600);
+  assert.equal(await evaluate("document.querySelector('#realMissionTitle').getBoundingClientRect().top < innerHeight"), true);
+  await click("#realEdit"); await until("document.querySelector('#createDialog').open");
+  assert.equal(await evaluate("document.querySelector('#postTitle').value"), "一起整理社区故事");
+  await set("#postTitle", "一起整理街区故事");
+  await click("#openLocationPicker"); await until("document.querySelector('#locationPickerDialog').open");
+  await evaluate("window.__maps[1].emit('click',{lnglat:new AMap.LngLat(120.0701,30.3002)})");
+  await set("#mapLocationName", "社区图书馆正门"); await click("#saveLocationPoint");
+  await set("#mapFirstStep", "先一起挑选三张老照片并确认故事");
+  await click("#publishButton");
+  await until("document.querySelector('#realMissionDetail h4')?.textContent === '一起整理街区故事'");
+  const editedMapPost = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0]");
+  assert.equal(editedMapPost.id, mappedPost.id);
+  assert.deepEqual(editedMapPost.locationPoint, { lng: 120.0701, lat: 30.3002 });
+  await click("#realDelete"); await until("document.querySelector('#deleteDialog').open");
+  await click("#confirmDelete");
+  await until("document.querySelector('#realMissionDetail h4') === null");
+  assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))"), []);
+  passed("Real map: no automatic route, selected task route, randomized demo tasks, browser location, search, reselection, publish, edit and delete");
   // Recommend existing others' publications, then reuse their detail and interest controls.
   await connection.send("Page.navigate", { url: app.url }); await until("document.querySelectorAll('.post-card').length >= 6");
   await click("#resetDemo");
@@ -735,6 +899,6 @@ try {
 } finally {
   if (connection) { try { await connection.send("Browser.close"); } catch {} connection.socket.close(); }
   if (browser.exitCode === null) browser.kill();
-  await app.close(); if (aiApp) await aiApp.close();
+  await app.close(); if (aiApp) await aiApp.close(); if (mapApp) await mapApp.close();
   if (aiMock) await new Promise((resolve) => { aiMock.close(resolve); aiMock.closeAllConnections(); });
 }

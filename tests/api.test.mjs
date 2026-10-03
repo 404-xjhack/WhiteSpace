@@ -24,6 +24,31 @@ test("API: no key gives labeled fallback and serves module assets", async (t) =>
   const data = await response.json(); assert.equal(data.source, "local"); assert.equal(data.fallbackReason, "unconfigured"); assert.equal(data.matches[0].id, "p3");
   assert.equal((await fetch(`${app.url}/model.js`)).status, 200);
   assert.deepEqual(await (await fetch(`${app.url}/api/status`)).json(), { aiConfigured: false });
+  assert.equal((await (await fetch(`${app.url}/api/map-config`)).json()).enabled, false);
+});
+test("Map config exposes only the public JS key and protects the security code", async (t) => {
+  const app = await startServer({ AMAP_WEB_KEY: "public-test-key", AMAP_SECURITY_CODE: "private-test-code" }); t.after(() => app.close());
+  const response = await fetch(`${app.url}/api/map-config`);
+  const body = await response.text();
+  assert.equal(response.status, 200);
+  assert.equal(JSON.parse(body).enabled, true);
+  assert.equal(JSON.parse(body).servicesEnabled, false);
+  assert.equal(JSON.parse(body).key, "public-test-key");
+  assert.equal(JSON.parse(body).centerLabel, undefined);
+  assert.equal(JSON.parse(body).center, undefined);
+  assert.ok(!body.includes("private-test-code"));
+  assert.equal((await fetch(`${app.url}/_AMapService/not-supported`)).status, 400);
+  assert.equal((await fetch(`${app.url}/_AMapService/v3/place/text?jscode=forged`)).status, 400);
+  assert.equal((await fetch(`${app.url}/api/map/places?q=学校`)).status, 503);
+  assert.equal((await fetch(`${app.url}/api/map/walking?from=120,30&to=120.1,30.1`)).status, 503);
+});
+test("Map service endpoints reject invalid input before contacting AMap", async (t) => {
+  const app = await startServer({ AMAP_SERVICE_KEY: "service-test-key" }); t.after(() => app.close());
+  assert.equal((await fetch(`${app.url}/api/map/places?q=x`)).status, 400);
+  assert.equal((await fetch(`${app.url}/api/map/walking?from=bad&to=120,30`)).status, 400);
+  const config = await (await fetch(`${app.url}/api/map-config`)).json();
+  assert.equal(config.servicesEnabled, true);
+  assert.ok(!JSON.stringify(config).includes("service-test-key"));
 });
 test("API: null, whitespace, oversize and malformed structured input fail gracefully", async (t) => {
   const app = await startServer(); t.after(() => app.close());

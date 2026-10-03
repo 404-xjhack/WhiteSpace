@@ -1,11 +1,32 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { validateDraft, validateSchedule, displayTime, normalizedPost, uniqueCategories, postTags, formatPublished, localMatch, matchPost, assessCandidate, eligibleForAI, matchFingerprint, MATCH_VERSION, timeCompatibility, needExtractionInput, needExtractionKey, validExtractedNeed, hasAINeed, LEGACY_OFFER_NEED } from "../public/model.js";
+import { validateDraft, validateSchedule, displayTime, normalizedPost, normalizeLocationPoint, uniqueCategories, postTags, formatPublished, localMatch, matchPost, assessCandidate, eligibleForAI, matchFingerprint, MATCH_VERSION, timeCompatibility, needExtractionInput, needExtractionKey, validExtractedNeed, hasAINeed, LEGACY_OFFER_NEED } from "../public/model.js";
 
 const seed = JSON.parse(await readFile(new URL("../public/data.json", import.meta.url), "utf8"));
 const values = { type: "need", title: "修椅", description: "帮修", timeMode: "weekly", weekday: "0", start: "09:00", end: "11:00", location: "社区共享工坊", participantMode: "negotiable" };
 const make = (overrides = {}, categories = ["旧物新生"]) => validateDraft({ ...values, ...overrides }, categories);
+
+test("Public map meeting point requires explicit confirmation and valid coordinates", () => {
+  const draft = make({ location: "map", locationName: "社区文化中心门口", locationLng: "120.067974", locationLat: "30.298083", publicPlaceConfirmed: "yes", firstStep: "先一起辨认三张旧照片的拍摄地点" });
+  assert.deepEqual(draft.errors, {});
+  assert.deepEqual(draft.data.locationPoint, { lng: 120.067974, lat: 30.298083 });
+  assert.deepEqual(normalizedPost(draft.data).locationPoint, draft.data.locationPoint);
+  assert.equal(normalizedPost(draft.data).firstStep, "先一起辨认三张旧照片的拍摄地点");
+  const shortStep = make({ location: "map", locationName: "文化中心", locationLng: "120.06", locationLat: "30.29", publicPlaceConfirmed: "yes", firstStep: "先问好" });
+  assert.deepEqual(shortStep.errors, {});
+  assert.equal(normalizedPost(shortStep.data).firstStep, "先问好");
+  assert.equal(make({ location: "map", locationName: "文化中心", locationLng: "120.06", locationLat: "30.29", publicPlaceConfirmed: "yes", firstStep: "问好" }).errors.firstStep, "请用 3–80 字说明见面后先做什么。");
+  assert.equal(normalizedPost({ ...shortStep.data, firstStep: "问好" }), null);
+  assert.equal(normalizedPost({ ...shortStep.data, firstStep: "文".repeat(80) }).firstStep.length, 80);
+  assert.equal(normalizedPost({ ...shortStep.data, firstStep: "文".repeat(81) }), null);
+  assert.ok(make({ location: "map", locationName: "文化中心", locationLng: "120.06", locationLat: "30.29", publicPlaceConfirmed: "yes" }).errors.firstStep);
+  assert.ok(make({ location: "map", locationName: "住宅门口", locationLng: "120.06", locationLat: "30.29" }).errors.location);
+  assert.ok(make({ location: "map", locationName: "文化中心", locationLng: "", locationLat: "30.29", publicPlaceConfirmed: "yes" }).errors.location);
+  assert.equal(normalizeLocationPoint({ lng: 181, lat: 30 }), null);
+  assert.equal(normalizedPost({ ...draft.data, locationPoint: { lng: "bad", lat: 30 } }), null);
+  assert.notEqual(matchFingerprint(draft.data), matchFingerprint({ ...draft.data, locationPoint: { lng: 120.1, lat: 30.298083 } }));
+});
 
 test("B01: short nonblank posts pass both validators; blanks and limits fail", () => {
   const result = make(); assert.deepEqual(result.errors, {}); assert.ok(normalizedPost(result.data));

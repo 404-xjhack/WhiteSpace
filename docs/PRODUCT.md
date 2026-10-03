@@ -29,9 +29,10 @@ People browse future-life examples, publish an experience idea or an offer to sh
 ## Capabilities and Constraints
 
 - Functional post creation, search, category filtering, detail view, interest action, and matching flow.
+- A real AMap neighborhood surface supports browser location, manual point selection, public meeting points, walking routes, and local edit/delete; there is no fictional fallback map.
 - The AI gateway is called from the server only. Its key must never be embedded in client code or committed to source.
 - If AI is unavailable, a clearly labeled local rule-based match keeps the demo usable.
-- Real accounts, messaging, moderation, and persistence are future decisions, not claims of this prototype.
+- Real accounts, cross-device persistence, messaging, and moderation are future decisions, not claims of this prototype. Illustrative profiles never appear as real neighbors on the map.
 
 ## Brand Commitments
 
