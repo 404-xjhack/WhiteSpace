@@ -1,8 +1,15 @@
 import { STEPS, TOOLS, STORAGE_KEY, EXPERIENCE_ID } from "./data.js";
 import { createState, focusStep, replayStep, setAmount, perform } from "./state.js";
+import { createTimeCapsuleUI } from "../../time-capsule-ui.js";
 
 const $=id=>document.getElementById(id),embedded=new URLSearchParams(location.search).get('embed')==='1';
 document.body.classList.toggle('embedded',embedded);$('exit').hidden=!embedded;
+const capsules=createTimeCapsuleUI();
+$('open-capsule-history').addEventListener('click',capsules.openHistory);
+$('save-experience-capsule').addEventListener('click',()=>{
+  if(state.completedStepIds.length!==STEPS.length)return;
+  capsules.openDraft({experienceId:EXPERIENCE_ID,experienceName:'王阿姨的手工饺子工坊',title:'我的一次手工制饺'});
+});
 let saved=null;try{saved=JSON.parse(localStorage.getItem(STORAGE_KEY));}catch{}
 let state=createState(saved),view=null,mode='guide',compare=false,selectedTool=null,drag=null;
 const stationNames={dough:'和面分剂台',filling:'食材制馅台',wrapping:'擀皮包合台',stove:'煮制锅台'};
@@ -69,7 +76,7 @@ function applyMode(next){
   $('station-name').textContent=mode==='guide'?stationNames[STEPS.find(s=>s.id===state.currentStepId).station]:'传统手工饺子工坊';positionDrag();
 }
 function setMode(next){cancelDrag();selectedTool=null;$('tool-detail').hidden=true;if(view)view.setMode(next);else applyMode(next);}
-function openSummary(finished=false){if(mode==='walk')setMode('observe');$('summary-intro').textContent=finished?'你已经动手体验了全部六步。再看一遍每一步里的关键判断。':'每一步既有动作，也有需要观察的变化。';$('summary-list').innerHTML=STEPS.map(s=>`<li><strong>${s.title}${state.completedStepIds.includes(s.id)?' · 已体验':''}</strong>${s.insight}</li>`).join('');if(!$('summary-dialog').open)$('summary-dialog').showModal();}
+function openSummary(finished=false){if(mode==='walk')setMode('observe');$('capsule-completion').hidden=state.completedStepIds.length!==STEPS.length;$('summary-intro').textContent=finished?'你已经动手体验了全部六步。再看一遍每一步里的关键判断。':'每一步既有动作，也有需要观察的变化。';$('summary-list').innerHTML=STEPS.map(s=>`<li><strong>${s.title}${state.completedStepIds.includes(s.id)?' · 已体验':''}</strong>${s.insight}</li>`).join('');if(!$('summary-dialog').open)$('summary-dialog').showModal();document.documentElement.classList.add('modal-open');}
 function reset(){cancelDrag();for(const id of ['summary-dialog','reset-dialog'])if($(id).open)$(id).close();state=createState();compare=false;selectedTool=null;setMode('guide');render();$('feedback').textContent='从逐渐加水开始，观察面粉怎样形成面团。';persist();emit('progress');}
 function cancelDrag(){if(!drag)return;const pointer=drag.pointer;drag=null;if($('drag-tool').hasPointerCapture(pointer))$('drag-tool').releasePointerCapture(pointer);$('drag-tool').classList.remove('dragging');view?.endDrag();positionDrag();}
 $('step-nav').addEventListener('click',e=>{const button=e.target.closest('[data-step]');if(button)changeStep(button.dataset.step);});

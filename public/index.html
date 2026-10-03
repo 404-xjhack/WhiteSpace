@@ -8,6 +8,7 @@
     <title>留白 WriteSpace · 自动化时代的生活探索</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/time-capsules.css" />
     <script type="module" src="/app.js"></script>
   </head>
   <body>
@@ -27,6 +28,7 @@
         </a>
         <div class="header-location"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-5.2 7-11a7 7 0 1 0-14 0c0 5.8 7 11 7 11Z"/><circle cx="12" cy="10" r="2.2"/></svg><span>春和社区</span><span class="demo-badge">未来生活演示</span></div>
         <nav class="header-actions" aria-label="主导航">
+          <button class="header-link capsule-history-entry" id="openCapsuleHistory" type="button">时间胶囊</button>
           <button class="header-link" id="myPostsButton" type="button">我的发布 <span id="myPostCount" hidden>0</span></button>
           <button class="primary-button" id="openCreateTop" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>发布想法</button>
         </nav>
