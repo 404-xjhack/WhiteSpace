@@ -14,8 +14,8 @@
     <!--
     THESIS: 在自动化成为日常的未来，让人从想亲手体验的事出发，找到共同探索的伙伴与第一步。
     OWN-WORLD: 温暖的纸白底、深墨色文字、克制的绿与杏色；熟悉的社区信息产品语言。
-    STORY: 浏览未来生活体验的演示资料，发布体验想法或经验分享，理解匹配理由，表达参与意向。
-    FIRST VIEWPORT: 顶部导航和紧凑的生活探索引导，下方左侧体验列表、右侧匹配工作区；发布入口始终可见。
+    STORY: 浏览未来生活体验的演示资料，发布并编辑自己的体验想法，在真实地图查看公共集合点与第一步。
+    FIRST VIEWPORT: 列表与匹配工作区保持清楚；进入街区后以真实地图、定位和发布入口为主。
     FORM: Operate，用户指定大众化社区工作台；事后记录的概念种子 32cf1aa9（降级运行，未用于选择形式）。
     FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and docs/DESIGN.md
     -->
@@ -25,7 +25,7 @@
           <span class="brand-mark" aria-hidden="true"><span></span><span></span></span>
           <span class="brand-text"><strong>留白</strong><small>WriteSpace</small></span>
         </a>
-        <div class="header-location"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-5.2 7-11a7 7 0 1 0-14 0c0 5.8 7 11 7 11Z"/><circle cx="12" cy="10" r="2.2"/></svg><span>春和社区</span><span class="demo-badge">未来生活演示</span></div>
+        <div class="header-location"><span class="demo-badge">未来生活演示 · 真实地图</span></div>
         <nav class="header-actions" aria-label="主导航">
           <button class="header-link map-nav-button" id="mapToggle" type="button" aria-controls="neighborhoodMap" aria-expanded="false">街区地图</button>
           <button class="header-link" id="myPostsButton" type="button">我的发布 <span id="myPostCount" hidden>0</span></button>
@@ -44,55 +44,18 @@
 
       <section id="neighborhoodMap" class="neighborhood-section" aria-labelledby="neighborhoodTitle" hidden>
         <div class="neighborhood-heading">
-          <div><h2 id="neighborhoodTitle">街区里，有一件事等你参与</h2><p>从你所在的公共地点出发，看看附近有哪些可以一起做的事。</p></div>
-          <span class="map-demo-label">春和社区 · 虚构演示地图</span>
+          <div><h2 id="neighborhoodTitle">看看街区里有哪些事</h2><p>定位或选定一个出发点，寻找可以一起做的事。</p></div>
+          <span class="map-demo-label">真实底图 · 发布仅保存在本机</span>
         </div>
-        <div class="map-view-switch" role="group" aria-label="地图模式"><button id="demoMapTab" type="button" aria-pressed="true">演示街区</button><button id="realMapTab" type="button" aria-pressed="false">真实地图</button></div>
-        <div id="demoMapLayout" class="neighborhood-layout">
-          <div class="map-column">
-            <div class="map-toolbar">
-              <label>我的出发点 <select id="mapStart"><option value="e">西门入口</option><option value="f">中心广场</option><option value="c">北门入口</option></select></label>
-              <label>我想体验 <select id="mapInterest"><option value="all">先看看附近</option><option value="hands">亲手做点什么</option><option value="street">探索街区</option><option value="stories">听故事、表达</option><option value="photo">拍照记录</option></select></label>
-              <button id="mapSuggest" class="secondary-button" type="button">为我找一件事</button>
-            </div>
-            <div class="neighborhood-canvas" aria-label="春和社区示意地图，地点和路线仅供演示">
-              <svg class="map-art" viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-                <rect width="1000" height="620" fill="#eaf0e6"/>
-                <path d="M0 0H1000V620H0Z" fill="#e8efe4"/>
-                <path d="M30 28h275v174H30zM480 22h112v170H480zM717 25h232v161H717zM28 364h62v182H28zM221 372h101v169H221zM462 370h107v170H462zM723 374h122v164H723z" fill="#d7e4d3"/>
-                <path d="M47 43h238v142H47zM495 37h82v138h-82zM734 40h197v129H734zM234 387h73v137h-73zM476 385h79v139h-79zM738 390h93v132h-93z" fill="#f4eedc"/>
-                <path d="M150 100H860M150 300H860M150 510H860M150 100V510M390 100V510M650 100V510M860 100V510" stroke="#fffaf0" stroke-width="54" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-                <path d="M150 100H860M150 300H860M150 510H860M150 100V510M390 100V510M650 100V510M860 100V510" stroke="#c6d6c5" stroke-width="2" stroke-dasharray="8 13" fill="none"/>
-                <circle cx="390" cy="300" r="65" fill="#dceacc" stroke="#b6d1ad" stroke-width="4"/>
-                <circle cx="390" cy="300" r="28" fill="#c4dab8"/>
-                <path d="M43 398h69M47 413h62M34 435h77" stroke="#b5cdb6" stroke-width="10" stroke-linecap="round"/>
-                <text x="48" y="72">春和里</text><text x="498" y="70">邻里花园</text><text x="742" y="73">北街</text><text x="225" y="408">慢生活巷</text><text x="473" y="412">共享广场</text><text x="747" y="412">手作坊街</text>
-                <polyline id="mapRouteHalo" points="" fill="none" stroke="#fff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
-                <polyline id="mapRoute" points="" fill="none" stroke="#28735a" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <div id="mapHeat" class="map-heat" aria-hidden="true"></div>
-              <div id="mapMarkers" class="map-markers"></div>
-              <div id="mapYou" class="map-you" aria-label="你的出发点"><span></span>从这里出发</div>
-              <div class="map-legend"><span><i class="legend-you"></i>出发点</span><span><i class="legend-task"></i>可参与的事</span></div>
-            </div>
-            <div id="mapSelectedPlace" class="map-selected-place" aria-live="polite"></div>
-            <p class="map-disclaimer">示意街区和步行距离均为演示估算，不是实时定位或导航；公开地点仅作会面意向参考。</p>
-          </div>
-          <aside class="mission-panel" aria-labelledby="missionTitle">
-            <div class="mission-panel-header"><h3 id="missionTitle">你可以先做这一件</h3><span id="mapMissionCount"></span></div>
-            <div id="mapMission" class="mission-detail" aria-live="polite"></div>
-            <div class="mission-list-heading"><strong>街区里的其他机会</strong><button id="mapHeatToggle" type="button" aria-pressed="false">查看任务热度</button></div>
-            <div id="mapMissionList" class="mission-list"></div>
-          </aside>
-        </div>
-        <div id="realMapLayout" class="real-map-layout" hidden>
+        <div id="realMapLayout" class="real-map-layout">
           <div class="real-map-column">
-            <div class="real-map-toolbar"><div><strong id="realMapArea">学军中学紫金港校区附近</strong><span>发布者确认的集合点 · 你的出发点不会保存</span></div><div><button id="realStartButton" class="secondary-button" type="button">在地图选出发点</button><button id="realCenterButton" class="secondary-button" type="button">从地图中心出发</button><button id="realPublishButton" class="primary-button" type="button">发布附近的事</button></div></div>
-            <button id="realJumpMission" class="real-jump-mission" type="button">查看任务与下一步 ↓</button>
+            <div class="real-map-toolbar"><div><strong id="realMapArea">定位后查看身边的事</strong><span>点击地图空白处，可随时更换出发点</span></div><div><button id="realLocateButton" class="secondary-button" type="button">定位到我</button><button id="realPublishButton" class="primary-button" type="button">发布附近的事</button></div></div>
+            <div class="place-search-shell real-map-search"><form id="mapAreaSearchForm" class="location-search-form"><label class="sr-only" for="mapAreaSearch">搜索要查看的街区</label><input id="mapAreaSearch" type="search" placeholder="搜索城市、街区或公共地点" maxlength="60" /><button class="secondary-button" type="submit">搜索区域</button></form><div id="mapAreaSearchResults" class="place-results" aria-live="polite" hidden></div></div>
             <div id="realMapCanvas" class="real-map-canvas" aria-label="高德真实地图"></div>
-            <p id="realMapStatus" class="real-map-status" role="status">地图正在准备…</p>
+            <button id="realJumpMission" class="real-jump-mission" type="button">查看任务与下一步 ↓</button>
+            <p id="realMapStatus" class="real-map-status" role="status">正在准备真实地图…</p>
           </div>
-          <aside class="real-mission-panel" aria-labelledby="realMissionTitle"><h3 id="realMissionTitle">附近可以一起做的事</h3><div id="realMissionDetail"></div><div id="realMissionList" class="real-mission-list"></div><p class="real-map-safety">集合点由发布者确认；请勿选择家庭住址或私人地址。出发点不会保存，当前发布和参与意向仅保存在这台设备。</p></aside>
+          <aside class="real-mission-panel" aria-labelledby="realMissionTitle"><h3 id="realMissionTitle">地图上的可参与事项</h3><div id="realMissionDetail"></div><div id="realMissionList" class="real-mission-list"></div><p class="real-map-safety">集合点由发布者确认；请勿选择家庭住址或私人地址。出发点不会保存，当前发布和参与意向仅保存在这台设备。</p></aside>
         </div>
       </section>
 
@@ -133,7 +96,7 @@
           <div id="dateFields" hidden><label class="form-field">活动日期<input id="postDate" name="date" type="date" /></label></div>
           <div id="weeklyFields" hidden><label class="form-field">每周活动日<select id="postWeekday" name="weekday"><option value="">选择星期</option><option value="1">周一</option><option value="2">周二</option><option value="3">周三</option><option value="4">周四</option><option value="5">周五</option><option value="6">周六</option><option value="0">周日</option></select></label></div>
           <div id="clockFields" class="form-row" hidden><label class="form-field">开始时间<input id="postStart" name="start" type="time" /></label><label class="form-field">结束时间<input id="postEnd" name="end" type="time" /></label></div>
-          <label class="form-field"><b id="locationLabel">活动地点</b><select id="postLocation" name="location"><option value="">选择社区地点</option><option>春和社区活动室</option><option>社区共享工坊</option><option>社区图书角</option><option>春和社区周边</option><option value="map" id="mapLocationOption" disabled>在真实地图选公共集合点</option><option value="other">其他地点</option><option value="negotiable" id="negotiableLocation" disabled hidden>地点可协商</option></select></label>
+          <label class="form-field"><b id="locationLabel">活动地点</b><select id="postLocation" name="location"><option value="">选择地点方式</option><option value="map" id="mapLocationOption" disabled>在地图选择公共集合点</option><option value="other">仅填写地点说明（不显示在地图）</option><option value="negotiable" id="negotiableLocation" disabled hidden>地点可协商</option></select></label>
           <label id="locationOtherField" class="form-field" hidden>其他地点<input id="locationOther" name="locationOther" maxlength="40" placeholder="填写社区内的地点或补充说明" /></label>
           <div id="mapLocationField" class="map-location-field" hidden><p id="pickedMapLocation">还未选择公共集合点。</p><button id="openLocationPicker" class="secondary-button" type="button">打开地图选点</button><input id="locationName" name="locationName" type="hidden" /><input id="locationLng" name="locationLng" type="hidden" /><input id="locationLat" name="locationLat" type="hidden" /><input id="publicPlaceConfirmed" name="publicPlaceConfirmed" type="hidden" /></div>
           <label id="mapFirstStepField" class="form-field" hidden><b>见面后先做的一小步</b><span>写清可立即开始的动作，让邻居不必再猜怎么参与</span><input id="mapFirstStep" name="firstStep" maxlength="80" placeholder="例如：先一起辨认三张旧照片的拍摄地点" /></label>
@@ -149,11 +112,12 @@
 
     <dialog id="locationPickerDialog" class="dialog location-picker-dialog" aria-labelledby="locationPickerTitle">
       <div class="dialog-header"><div><h2 id="locationPickerTitle">选择公共集合点</h2><p>点地图、拖动标记，或搜索附近地点。</p></div><button class="icon-button" type="button" data-close="locationPickerDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div>
-      <div class="dialog-body"><form id="locationSearchForm" class="location-search-form"><label class="sr-only" for="locationSearch">搜索公共地点</label><input id="locationSearch" type="search" placeholder="搜索公园、图书馆、社区中心等" maxlength="60" /><button class="secondary-button" type="submit">搜索地点</button></form><div id="locationSearchResults" class="location-search-results" aria-live="polite"></div><div id="locationPickerCanvas" class="location-picker-canvas" aria-label="点击地图选点，或拖动标记微调"></div><p id="locationPickerStatus" class="form-hint" role="status">请在地图上选一个方便见面的公共地点。</p><label class="form-field">集合点名称<input id="mapLocationName" maxlength="40" placeholder="例如：图书馆正门" /></label><label class="checkbox-field location-public-check"><input id="publicPointCheck" type="checkbox" />这是适合公开展示的集合点，不是住宅或私人地址</label><p id="locationPickerError" class="form-error" role="alert" hidden></p></div>
+      <div class="dialog-body"><div class="place-search-shell"><form id="locationSearchForm" class="location-search-form"><label class="sr-only" for="locationSearch">搜索公共地点</label><input id="locationSearch" type="search" placeholder="搜索公园、图书馆、社区中心等" maxlength="60" /><button class="secondary-button" type="submit">搜索地点</button></form><div id="locationSearchResults" class="place-results" aria-live="polite" hidden></div></div><div id="locationPickerCanvas" class="location-picker-canvas" aria-label="点击地图选点，或拖动标记微调"></div><p id="locationPickerStatus" class="form-hint" role="status">请在地图上选一个方便见面的公共地点。</p><label class="form-field">集合点名称<input id="mapLocationName" maxlength="40" placeholder="例如：图书馆正门" /></label><label class="checkbox-field location-public-check"><input id="publicPointCheck" type="checkbox" />这是适合公开展示的集合点，不是住宅或私人地址</label><p id="locationPickerError" class="form-error" role="alert" hidden></p></div>
       <div class="dialog-actions"><button class="ghost-button" type="button" data-close="locationPickerDialog">返回发布</button><button id="saveLocationPoint" class="primary-button" type="button">确认集合点</button></div>
     </dialog>
 
-    <dialog id="detailDialog" class="dialog detail-dialog" aria-labelledby="detailTitle"><div class="dialog-header"><div><h2 id="detailTitle"></h2></div><button class="icon-button" type="button" data-close="detailDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div><div id="detailContent" class="dialog-body"></div><div class="dialog-actions"><button class="ghost-button" type="button" data-close="detailDialog">返回</button><button class="ghost-button" id="detailTimeButton" type="button" hidden>调整时间</button><button class="ghost-button" id="detailNeedButton" type="button" hidden>AI 提炼希望获得</button><button class="primary-button" id="detailMatchButton" type="button" hidden>查看或重新匹配</button><button class="primary-button" id="interestButton" type="button">我想参与</button></div></dialog>
+    <dialog id="detailDialog" class="dialog detail-dialog" aria-labelledby="detailTitle"><div class="dialog-header"><div><h2 id="detailTitle"></h2></div><button class="icon-button" type="button" data-close="detailDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div><div id="detailContent" class="dialog-body"></div><div class="dialog-actions"><button class="ghost-button" type="button" data-close="detailDialog">返回</button><button class="ghost-button" id="detailDeleteButton" type="button" hidden>删除</button><button class="ghost-button" id="detailEditButton" type="button" hidden>编辑发布</button><button class="ghost-button" id="detailTimeButton" type="button" hidden>调整时间</button><button class="ghost-button" id="detailNeedButton" type="button" hidden>AI 提炼希望获得</button><button class="primary-button" id="detailMatchButton" type="button" hidden>查看或重新匹配</button><button class="primary-button" id="interestButton" type="button">我想参与</button></div></dialog>
+    <dialog id="deleteDialog" class="dialog delete-dialog" aria-labelledby="deleteTitle"><div class="dialog-header"><div><h2 id="deleteTitle">删除这条发布？</h2><p id="deletePostTitle"></p></div><button class="icon-button" type="button" data-close="deleteDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div><div class="dialog-body"><p>删除后，这条发布会从当前浏览器的列表和地图中移除，无法恢复。</p></div><div class="dialog-actions"><button class="ghost-button" type="button" data-close="deleteDialog">取消</button><button id="confirmDeleteButton" class="danger-button" type="button">确认删除</button></div></dialog>
 
     <dialog id="needDialog" class="dialog" aria-labelledby="needTitle">
       <form id="needForm" novalidate>

@@ -27,10 +27,6 @@ const AI_TIMEOUT = Math.min(18000, Math.max(100, Number(process.env.AI_TIMEOUT_M
 const AMAP_WEB_KEY = process.env.AMAP_WEB_KEY || "";
 const AMAP_SECURITY_CODE = process.env.AMAP_SECURITY_CODE || "";
 const AMAP_SERVICE_KEY = process.env.AMAP_SERVICE_KEY || "";
-const mapCenter = [Number(process.env.AMAP_CENTER_LNG), Number(process.env.AMAP_CENTER_LAT)];
-const AMAP_CENTER = process.env.AMAP_CENTER_LNG && process.env.AMAP_CENTER_LAT && mapCenter.every(Number.isFinite) && Math.abs(mapCenter[0]) <= 180 && Math.abs(mapCenter[1]) <= 90
-  ? mapCenter : [120.067974, 30.298083];
-const AMAP_CENTER_LABEL = process.env.AMAP_CENTER_LABEL || "杭州学军中学紫金港校区附近";
 const candidates = JSON.parse(await readFile(path.join(publicDir, "data.json"), "utf8"));
 const mime = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".json": "application/json; charset=utf-8", ".svg": "image/svg+xml" };
 
@@ -57,7 +53,7 @@ async function proxyAMap(url, req, res) {
     res.writeHead(response.status, { "content-type": response.headers.get("content-type") || "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" });
     res.end(body);
   } catch {
-    send(res, 502, { error: "地图服务暂时不可用，请切换演示地图。" });
+    send(res, 502, { error: "地图服务暂时不可用，请稍后重试。" });
   }
 }
 
@@ -176,15 +172,15 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
     if (url.pathname === "/api/status" && req.method === "GET") return send(res, 200, { aiConfigured: Boolean(API_KEY) });
-    if (url.pathname === "/api/map-config" && req.method === "GET") return send(res, 200, { enabled: Boolean(AMAP_WEB_KEY && AMAP_SECURITY_CODE), servicesEnabled: Boolean(AMAP_SERVICE_KEY), key: AMAP_WEB_KEY, center: AMAP_CENTER, centerLabel: AMAP_CENTER_LABEL });
+    if (url.pathname === "/api/map-config" && req.method === "GET") return send(res, 200, { enabled: Boolean(AMAP_WEB_KEY && AMAP_SECURITY_CODE), servicesEnabled: Boolean(AMAP_SERVICE_KEY), key: AMAP_WEB_KEY });
     if (url.pathname.startsWith("/_AMapService/")) return proxyAMap(url, req, res);
     if (url.pathname === "/api/map/places" && req.method === "GET") {
       if (!AMAP_SERVICE_KEY) return send(res, 503, { error: "地点搜索尚未配置。" });
       const query = (url.searchParams.get("q") || "").trim();
       if (query.length < 2 || query.length > 60 || /[\x00-\x1f]/.test(query)) return send(res, 400, { error: "请输入 2–60 字的地点关键词。" });
       try {
-        const data = await amapService("/v3/place/text", { keywords: query, city: "杭州", offset: "6", page: "1", extensions: "base" });
-        const places = (Array.isArray(data.pois) ? data.pois : []).map((poi) => ({ name: typeof poi.name === "string" ? poi.name.slice(0, 40) : "", point: queryPoint(poi.location) })).filter((poi) => poi.name && poi.point);
+        const data = await amapService("/v3/place/text", { keywords: query, offset: "8", page: "1", extensions: "base" });
+        const places = (Array.isArray(data.pois) ? data.pois : []).map((poi) => ({ name: typeof poi.name === "string" ? poi.name.slice(0, 40) : "", address: [poi.cityname, poi.adname, poi.address].filter((part) => typeof part === "string" && part.trim()).join(" · ").slice(0, 100), point: queryPoint(poi.location) })).filter((poi) => poi.name && poi.point);
         return send(res, 200, { places });
       } catch (error) { return serviceError(res, error); }
     }

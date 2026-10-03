@@ -1,5 +1,5 @@
 import { cleanCategory, postTags, validateDraft, validateSchedule, normalizeSchedule, formatSchedule, displayTime, formatPublished, matchPost, matchFingerprint, MATCH_VERSION, LEGACY_OFFER_NEED, needExtractionInput, needExtractionKey, validExtractedNeed, hasAINeed } from "./model.js";
-import { initNeighborhood } from "./map-ui.js";
+import { initMapView } from "./map-ui.js";
 import { initRealMap } from "./real-map.js";
 
 const $ = (selector) => document.querySelector(selector);
@@ -11,6 +11,7 @@ const scheduleDialog = $("#scheduleDialog");
 const scheduleForm = $("#scheduleForm");
 const needDialog = $("#needDialog");
 const locationPickerDialog = $("#locationPickerDialog");
+const deleteDialog = $("#deleteDialog");
 const needForm = $("#needForm");
 const toast = $("#toast");
 const storagePosts = "writespace.posts.v1";
@@ -52,6 +53,8 @@ let formAttempted = false;
 let categoryError = "";
 let toastTimer;
 let realMap;
+let editingPostId = null;
+let deletingPostId = null;
 
 function save(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch { showToast("浏览器暂时无法保存，当前页面仍可继续体验。"); }
@@ -65,19 +68,7 @@ function showToast(message) {
 }
 function allPosts() { return [...myPosts, ...seedPosts]; }
 function isMine(post) { return post.id.startsWith("mine-"); }
-const neighborhood = initNeighborhood({
-  getPosts: allPosts,
-  showDetail: (post) => showDetail(post),
-  isInterested: (id) => interestedIds.has(id),
-  toggleInterest: (post) => {
-    const cancelling = interestedIds.has(post.id);
-    if (cancelling) interestedIds.delete(post.id); else interestedIds.add(post.id);
-    save(storageInterest, [...interestedIds]);
-    neighborhood.render();
-    realMap?.render();
-    showToast(cancelling ? "已取消参与意向。" : "已记录参与意向，可随时取消；演示中不会通知真实用户。");
-  }
-});
+const mapView = initMapView({ onShow: () => realMap?.show() });
 function personLine(post) {
   const age = typeof post.age === "string" && /^\d+岁$/.test(post.age) ? post.age : "";
   return [isMine(post) ? "由你发布" : "", post.role || "社区成员", age].filter(Boolean).join(" · ");
@@ -102,7 +93,6 @@ function renderPosts() {
     <h3>${escapeHtml(post.title)}</h3><p class="post-description">${escapeHtml(post.description)}</p><div class="post-tags">${tagHtml(post)}</div>
     <div class="post-footer"><span class="post-foot-item">${icon("place")}${escapeHtml(post.location || "地点待确认")}</span><span class="post-foot-item">${icon("time")}${escapeHtml(displayTime(post))}</span><button type="button" class="post-card-action" data-post-id="${escapeHtml(post.id)}">查看详情 →</button></div></article>`).join("");
   $("#emptyState").hidden = visible.length > 0;
-  neighborhood.render();
   realMap?.render();
 }
 function refreshPublished() {
@@ -118,10 +108,10 @@ function setFilter(next) {
   });
   renderPosts();
 }
-function syncDialogLock() { document.documentElement.classList.toggle("modal-open", createDialog.open || detailDialog.open || scheduleDialog.open || needDialog.open || locationPickerDialog.open); }
+function syncDialogLock() { document.documentElement.classList.toggle("modal-open", createDialog.open || detailDialog.open || scheduleDialog.open || needDialog.open || locationPickerDialog.open || deleteDialog.open); }
 function openDialog(dialog) { if (!dialog.open) dialog.showModal(); syncDialogLock(); }
 function closeDialog(dialog) { dialog.close(); syncDialogLock(); }
-for (const dialog of [createDialog, detailDialog, scheduleDialog, needDialog, locationPickerDialog]) dialog.addEventListener("close", syncDialogLock);
+for (const dialog of [createDialog, detailDialog, scheduleDialog, needDialog, locationPickerDialog, deleteDialog]) dialog.addEventListener("close", syncDialogLock);
 realMap = initRealMap({
   getPosts: allPosts,
   showDetail: (post) => showDetail(post),
@@ -129,10 +119,12 @@ realMap = initRealMap({
   toggleInterest: (post) => {
     const cancelling = interestedIds.has(post.id);
     if (cancelling) interestedIds.delete(post.id); else interestedIds.add(post.id);
-    save(storageInterest, [...interestedIds]); neighborhood.render(); realMap.render();
+    save(storageInterest, [...interestedIds]); realMap.render();
     showToast(cancelling ? "已取消参与意向。" : "已记录参与意向；演示中不会通知真实用户。");
   },
   openCreate: () => openCreate(),
+  editPost: (post) => openEdit(post),
+  deletePost: (post) => confirmDelete(post),
   onPick: ({ name, lng, lat }) => {
     $("#postLocation").value = "map";
     $("#locationName").value = name; $("#locationLng").value = String(lng); $("#locationLat").value = String(lat);
@@ -314,6 +306,10 @@ function syncType() {
     if ($("#postLocation").value === "negotiable") $("#postLocation").value = "";
   }
   syncConditionalFields();
+  if (editingPostId) {
+    $("#createTitle").textContent = "编辑我的发布";
+    $("#createSubtitle").textContent = "修改后，地图位置与匹配建议会同步更新。";
+  }
 }
 function getDraft() { return validateDraft(Object.fromEntries(new FormData(createForm)), selectedCategories); }
 function updateErrors(focus = false) {
@@ -340,11 +336,11 @@ function fillExample(example) {
   if (example === "food") {
     $("#postTitle").value = "自动厨房之外，想带孩子体验手工包饺子";
     $("#postDescription").value = "孩子从小习惯自动厨房，很好奇以前的人为什么要一起做饭。想找愿意教手工包饺子的人，从和面、擀皮开始体验；我会准备材料并全程陪同，也想听听过去餐桌上的故事。";
-    selectedCategories = ["亲子共学", "生活手艺"]; $("#postLocation").value = "春和社区活动室"; $("#postWeekday").value = "6"; $("#postStart").value = "14:00"; $("#postEnd").value = "16:00";
+    selectedCategories = ["亲子共学", "生活手艺"]; $("#postLocation").value = "other"; $("#locationOther").value = "公共集合点待确认"; $("#postWeekday").value = "6"; $("#postStart").value = "14:00"; $("#postEnd").value = "16:00";
   } else if (example === "repair") {
     $("#postTitle").value = "想亲手修好一把旧椅子，体验过去的木工";
     $("#postDescription").value = "维修机器人能很快修好这把靠背松动的木椅，但我想亲自试试。希望和会木工的人一起修，学习看木纹、打磨和基础维修，感受过去的人让旧物继续使用的过程。";
-    selectedCategories = ["旧物新生"]; $("#postLocation").value = "社区共享工坊"; $("#postWeekday").value = "0"; $("#postStart").value = "09:00"; $("#postEnd").value = "11:00";
+    selectedCategories = ["旧物新生"]; $("#postLocation").value = "other"; $("#locationOther").value = "公共集合点待确认"; $("#postWeekday").value = "0"; $("#postStart").value = "09:00"; $("#postEnd").value = "11:00";
   } else {
     $("#postTitle").value = "分享手机摄影，记录自动化街区的日常";
     $("#postDescription").value = "自动影像系统已经能记录整座城市，我仍想和大家亲自选择值得拍下的瞬间。可以教手机摄影和简单修图，也希望听你分享照片背后的社区故事；具体交流方式可先商量。";
@@ -358,12 +354,61 @@ function clearMapLocation() {
   $("#pickedMapLocation").textContent = "还未选择公共集合点。";
 }
 function openCreate() {
+  editingPostId = null;
   createForm.reset(); selectedCategories = []; categoryError = ""; formAttempted = false;
   clearMapLocation();
   $(".form-examples").open = false;
   $("#profileRole").value = typeof profile.role === "string" ? profile.role : ""; $("#profileAge").value = Number.isInteger(profile.age) ? profile.age : "";
   $("#agePublic").checked = profile.agePublic === true; $("#profileSummary").textContent = profile.role || "社区成员"; $("#profileSection").open = false;
+  $("#publishButton").textContent = "发布并寻找匹配";
   renderCategories(); syncType(); updateErrors(); openDialog(createDialog); $("#postTitle").focus();
+}
+function openEdit(post) {
+  if (!isMine(post)) return;
+  editingPostId = post.id; formAttempted = false; categoryError = "";
+  createForm.reset(); clearMapLocation();
+  createForm.querySelector(`input[name="type"][value="${post.type}"]`).checked = true;
+  selectedCategories = [...(post.categories || [post.category])];
+  syncType();
+  $("#postTitle").value = post.title;
+  $("#postDescription").value = post.description;
+  const schedule = normalizeSchedule(post.schedule);
+  $("#timeMode").value = schedule?.mode || "";
+  $("#postDate").value = schedule?.date || "";
+  $("#postWeekday").value = schedule?.days?.[0] ?? "";
+  $("#postStart").value = schedule?.start || "";
+  $("#postEnd").value = schedule?.end || "";
+  if (post.locationPoint) {
+    $("#postLocation").value = "map";
+    $("#locationName").value = post.location;
+    $("#locationLng").value = String(post.locationPoint.lng);
+    $("#locationLat").value = String(post.locationPoint.lat);
+    $("#publicPlaceConfirmed").value = "yes";
+    $("#pickedMapLocation").textContent = `已选公共集合点：${post.location}`;
+    $("#mapFirstStep").value = post.firstStep || "";
+  } else if (post.location === "地点可协商" && post.type === "offer") $("#postLocation").value = "negotiable";
+  else { $("#postLocation").value = "other"; $("#locationOther").value = post.location; }
+  const participant = post.participantSettings || { mode: "negotiable" };
+  $("#participantMode").value = participant.mode || "negotiable";
+  $("#participantCount").value = participant.count || "";
+  $("#participantMin").value = participant.min || "";
+  $("#participantMax").value = participant.max || "";
+  $("#profileRole").value = post.role || "";
+  $("#profileAge").value = /^\d+岁$/.test(post.age || "") ? post.age.slice(0, -1) : "";
+  $("#agePublic").checked = Boolean(post.age);
+  $("#profileSummary").textContent = post.role || "社区成员";
+  $("#profileSection").open = false;
+  $("#publishButton").textContent = "保存修改";
+  renderCategories(); syncConditionalFields(); updateErrors();
+  if (detailDialog.open) closeDialog(detailDialog);
+  openDialog(createDialog); $("#postTitle").focus();
+}
+function confirmDelete(post) {
+  if (!isMine(post)) return;
+  deletingPostId = post.id;
+  $("#deletePostTitle").textContent = post.title;
+  if (detailDialog.open) closeDialog(detailDialog);
+  openDialog(deleteDialog);
 }
 function showDetail(post) {
   currentDetail = post; $("#detailTitle").textContent = post.title;
@@ -374,6 +419,8 @@ function showDetail(post) {
   const mine = isMine(post); $("#interestButton").hidden = mine; $("#interestButton").disabled = false;
   $("#interestButton").textContent = interestedIds.has(post.id) ? "取消参与意向" : "我想参与";
   $("#detailMatchButton").hidden = !mine; $("#detailMatchButton").textContent = cachedMatch(post) ? "查看上次匹配" : "寻找匹配";
+  $("#detailEditButton").hidden = !mine;
+  $("#detailDeleteButton").hidden = !mine;
   $("#detailTimeButton").hidden = !mine;
   $("#detailNeedButton").hidden = !mine || post.type !== "offer";
   openDialog(detailDialog);
@@ -439,7 +486,7 @@ function restoreMatch(post) {
   cancelMatch(); matchingPost = post; matchState.lastPostId = post.id; save(storageMatches, matchState); renderMatches(data); return true;
 }
 async function runMatch(post, { keepMap = false } = {}) {
-  if (!keepMap) neighborhood.showFeed();
+  if (!keepMap) mapView.showFeed();
   cancelMatch(); const version = matchVersion; const controller = new AbortController(); matchController = controller;
   const timer = setTimeout(() => controller.abort(), 22000); matchingPost = post; matchState.lastPostId = post.id; save(storageMatches, matchState);
   $("#matchWelcome").hidden = true; $("#matchResults").hidden = true; $("#matchLoading").hidden = false; if (!keepMap) $("#matchPanel").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -470,16 +517,33 @@ createForm.addEventListener("change", (event) => { if (event.target.name === "ty
 createForm.addEventListener("input", () => { categoryError = ""; if (formAttempted) updateErrors(); });
 $("#searchInput").addEventListener("input", renderPosts);
 document.querySelectorAll(".filter-chip").forEach((button) => button.addEventListener("click", () => setFilter(button.dataset.filter)));
-$("#myPostsButton").addEventListener("click", () => { neighborhood.showFeed(); $("#searchInput").value = ""; setFilter("mine"); $("#feedTitle").scrollIntoView({ behavior: "smooth", block: "start" }); });
+$("#myPostsButton").addEventListener("click", () => { mapView.showFeed(); $("#searchInput").value = ""; setFilter("mine"); $("#feedTitle").scrollIntoView({ behavior: "smooth", block: "start" }); });
 postList.addEventListener("click", (event) => { const button = event.target.closest("[data-post-id]"); if (button) { const post = allPosts().find((item) => item.id === button.dataset.postId); if (post) showDetail(post); } });
 $("#matchList").addEventListener("click", (event) => { const button = event.target.closest("[data-match-id]"); if (button) { const post = displayedMatches.find((item) => item.id === button.dataset.matchId)?.post; if (post) showDetail(post); } });
 $("#moreMatches").addEventListener("click", () => { matchesExpanded = !matchesExpanded; renderMatchList(); });
 $("#interestButton").addEventListener("click", () => {
   if (!currentDetail || isMine(currentDetail)) return; const cancelling = interestedIds.has(currentDetail.id);
   if (cancelling) interestedIds.delete(currentDetail.id); else interestedIds.add(currentDetail.id); save(storageInterest, [...interestedIds]);
-  $("#interestButton").textContent = cancelling ? "我想参与" : "取消参与意向"; neighborhood.render(); realMap.render(); showToast(cancelling ? "已取消参与意向，可以随时再次参与。" : "已记录参与意向，可随时取消。");
+  $("#interestButton").textContent = cancelling ? "我想参与" : "取消参与意向"; realMap.render(); showToast(cancelling ? "已取消参与意向，可以随时再次参与。" : "已记录参与意向，可随时取消。");
 });
-$("#detailMatchButton").addEventListener("click", () => { if (!currentDetail || !isMine(currentDetail)) return; const post = currentDetail; closeDialog(detailDialog); neighborhood.showFeed(); if (restoreMatch(post)) $("#matchPanel").scrollIntoView({ behavior: "smooth", block: "start" }); else runMatch(post); });
+$("#detailMatchButton").addEventListener("click", () => { if (!currentDetail || !isMine(currentDetail)) return; const post = currentDetail; closeDialog(detailDialog); mapView.showFeed(); if (restoreMatch(post)) $("#matchPanel").scrollIntoView({ behavior: "smooth", block: "start" }); else runMatch(post); });
+$("#detailEditButton").addEventListener("click", () => { if (currentDetail) openEdit(currentDetail); });
+$("#detailDeleteButton").addEventListener("click", () => { if (currentDetail) confirmDelete(currentDetail); });
+$("#confirmDeleteButton").addEventListener("click", () => {
+  const id = deletingPostId;
+  if (!id || !myPosts.some((post) => post.id === id)) return;
+  myPosts = myPosts.filter((post) => post.id !== id);
+  interestedIds.delete(id);
+  delete matchState.byPost[id];
+  if (matchState.lastPostId === id || matchingPost?.id === id) {
+    cancelMatch(); matchState.lastPostId = null; matchingPost = null;
+    $("#matchResults").hidden = true; $("#matchLoading").hidden = true; $("#matchWelcome").hidden = false;
+  }
+  save(storagePosts, myPosts); save(storageInterest, [...interestedIds]); save(storageMatches, matchState);
+  currentDetail = null; deletingPostId = null; closeDialog(deleteDialog);
+  renderPosts(); showToast("已从本机删除这条发布。");
+});
+deleteDialog.addEventListener("close", () => { deletingPostId = null; });
 $("#rerunMatch").addEventListener("click", () => { if (matchingPost) runMatch(matchingPost); });
 $("#editMatchTime").addEventListener("click", () => { if (matchingPost) openSchedule(matchingPost); });
 $("#detailTimeButton").addEventListener("click", () => { if (currentDetail && isMine(currentDetail)) { const post = currentDetail; closeDialog(detailDialog); openSchedule(post); } });
@@ -496,16 +560,37 @@ function publishDraft(data, nextProfile) {
   myPosts.unshift(post); profile = nextProfile; save(storageProfile, profile); save(storagePosts, myPosts); closeDialog(createDialog);
   $("#searchInput").value = ""; setFilter("all");
   if (post.locationPoint) {
-    neighborhood.showMap(); realMap.showReal();
+    mapView.showMap();
     showToast("已发布到真实地图；集合点可见，参与意向仍只保存在本机。");
     runMatch(post, { keepMap: true });
   } else {
-    neighborhood.showFeed(); showToast("想法已发布！正在寻找一起探索的伙伴。"); runMatch(post);
+    mapView.showFeed(); showToast("想法已发布！正在寻找一起探索的伙伴。"); runMatch(post);
   }
+}
+function saveEditedDraft(data, nextProfile) {
+  const index = myPosts.findIndex((post) => post.id === editingPostId);
+  if (index < 0) { showToast("找不到要修改的发布，请刷新后重试。"); return; }
+  const previous = myPosts[index];
+  const sameOffer = data.type === "offer" && previous.type === "offer" && previous.title === data.title && previous.description === data.description;
+  const post = {
+    ...previous, ...data,
+    need: sameOffer ? previous.need || "" : data.need,
+    ...(sameOffer && previous.needSummary ? { needSummary: previous.needSummary } : { needSummary: undefined }),
+    ...(data.locationPoint ? {} : { locationPoint: undefined, firstStep: undefined })
+  };
+  myPosts[index] = post;
+  profile = nextProfile;
+  save(storageProfile, profile); save(storagePosts, myPosts);
+  delete matchState.byPost[post.id]; save(storageMatches, matchState);
+  editingPostId = null; closeDialog(createDialog);
+  const keepMap = !$("#neighborhoodMap").hidden;
+  renderPosts(); showToast("修改已保存，地图与匹配正在更新。");
+  runMatch(post, { keepMap });
 }
 createForm.addEventListener("submit", (event) => {
   event.preventDefault(); formAttempted = true; if ($("#categoryPicker").value && !addCategory()) { updateErrors(true); return; }
   const { data, profile: nextProfile, errors } = updateErrors(true); if (Object.keys(errors).length) return;
+  if (editingPostId) { saveEditedDraft(data, nextProfile); return; }
   if (data.type === "offer") { closeDialog(createDialog); openNeedEditor({ kind: "create", post: data, profile: nextProfile }); }
   else publishDraft(data, nextProfile);
 });

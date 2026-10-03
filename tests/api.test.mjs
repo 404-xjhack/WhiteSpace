@@ -33,7 +33,8 @@ test("Map config exposes only the public JS key and protects the security code",
   assert.equal(JSON.parse(body).enabled, true);
   assert.equal(JSON.parse(body).servicesEnabled, false);
   assert.equal(JSON.parse(body).key, "public-test-key");
-  assert.equal(JSON.parse(body).centerLabel, "杭州学军中学紫金港校区附近");
+  assert.equal(JSON.parse(body).centerLabel, undefined);
+  assert.equal(JSON.parse(body).center, undefined);
   assert.ok(!body.includes("private-test-code"));
   assert.equal((await fetch(`${app.url}/_AMapService/not-supported`)).status, 400);
   assert.equal((await fetch(`${app.url}/_AMapService/v3/place/text?jscode=forged`)).status, 400);
