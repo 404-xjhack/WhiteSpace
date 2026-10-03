@@ -46,6 +46,8 @@ try{
   await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:"window.experienceEvents=[];window.addEventListener('writespace:experience',e=>window.experienceEvents.push(e.detail));"});
   await cdp.send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
   await navigate(app.url+'/dumpling-house.html');assert.equal(await evaluate("document.querySelector('#viewport').dataset.renderer"),'webgl');
+  await until("document.querySelector('#standalone-header img.brand-mark')?.naturalWidth>0");
+  assert.equal(await evaluate("document.querySelector('#standalone-header img.brand-mark').getAttribute('src')"),'/favicon.svg');
   await click('#standalone-header .brand');await until("location.pathname==='/' && document.querySelectorAll('.post-card').length===6");
   await navigate(app.url+'/dumpling-house.html');
   assert.equal(await evaluate("document.querySelectorAll('#environment,#daylight,#show-roof').length"),0);

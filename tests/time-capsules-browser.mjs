@@ -84,6 +84,8 @@ try {
   await cdp.send("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: downloads });
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
   await cdp.send("Page.navigate", { url: app.url }); await until("document.querySelectorAll('.post-card').length===6");
+  await until("document.querySelector('.site-header img.brand-mark')?.naturalWidth>0");
+  assert.equal(await evaluate("document.querySelector('.site-header img.brand-mark').getAttribute('src')"), "/favicon.svg");
   const existingKeys = ["writespace.posts.v1", "writespace.matches.v1", "writespace.profile.v1", "writespace.interest.v1", "writespace.today.v1"];
   const existing = await evaluate(`Object.fromEntries(${JSON.stringify(existingKeys)}.map(k=>[k,localStorage.getItem(k)]))`);
   await click("#openCapsuleHistory");
@@ -101,6 +103,8 @@ try {
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
   await click('#openShop3dFromCapsule');
   await until("location.pathname==='/neighborhood-dumpling.html' && document.body.dataset.sceneReady==='true'");
+  await until("document.querySelector('.scene-home-mark')?.naturalWidth>0");
+  assert.equal(await evaluate("document.querySelector('.scene-home-mark').getAttribute('src')"), "/favicon.svg");
   assert.equal(await evaluate("document.querySelector('#startScreen')"), null);
   assert.equal(await evaluate("document.querySelector('canvas')!==null"), true);
   await click("#aboutBtn"); await until("document.querySelector('#sceneHelp').open");

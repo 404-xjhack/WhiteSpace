@@ -40,7 +40,7 @@
                   color: #1d2924; text-decoration: none; box-shadow: 0 8px 24px rgba(24,45,32,.15); }
     .scene-home:hover { background: #f2f5f0; }
     .scene-home:focus-visible, #ui button:focus-visible, .scene-help button:focus-visible { outline: 3px solid #89bea0; outline-offset: 3px; }
-    .scene-home-mark { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; background: #28735a; color: #fff; font-size: 18px; }
+    .scene-home-mark { display: block; flex: none; width: 32px; height: 32px; }
     .scene-home strong, .scene-home small { display: block; line-height: 1.15; }
     .scene-home strong { font-size: 15px; }
     .scene-home small { margin-top: 3px; color: #526359; font-size: 10px; }
@@ -101,7 +101,7 @@
   </script>
 </head>
 <body>
-<a class="scene-home" href="/" aria-label="留白 WriteSpace，返回首页"><span class="scene-home-mark" aria-hidden="true">留</span><span><strong>留白</strong><small>回到首页</small></span></a>
+<a class="scene-home" href="/" aria-label="留白 WriteSpace，返回首页"><img class="scene-home-mark" src="/favicon.svg" alt="" aria-hidden="true"><span><strong>留白</strong><small>回到首页</small></span></a>
 <div id="tip">左键拖拽旋转 · 滚轮缩放 · 按住滚轮键（中键）拖拽平移</div>
 <div id="zoneCard"></div>
 <div id="ui">
