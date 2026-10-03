@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#f8f8f4">
   <title>饺子店街区沙盘 · 留白 WhiteSpace</title>
-  <meta name="description" content="在互动街区沙盘中观察拼餐、技能分享与邻里互助的可能。这是虚构需求的演示场景，不会联系邻居或建立真实协作。">
+  <meta name="description" content="从一起包饺子出发，看看亲子动手、手艺分享、摄影交流和街区散步怎样找到一起做的人。人物与活动均为虚构示例。">
   <meta property="og:type" content="website">
   <meta property="og:title" content="饺子店街区沙盘 · 留白 WhiteSpace">
   <meta property="og:description" content="看看附近哪些小事可以一起做。虚构社区需求的互动演示，不会发布真实需求或自动组队。">
@@ -82,6 +82,11 @@
     #zoneCard .zc-desc { color: #42524a; font-size: 14px; margin-bottom: 8px; line-height: 1.75;
                          overflow-wrap: break-word; word-break: break-word; }
     #zoneCard .zc-meta { color: #65736b; font-size: 13px; margin: 8px 0 0; line-height: 1.6; }
+    #zoneCard .zc-examples { list-style: none; padding: 0; margin: 8px 0 0; }
+    #zoneCard .zc-examples li { padding: 10px 0; border-top: 1px solid var(--line); }
+    #zoneCard .zc-examples strong { display: block; line-height: 1.6; }
+    #zoneCard .zc-examples p { margin: 5px 0 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
+    #zoneCard .zc-examples span { color: var(--ink); font-weight: 600; }
     #zoneCard .zc-foot { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e3e9e2;
                          color: #8a978e; font-size: 12.5px; letter-spacing: .04em; }
     #zoneCard { animation: zc-pop .18s ease-out; }
@@ -131,7 +136,7 @@
 <body>
 <label class="theme-control scene-theme" data-theme-control><span>外观</span><select data-theme-select aria-label="外观主题"><option value="light">浅色</option><option value="dark">深色</option><option value="system" selected>跟随系统</option></select></label>
 <a class="scene-home" href="/" aria-label="留白 WhiteSpace，返回首页"><img class="scene-home-mark" src="/favicon.svg" alt="" aria-hidden="true"><span><strong>留白</strong><small>回到首页</small></span></a>
-<div id="tip">左键拖拽旋转 · 滚轮缩放 · 按住滚轮键（中键）拖拽平移</div>
+<div id="tip">点击光柱看一起做的事 · 左键拖拽旋转 · 滚轮缩放 · 中键拖拽平移</div>
 <div id="zoneCard"></div>
 <div id="ui">
   <span>时间</span>
@@ -142,7 +147,7 @@
   <button id="aboutBtn" type="button">玩法</button>
 </div>
 <div id="walkHint">已暂停漫游 —— 点击画面继续，按 V 退出</div>
-<dialog id="sceneHelp" class="scene-help" aria-labelledby="sceneHelpTitle"><h2 id="sceneHelpTitle">怎样逛这间饺子店</h2><p>拖动画面看街区，移动时间滑杆观察一天中的变化。点击店里的光柱，查看该时段的虚构社区需求。按 V 进入漫游，使用 WASD 移动，靠近光柱后按 E 阅读。</p><p>这里是互动演示沙盘，光柱和需求均为示意数据，并非真实求助。</p><button id="closeSceneHelp" type="button">继续体验</button></dialog>
+<dialog id="sceneHelp" class="scene-help" aria-labelledby="sceneHelpTitle"><h2 id="sceneHelpTitle">怎样逛这间饺子店</h2><p>从一起包饺子出发，看看亲子动手、手艺分享、摄影交流和街区散步。点击餐桌、厨房或门口的光柱，了解想做的事、可以分享的能力，以及一起开始的第一步。</p><p>拖动画面看街区，移动时间滑杆观察光照与活动示例的变化。光柱亮度仅用于演示，不代表真实人数或需求紧急程度。按 V 进入漫游，使用 WASD 移动，对准光柱后按 E 阅读。</p><p>人物与活动均为虚构示例。想描述自己的事，可以通过左上角 Logo 回到首页。</p><button id="closeSceneHelp" type="button">继续体验</button></dialog>
 <div id="crosshair"></div>
 <div id="crossTip">按 E 查看详情</div>
 <div id="zoneLabel"></div>
@@ -1161,84 +1166,53 @@ function fmtClock(t) {
   return `${mm === 60 ? hh + 1 : hh}:${String(mm === 60 ? 0 : mm).padStart(2, '0')}`;
 }
 function setTime(v) {
+  const previousTick = Math.round(dayT * 100);
   dayT = Math.min(Math.max(v, +slider.min / 100), +slider.max / 100);
   slider.value = Math.round(dayT * 100);
   clockEl.textContent = fmtClock(dayT);
   applyTime(dayT);
+  if (zoneVisuals && selectedZone >= 0 && Math.round(dayT * 100) !== previousTick) renderZoneCard();
   renderer.shadowMap.needsUpdate = true;            // 太阳/路灯光源动了才重算阴影（配合 autoUpdate=false）
 }
 slider.addEventListener('input', () => { playing = false; playBtn.textContent = '播放'; setTime(+slider.value / 100); });
 playBtn.addEventListener('click', () => { playing = !playing; playBtn.textContent = playing ? '暂停' : '播放'; });
 setTime(0.92);
 
-// === 热区数据模型（第 14 次迭代 · 步骤 1：纯数据，零渲染）===
-// 结构与 outputs/README.md「3D 可视化热区系统」专章一致；本步只在 console 自检数值
+// === 协作热区：围绕具体活动，展示意图、可分享的能力与第一步 ===
 // >>> HOTZONE-DATA-BEGIN
 const ZONES = [
-  { id: 'tableA',    name: '餐桌 A',    category: '拼餐搭伙', center: [-2.6, 1.2],   radius: 1.3, mount: 'shop', desc: '拼桌吃饭、搭伙 AA',
-    intro: '日子越过越快，能坐下来同桌吃饭的人却越来越少。这张桌子记得每一次拼桌：原本陌生的人因一盘饺子坐到一块儿，醋碟一碰，就算认识了。光柱里存着的，是一个个"想找个人一起吃饭"的心愿。' },
-  { id: 'tableB',    name: '餐桌 B',    category: '拼餐搭伙', center: [1.5, 2.6],    radius: 1.3, mount: 'shop', desc: '拼桌吃饭、搭伙 AA',
-    intro: '一人食不孤单。在这里发出的拼桌邀约，总会被某个同样晚归的邻居接住——饺子冒着热气，话匣子也就打开了。这些细碎的相遇，正是我们想替社区留住的东西。' },
-  { id: 'tableC',    name: '餐桌 C',    category: '技能交换', center: [2.7, -1.5],   radius: 1.3, mount: 'shop', desc: '以技换技，边吃边聊',
-    intro: '教擀皮换修电脑、剪纸换口语。手艺在人跟人之间流动的时候，交换的不只是技能，还有一段坐下来慢慢聊的时光——这样的时光，如今越来越稀罕了。' },
-  { id: 'kitchen',   name: '开放厨房',  category: '帮厨',     center: [-5.3, -0.8],  radius: 1.6, mount: 'shop', desc: '晚高峰帮厨、洗碗帮工',
-    intro: '灶火不熄，人情不断。晚高峰缺一把手的时候，总有邻居卷起袖子进来：揉面、看锅、洗碗。小店的热闹，一半是客人，一半是熟人。' },
-  { id: 'menuWall',  name: '后墙菜单牌', category: '公告求助', center: [2.2, -4.85],  radius: 1.2, mount: 'shop', desc: '寻物、找伙伴、打听事',
-    intro: '寻物、找伙伴、打听事。这块菜单牌展示一些邻里小事：有人需要帮助，也有人愿意搭把手。光柱随时间变化，示意不同时间可能出现的需求。' },
-  { id: 'gate',      name: '大门台阶',  category: '迎送带路', center: [0, 5.6],      radius: 1.5, mount: 'shop', desc: '接人送物、雨天送伞',
-    intro: '接人、送伞、带老人复诊。店门口的台阶迎来送往了许多年，顺路的善意总在这里发生——于人是举手之劳，于己是一整天的暖意。' },
-  { id: 'standee',   name: '雨棚立牌',  category: '闲置交换', center: [-4.9, 7.0],   radius: 1.4, mount: 'shop', desc: '闲置物品以物换物',
-    intro: '以物换物，物尽其用。闲置在邻里间流动起来，一件旧物换了主人，也多了一次敲门、一声问候的由头。' },
-  { id: 'trike',     name: '三轮车位',  category: '搬运接送', center: [5.2, 7.9],    radius: 1.6, mount: 'shop', desc: '搬米面、顺路带货',
-    intro: '搬米抬柜、顺路带货。这辆三轮车载过的不只是货物，还有街坊间"说一声就到"的义气。' },
-  { id: 'backAlley', name: '后巷堆场',  category: '大件暂存', center: [0, -6.5],     radius: 1.8, mount: 'shop', desc: '行李、建材临时堆放',
-    intro: '行李、建材的临时堆放。腾出的一角地方，接住的是别人生活里的周转与难关——社区的善意，常常就藏在这些不起眼的角落。' },
-  { id: 'lamp',      name: '路灯下',    category: '夜间陪伴', center: [3.2, -7.6],   radius: 1.8, mount: 'out',  desc: '打烊结伴、深夜自习',
-    intro: '打烊结伴、深夜自习。入夜后这盏路灯亮起来，照着晚回家的人，也守着还醒着的陪伴。把时间轴拖到 21 点，看它和夜色一起升温。' }   // 世界坐标，挂 out
+  { id: 'tableA', name: '包饺子桌', category: '一起做饭', center: [-2.6, 1.2], radius: 1.3, mount: 'shop', desc: '找人一起包一顿饺子',
+    intro: '想包一顿饺子，可以找愿意一起准备、一起动手的人。有人会调馅，有人能带材料，也有人第一次尝试。先商量口味与分工，再从包好第一只开始。' },
+  { id: 'tableB', name: '亲子动手桌', category: '亲子共学', center: [1.5, 2.6], radius: 1.3, mount: 'shop', desc: '家长陪孩子学包第一只饺子',
+    intro: '想带孩子学包饺子，却不熟悉做法？可以找愿意示范的人，家长陪同并准备材料，从放馅、对折和捏合开始，一起完成一件小作品。' },
+  { id: 'tableC', name: '照片交流桌', category: '摄影交流', center: [2.7, -1.5], radius: 1.3, mount: 'shop', desc: '一起拍照片，听照片里的故事',
+    intro: '想用手机拍好日常，可以找愿意分享拍摄方法的人。围桌选一张照片，聊聊光线、构图和照片里的家乡故事，再试着拍一张自己的饺子作品。' },
+  { id: 'kitchen', name: '手艺分享台', category: '生活手艺', center: [-5.3, -0.8], radius: 1.6, mount: 'shop', desc: '跟愿意教的人学和面、擀皮',
+    intro: '王阿姨的示例从一句“我可以教和面擀皮”开始。想学的人可以带着问题来，会做的人可以示范动作、分享经验。先观察一次擀皮，再自己试一张。' },
+  { id: 'gate', name: '散步集合点', category: '社区生活', center: [0, 5.6], radius: 1.5, mount: 'shop', desc: '找人一起认识街区、记录路线',
+    intro: '刚搬来想认识街区，可以约愿意带路、拍照或整理记录的人，从店门口出发。先选一个附近的公共地点，一起走一小段，再把喜欢的角落记下来。' }
 ];
 
-// mock 需求：固定种子，每次加载结果一致（后续接 WhiteSpace API 时整块替换）
-const NEEDS = (() => {
-  let seed = 20261002;
-  const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
-  const titles = {
-    '拼餐搭伙': ['周末拼一锅饺子', '一人食求拼桌', '拼单买面粉', '晚饭搭伙 AA'],
-    '技能交换': ['教擀皮换修电脑', '剪纸教学换英语口语', '包饺子速成换吉他入门'],
-    '帮厨':     ['晚高峰缺一名帮厨', '求会包麦穗饺的师傅', '洗碗帮工两小时'],
-    '公告求助': ['寻物：红色保温杯', '求推荐附近修鞋摊', '周末一起整理社区书架'],
-    '迎送带路': ['带老人去医院复诊', '车站接人求带路', '雨天送伞到地铁口'],
-    '闲置交换': ['闲置蒸笼换绿植', '旧课本换砂锅', '儿童餐椅转让'],
-    '搬运接送': ['搬米面上三楼', '三轮车顺路带货', '帮忙抬冰柜'],
-    '大件暂存': ['求暂存行李箱两天', '装修瓷砖临时堆放', '旧冰箱暂放一晚'],
-    '夜间陪伴': ['夜班后结伴回家', '打烊后一起看店', '深夜自习求伴']
-  };
-  const out = [];
-  let nid = 1;
-  for (const z of ZONES) {
-    const n = 3 + Math.floor(rnd() * 6);                      // 每区 3~8 条
-    const pool = titles[z.category];
-    for (let i = 0; i < n; i++) {
-      const capacity = 1 + Math.floor(rnd() * 5);             // 需要 1~5 人
-      out.push({
-        id: 'n' + (nid++),
-        zoneId: z.id, category: z.category,
-        title: pool[Math.floor(rnd() * pool.length)],
-        urgency: +(0.5 + rnd()).toFixed(2),                   // 0.5~1.5
-        capacity,
-        joined: Math.floor(rnd() * capacity),                 // 0~capacity-1，必有缺口
-        publishT: +(0.24 + rnd() * 0.84).toFixed(3)           // 一天内 8:36~21:12
-      });
-    }
-  }
-  return out;
-})();
+// 固定协作示例：时间只驱动演示光柱，不模拟真实报名人数或紧急程度。
+const NEEDS = [
+  { zoneId: 'tableA', publishT: 0.40, title: '想找人一起包一顿家乡饺子', share: '我可以准备馅料，也想学不同的包法。', firstStep: '先商量一种口味，一人示范、一人试包。' },
+  { zoneId: 'tableA', publishT: 0.80, title: '第一次包饺子，想找人一起试试', share: '我可以带材料、收拾桌面，希望有人一起动手。', firstStep: '一起列好材料清单，再分工准备一小份。' },
+  { zoneId: 'tableB', publishT: 0.44, title: '想带孩子学包第一只饺子', share: '家长全程陪同，可以准备材料和记录过程。', firstStep: '请愿意教的人示范一次，家长陪孩子放馅、捏合。' },
+  { zoneId: 'tableB', publishT: 0.64, title: '愿意教孩子简单的捏合动作', share: '可以慢慢示范，欢迎家长一起参与。', firstStep: '先用一张皮试着对折，再一起捏紧边缘。' },
+  { zoneId: 'tableC', publishT: 0.32, title: '想用手机拍好自己包的饺子', share: '我带自己的手机，也愿意分享制作过程。', firstStep: '请愿意教的人一起找光线，试拍同一盘饺子。' },
+  { zoneId: 'tableC', publishT: 0.72, title: '可以教手机摄影，也想听家乡故事', share: '可以分享构图与简单修图，想听照片背后的故事。', firstStep: '各选一张照片，一起聊一个拍摄方法和一段故事。' },
+  { zoneId: 'kitchen', publishT: 0.48, title: '王阿姨：我可以教和面擀皮', share: '愿意分享手工制饺经验，希望有人一起参与。', firstStep: '先看一次擀皮动作，再试着擀开一个剂子。' },
+  { zoneId: 'kitchen', publishT: 0.76, title: '饺子皮总擀不圆，想请人一起看看', share: '我愿意反复练习，也可以帮忙准备面团。', firstStep: '一起观察转动面皮和擀压的配合，再试一张。' },
+  { zoneId: 'gate', publishT: 0.28, title: '刚搬来，找人一起画张散步地图', share: '我可以拍照、整理记录，想找熟悉街区的人同行。', firstStep: '一起选一个公共地点，走一小段并记下路线。' },
+  { zoneId: 'gate', publishT: 0.68, title: '愿意带路，一起发现街区的小店', share: '可以介绍熟悉的公共空间，也想听新邻居的发现。', firstStep: '先商量一条短路线，再各记录一个喜欢的角落。' }
+];
 
 const HEAT_TAU = 4 / 15;   // τ = 4 小时，换算到 dayT 单位（t 的一天跨度为 15h）
 function heat(zoneId, t) {
   let h = 0;
   for (const n of NEEDS) {
     if (n.zoneId !== zoneId || n.publishT > t) continue;      // 还没发布的不计入
-    h += n.urgency * Math.exp(-(t - n.publishT) / HEAT_TAU) * (1 - n.joined / n.capacity);
+    h += Math.exp(-(t - n.publishT) / HEAT_TAU);
   }
   return h;
 }
@@ -1248,24 +1222,14 @@ function heatAll(t) {                                          // 归一化到 0
   return ZONES.map((z, i) => ({ zone: z, raw: raw[i], norm: raw[i] / max }));
 }
 
-// 步骤 1 自检：在默认档（18:48, t=0.92）打印一次各热区热度，确认公式与数据合理
-console.groupCollapsed('[热区] mock 数据自检（步骤 1 · 纯数据，未渲染）');
-console.log('热区数:', ZONES.length, ' 需求条目数:', NEEDS.length);
-console.table(heatAll(0.92).map(({ zone, raw, norm }) => ({
-  热区: zone.name, 类别: zone.category, 热度: +raw.toFixed(2), 归一化: +norm.toFixed(2)
-})));
-console.groupEnd();
 // <<< HOTZONE-DATA-END
 
 // === 热区可视化与交互（第 14 次迭代 · 步骤 2+3：光柱/热晕 + 点击详情卡）===
-// 类别色：6 色按语义家族映射 9 个类别（刻意避开场景已有的红/橙语义：灯笼、路灯、灶火）
+// 沿用暖黄、社区绿、紫、蓝，区分协作活动。
 const ZONE_COLORS = {
-  '拼餐搭伙': 0xf2c14e, '帮厨': 0xf2c14e,     // 餐桌互助家族：暖黄
-  '技能交换': 0x5aa469, '闲置交换': 0x5aa469, // 交换家族：绿
-  '迎送带路': 0x4a90d9, '搬运接送': 0x4a90d9, // 跑腿出行家族：蓝
-  '公告求助': 0x8e6fc0,                       // 紫
-  '大件暂存': 0x9a9a9a,                       // 灰
-  '夜间陪伴': 0x45b8ac                        // 青
+  '一起做饭': 0xf2c14e, '亲子共学': 0x8e6fc0,
+  '生活手艺': 0x5aa469, '摄影交流': 0x45b8ac,
+  '社区生活': 0x4a90d9
 };
 
 // 白色径向渐变纹理：所有热晕共用一张，颜色由材质 color 乘上去
@@ -1426,15 +1390,16 @@ function renderZoneCard() {
   const hex = '#' + ZONE_COLORS[z.category].toString(16).padStart(6, '0');
   zoneCard.style.setProperty('--zc', hex);                        // 类别色 → 顶条/强调色
   zoneCard.classList.toggle('walk', mode === 'walk');             // 漫游模式用加大版
-  const n = NEEDS.filter(x => x.zoneId === z.id && x.publishT <= dayT).length;   // 当前时段已发布条数
+  const examples = NEEDS.filter(x => x.zoneId === z.id && x.publishT <= dayT);
   zoneCard.innerHTML = `
     <div class="zc-head">
       <span class="zc-chip" style="background:${hex}">${z.category}</span><b>${z.name}</b>
-      <button class="zc-x">×</button>
+      <button class="zc-x" type="button" aria-label="关闭活动介绍">×</button>
     </div>
     <div class="zc-desc">${z.intro}</div>
-    <div class="zc-meta">当前时段 ${n} 条「${z.category}」需求等待被接住 · 演示数据</div>
-    <div class="zc-foot">留白 WhiteSpace · 让想做的事，遇见一起做的人。</div>`;
+    <div class="zc-meta">${fmtClock(dayT)} · ${examples.length} 条协作示例 · 人物与活动均为虚构</div>
+    ${examples.length ? `<ul class="zc-examples">${examples.map(example => `<li><strong>${example.title}</strong><p><span>可以分享：</span>${example.share}</p><p><span>一起开始：</span>${example.firstStep}</p></li>`).join('')}</ul>` : '<p class="zc-desc">这个演示时段还没有活动示例，试着把时间调到下午。</p>'}
+    <div class="zc-foot">想做一件事，找到一起做的人。通过左上角 Logo 回首页，描述自己的事。</div>`;
   zoneCard.querySelector('.zc-x').addEventListener('click', closeZoneCard);
 }
 function closeZoneCard() {
@@ -1475,11 +1440,12 @@ function animate() {
     _zv.y += 1.8; _zv.project(camera);
     let cx = (_zv.x * 0.5 + 0.5) * innerWidth, cy = (-_zv.y * 0.5 + 0.5) * innerHeight;
     const cw = zoneCard.offsetWidth, ch = zoneCard.offsetHeight;    // 按实测尺寸定位，保证完整不出屏
+    const cardBottom = Math.max(ch + 16, Math.min(innerHeight - 8, document.getElementById('ui').getBoundingClientRect().top - 10));
     cx = Math.min(Math.max(cx, cw / 2 + 8), innerWidth - cw / 2 - 8);
     const above = cy - 14 - ch >= 8;                                // 上方放得下才向上弹，否则翻到锚点下方
     zoneCard.classList.toggle('below', !above);
-    cy = above ? Math.min(Math.max(cy, ch + 14 + 8), innerHeight - 8)
-               : Math.min(Math.max(cy, 8), innerHeight - ch - 14 - 8);
+    cy = above ? Math.min(Math.max(cy, ch + 14 + 8), cardBottom)
+               : Math.min(Math.max(cy, 8), cardBottom - ch - 14);
     zoneCard.style.left = cx + 'px';
     zoneCard.style.top = cy + 'px';
   }
