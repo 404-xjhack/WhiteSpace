@@ -489,7 +489,7 @@ try {
     };
     class FakeLngLat { constructor(lng, lat) { this.lng=lng; this.lat=lat; } getLng() { return this.lng; } getLat() { return this.lat; } }
     class FakeMap { constructor(id, opts={}) { this.events={}; this.options=opts; this.center=opts.center || [120.067,30.297]; this.zoom=opts.zoom; document.getElementById(id).dataset.fakeMap='ready'; window.__maps.push(this); } on(name, fn) { this.events[name]=fn; } emit(name, data) { this.events[name]?.(data); } resize() {} setCenter(point) { this.center=point; } setZoom(zoom) { this.zoom=zoom; } getCenter() { return new FakeLngLat(...this.center); } }
-    class FakeMarker { constructor(opts) { this.position=opts.position; this.title=opts.title; this.events={}; window.__markers.push(this); } on(name, fn) { this.events[name]=fn; } emit(name, data) { this.events[name]?.(data); } setMap() {} setPosition(point) { this.position=point; } getPosition() { return new FakeLngLat(...this.position); } }
+    class FakeMarker { constructor(opts) { this.position=opts.position; this.title=opts.title; this.content=opts.content; this.events={}; window.__markers.push(this); } on(name, fn) { this.events[name]=fn; } emit(name, data) { if (name==='click' && this.content) this.content.click(); else this.events[name]?.(data); } setMap() {} setPosition(point) { this.position=point; } getPosition() { return new FakeLngLat(...this.position); } }
     class FakePolyline { constructor(opts) { this.path=opts.path; this.strokeColor=opts.strokeColor; this.active=true; window.__polylines.push(this); } setMap(map) { this.active=Boolean(map); } }
     window.AMap={Map:FakeMap,Marker:FakeMarker,Polyline:FakePolyline,LngLat:FakeLngLat,convertFrom:(point,_kind,callback)=>callback('complete',{locations:[new FakeLngLat(point[0]+.0005,point[1]+.0005)]})};
   ` });
@@ -509,14 +509,22 @@ try {
   assert.match(await evaluate("document.querySelector('#realRouteSummary').textContent"), /绿色最近路线.*随机生成/);
   assert.equal(await evaluate("window.__polylines.filter(line=>line.active && line.strokeColor==='#28735a').length"), 1);
   assert.equal(await evaluate("(() => { const origin=[120.0675,30.2975], nearest=window.__markers.filter(marker=>marker.title).map(marker=>({point:marker.position,distance:Math.hypot((marker.position[0]-origin[0])*96000,(marker.position[1]-origin[1])*111000)})).sort((a,b)=>a.distance-b.distance)[0].point; return JSON.stringify(window.__polylines.find(line=>line.active).path.at(-1))===JSON.stringify(nearest); })()"), true, "Green line ends at the shortest walking route's task");
+  const markerCount = await evaluate("window.__markers.length");
   const farthestDemoTitle = await evaluate("(() => { const from=[120.0675,30.2975]; return window.__markers.filter(marker=>marker.title).map(marker=>({title:marker.title,distance:Math.hypot((marker.position[0]-from[0])*96000,(marker.position[1]-from[1])*111000)})).sort((a,b)=>b.distance-a.distance)[0].title; })()");
   await evaluate(`window.__markers.find(marker=>marker.title===${JSON.stringify(farthestDemoTitle)}).emit('click',{originEvent:{stopPropagation(){}}})`);
   await until(`document.querySelector('#realMissionDetail h4')?.textContent === ${JSON.stringify(farthestDemoTitle)}`);
   assert.match(await evaluate("document.querySelector('#realRouteStatus').textContent"), /蓝色当前任务路线.*随机演示点/);
   assert.equal(await evaluate("window.__polylines.filter(line=>line.active && line.strokeColor==='#2c82cf').length"), 1);
   assert.equal(await evaluate("window.__serviceWalkingCalls.length"), 6, "Opening a task reuses compared routes");
+  assert.equal(await evaluate("window.__markers.length"), markerCount, "Selecting a task keeps existing map markers");
   await evaluate(`window.__markers.findLast(marker=>marker.title===${JSON.stringify(farthestDemoTitle)}).emit('click',{originEvent:{stopPropagation(){}}})`);
   await until("document.querySelector('#realMissionDetail h4') === null");
+  assert.equal(await evaluate("document.querySelector('#realRouteSummary').dataset.state"), "hidden");
+  assert.equal(await evaluate("window.__polylines.filter(line=>line.active).length"), 0, "Deselecting the task hides both routes");
+  await click("#realRouteToggle");
+  assert.equal(await evaluate("document.querySelector('#realRouteSummary').dataset.state"), "ready");
+  assert.equal(await evaluate("window.__polylines.filter(line=>line.active && line.strokeColor==='#28735a').length"), 1);
+  assert.equal(await evaluate("window.__markers.length"), markerCount, "Toggling routes does not rebuild markers");
   await set("#mapAreaSearch", "文化中心"); await click('#mapAreaSearchForm button[type="submit"]');
   await until("document.querySelectorAll('#mapAreaSearchResults [data-poi-index]').length === 1");
   assert.match(await evaluate("document.querySelector('#mapAreaSearchResults').textContent"), /西湖区/);

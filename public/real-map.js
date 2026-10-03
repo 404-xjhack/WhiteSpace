@@ -36,20 +36,32 @@ function loadAMap(key) {
 export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest, openCreate, onPick, editPost, deletePost }) {
   let config = { enabled: false, servicesEnabled: false };
   let map, pickerMap, pickerMarker, startMarker, nearestLine, selectedLine;
-  let markers = [], selectedId = null, startPoint = null, pickerPoint = null;
+  let markers = [], markerKey = "", selectedId = null, startPoint = null, pickerPoint = null;
   let pickerResults = [], areaResults = [], routeVersion = 0, locationAttempted = false;
-  let routeKey = "", routeState = "idle", routeResults = new Map(), nearestRoute = null;
+  let routeKey = "", routeState = "idle", routeResults = new Map(), nearestRoute = null, routesVisible = true;
   let selectionVersion = 0, areaSearchVersion = 0, pickerSearchVersion = 0;
-  const routeSummary = document.createElement("p");
+  const routeSummary = document.createElement("div");
   routeSummary.id = "realRouteSummary";
   routeSummary.className = "real-route-summary";
-  routeSummary.setAttribute("role", "status");
+  const routeSummaryText = document.createElement("span");
+  routeSummaryText.setAttribute("role", "status");
+  const routeToggle = document.createElement("button");
+  routeToggle.id = "realRouteToggle";
+  routeToggle.className = "real-map-route-toggle";
+  routeToggle.type = "button";
+  routeToggle.hidden = true;
+  routeToggle.addEventListener("pointerdown", (event) => event.stopPropagation());
+  routeToggle.addEventListener("mousedown", (event) => event.stopPropagation());
+  routeToggle.addEventListener("touchstart", (event) => event.stopPropagation(), { passive: true });
+  routeToggle.addEventListener("click", (event) => { event.stopPropagation(); routesVisible = !routesVisible; syncRoutes(); });
+  routeSummary.append(routeSummaryText);
   $(".real-demo-notice").after(routeSummary);
   function setStart(point, source = "map") {
     const nextPoint = normalizeLocationPoint(point);
     if (!nextPoint || !map) return;
     selectionVersion++;
     startPoint = nextPoint;
+    routesVisible = true;
     if (startMarker) startMarker.setMap(null);
     const pin = document.createElement("span");
     pin.className = "real-start-pin";
@@ -124,6 +136,8 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
       if (!map) {
         $("#realMapCanvas").replaceChildren();
         map = new AMap.Map("realMapCanvas", { zoom: 16, center: coordinates(DEMO_MAP_CENTER), viewMode: "2D", jogEnable: false, animateEnable: false });
+        $("#realMapCanvas").append(routeToggle);
+        markerKey = "";
         map.on("click", (event) => {
           setStart({ lng: event.lnglat.getLng(), lat: event.lnglat.getLat() });
         });
@@ -153,19 +167,23 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
     const selected = posts.find((post) => post.id === selectedId);
     const selectedRoute = selected && routeResults.get(selected.id);
     const nearestPost = nearestRoute && posts.find((post) => post.id === nearestRoute.post.id);
-    if (map && nearestRoute) nearestLine = new window.AMap.Polyline({ map, path: nearestRoute.route.path, strokeColor: "#28735a", strokeWeight: 7, strokeOpacity: 0.95, isOutline: true, outlineColor: "#fff", borderWeight: 2, zIndex: 80 });
-    if (map && selectedRoute && selected.id !== nearestRoute?.post.id) selectedLine = new window.AMap.Polyline({ map, path: selectedRoute.path, strokeColor: "#2c82cf", strokeWeight: 5, strokeOpacity: 0.95, isOutline: true, outlineColor: "#fff", borderWeight: 2, zIndex: 81 });
-    if (!map) routeSummary.textContent = "配置地图后可查看步行路线。";
-    else if (!posts.length) routeSummary.textContent = "附近暂无地图任务；发布一件事后可查看路线。";
-    else if (!startPoint) routeSummary.textContent = "定位或点击地图选择出发点，即可比较步行路线。";
-    else if (!config.servicesEnabled) routeSummary.textContent = "步行路线需配置高德 Web 服务 Key；任务地点仍可查看。";
-    else if (nearestRoute) routeSummary.textContent = `绿色最近路线 · ${nearestPost?.title || nearestRoute.post.title}：${routeText(nearestRoute.route)}${nearestPost?.demoMap ? "；演示点随机生成，仅供功能参考，不可按此赴约。" : ""}`;
-    else if (routeState === "loading") routeSummary.textContent = "正在比较附近任务的步行路线…";
-    else routeSummary.textContent = "暂时无法取得步行路线；请在任务附近重选出发点，或稍后重试。";
-    routeSummary.dataset.state = nearestRoute ? "ready" : routeState;
+    if (map && routesVisible && nearestRoute) nearestLine = new window.AMap.Polyline({ map, path: nearestRoute.route.path, strokeColor: "#28735a", strokeWeight: 7, strokeOpacity: 0.95, isOutline: true, outlineColor: "#fff", borderWeight: 2, zIndex: 80, bubble: true });
+    if (map && routesVisible && selectedRoute && selected.id !== nearestRoute?.post.id) selectedLine = new window.AMap.Polyline({ map, path: selectedRoute.path, strokeColor: "#2c82cf", strokeWeight: 5, strokeOpacity: 0.95, isOutline: true, outlineColor: "#fff", borderWeight: 2, zIndex: 81, bubble: true });
+    if (!map) routeSummaryText.textContent = "配置地图后可查看步行路线。";
+    else if (!posts.length) routeSummaryText.textContent = "附近暂无地图任务；发布一件事后可查看路线。";
+    else if (!startPoint) routeSummaryText.textContent = "定位或点击地图选择出发点，即可比较步行路线。";
+    else if (!config.servicesEnabled) routeSummaryText.textContent = "步行路线需配置高德 Web 服务 Key；任务地点仍可查看。";
+    else if (!routesVisible) routeSummaryText.textContent = "路线已隐藏。可点击任务点，或选择显示路线。";
+    else if (nearestRoute) routeSummaryText.textContent = `绿色最近路线 · ${nearestPost?.title || nearestRoute.post.title}：${routeText(nearestRoute.route)}${nearestPost?.demoMap ? "；演示点随机生成，仅供功能参考，不可按此赴约。" : ""}`;
+    else if (routeState === "loading") routeSummaryText.textContent = "正在比较附近任务的步行路线…";
+    else routeSummaryText.textContent = "暂时无法取得步行路线；请在任务附近重选出发点，或稍后重试。";
+    routeSummary.dataset.state = !routesVisible ? "hidden" : nearestRoute ? "ready" : routeState;
+    routeToggle.hidden = !map || !startPoint || !config.servicesEnabled || !nearestRoute;
+    routeToggle.textContent = routesVisible ? "隐藏路线" : "显示路线";
     const detailStatus = $("#realRouteStatus");
     if (!detailStatus) return;
     if (!map || !startPoint || !config.servicesEnabled) detailStatus.textContent = routeSummary.textContent;
+    else if (!routesVisible) detailStatus.textContent = "路线已隐藏；可在上方重新显示。";
     else if (selectedRoute) detailStatus.textContent = `${selected.id === nearestRoute?.post.id ? "绿色最近路线" : "蓝色当前任务路线"} · ${routeText(selectedRoute)}${selected.demoMap ? "；随机演示点，仅供功能参考，不可按此赴约。" : ""}`;
     else if (routeState === "loading") detailStatus.textContent = "正在计算这件任务的步行路线…";
     else detailStatus.textContent = "这件任务的步行路线暂不可用；可重选出发点后重试。";
@@ -213,22 +231,37 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
     const selected = posts.find((post) => post.id === selectedId);
     $("#realJumpMission").textContent = selected ? `查看任务：${selected.title} ↓` : posts.length ? "查看街区任务 ↓" : "查看发布指引 ↓";
     if (map) {
-      for (const marker of markers) marker.setMap(null);
-      markers = posts.map((post) => {
-        const selected = post.id === selectedId;
-        const pin = document.createElement("div");
-        pin.className = `real-task-marker ${post.type === "offer" ? "is-offer" : "is-need"} ${selected ? "is-selected" : ""}`;
-        pin.dataset.postId = post.id;
-        pin.setAttribute("aria-label", `${post.title}${post.demoMap ? "，随机演示任务" : ""}`);
-        pin.innerHTML = `${selected ? `<div class="real-task-callout"><span>${post.demoMap ? "随机演示 · " : ""}${post.type === "offer" ? "愿意分享" : "想去体验"}</span><strong>${escapeHtml(post.title)}</strong><small>${escapeHtml(mapLocation(post))}</small></div>` : ""}<svg class="real-task-pin" viewBox="0 0 72 86" aria-hidden="true"><path class="real-task-pin-body" d="M36 3C18 3 4 17 4 35c0 19 32 48 32 48s32-29 32-48C68 17 54 3 36 3Z"/><circle class="real-task-pin-ring" cx="36" cy="34" r="24"/><circle class="real-task-pin-face" cx="36" cy="34" r="19"/>${taskPinIcon[post.type === "offer" ? "offer" : "need"]}</svg>`;
-        const marker = new window.AMap.Marker({ map, position: coordinates(post.locationPoint), title: post.title, content: pin, anchor: "bottom-center", bubble: false, zIndex: selected ? 120 : 110 });
-        marker.on("click", (event) => {
-          event?.originEvent?.stopPropagation?.();
-          selectedId = selectedId === post.id ? null : post.id;
-          requestAnimationFrame(render);
+      const nextMarkerKey = JSON.stringify(posts.map((post) => [post.id, post.title, post.type, post.demoMap, post.location, coordinates(post.locationPoint)]));
+      if (nextMarkerKey !== markerKey) {
+        for (const item of markers) item.marker.setMap(null);
+        markers = posts.map((post) => {
+          const pin = document.createElement("div");
+          pin.className = `real-task-marker ${post.type === "offer" ? "is-offer" : "is-need"}`;
+          pin.dataset.postId = post.id;
+          pin.setAttribute("aria-label", `${post.title}${post.demoMap ? "，随机演示任务" : ""}`);
+          pin.innerHTML = `<svg class="real-task-pin" viewBox="0 0 72 86" aria-hidden="true"><path class="real-task-pin-body" d="M36 3C18 3 4 17 4 35c0 19 32 48 32 48s32-29 32-48C68 17 54 3 36 3Z"/><circle class="real-task-pin-ring" cx="36" cy="34" r="24"/><circle class="real-task-pin-face" cx="36" cy="34" r="19"/>${taskPinIcon[post.type === "offer" ? "offer" : "need"]}</svg>`;
+          pin.addEventListener("pointerdown", (event) => event.stopPropagation());
+          pin.addEventListener("mousedown", (event) => event.stopPropagation());
+          pin.addEventListener("touchstart", (event) => event.stopPropagation(), { passive: true });
+          pin.addEventListener("click", (event) => {
+            event.stopPropagation();
+            const deselecting = selectedId === post.id;
+            selectedId = deselecting ? null : post.id;
+            routesVisible = !deselecting;
+            requestAnimationFrame(render);
+          });
+          const marker = new window.AMap.Marker({ map, position: coordinates(post.locationPoint), title: post.title, content: pin, anchor: "bottom-center", bubble: false, draggable: false, zIndex: 110 });
+          return { marker, pin, post };
         });
-        return marker;
-      });
+        markerKey = nextMarkerKey;
+      }
+      for (const { marker, pin, post } of markers) {
+        const isSelected = post.id === selectedId;
+        pin.classList.toggle("is-selected", isSelected);
+        pin.querySelector(".real-task-callout")?.remove();
+        if (isSelected) pin.insertAdjacentHTML("afterbegin", `<div class="real-task-callout"><span>${post.demoMap ? "随机演示 · " : ""}${post.type === "offer" ? "愿意分享" : "想去体验"}</span><strong>${escapeHtml(post.title)}</strong><small>${escapeHtml(mapLocation(post))}</small></div>`);
+        marker.setzIndex?.(isSelected ? 120 : 110);
+      }
     }
     $("#realMissionList").innerHTML = posts.filter((post) => post.id !== selectedId).map((post) => `<button type="button" data-real-post="${escapeHtml(post.id)}"><strong>${escapeHtml(post.title)}</strong><span>${post.demoMap ? "演示 · " : ""}${escapeHtml(post.name || "我")} · ${escapeHtml(mapLocation(post))}</span></button>`).join("");
     if (!selected) {
@@ -297,7 +330,7 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
     $("#realMapStatus").textContent = "正在查看随机演示任务；这些标记不是实际约见点。";
   });
   $("#realPublishButton").addEventListener("click", openCreate);
-  $("#realMissionList").addEventListener("click", (event) => { const button = event.target.closest("[data-real-post]"); if (button) { selectedId = button.dataset.realPost; const post = mappedPosts().find((item) => item.id === selectedId); if (post && map) { map.setZoom(16); map.setCenter(coordinates(post.locationPoint)); $("#realMapArea").textContent = post.demoMap ? "学军紫金港附近 · 演示区域" : "正在查看任务位置"; } render(); } });
+  $("#realMissionList").addEventListener("click", (event) => { const button = event.target.closest("[data-real-post]"); if (button) { selectedId = button.dataset.realPost; routesVisible = true; const post = mappedPosts().find((item) => item.id === selectedId); if (post && map) { map.setZoom(16); map.setCenter(coordinates(post.locationPoint)); $("#realMapArea").textContent = post.demoMap ? "学军紫金港附近 · 演示区域" : "正在查看任务位置"; } render(); } });
   async function searchPlaces(query, output, status, isCurrent) {
     if (!isCurrent()) return null;
     if (!config.servicesEnabled) { status.textContent = "地点搜索需配置高德 Web 服务 Key；仍可直接在地图上选点。"; return null; }

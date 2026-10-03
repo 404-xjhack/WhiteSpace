@@ -82,6 +82,12 @@ try {
   if (config.servicesEnabled) {
     await until("document.querySelector('#realRouteSummary')?.dataset.state === 'ready'", "最近步行路线出现在地图");
     assert.match(await evaluate("document.querySelector('#realRouteSummary').textContent"), /绿色最近路线.*随机生成/);
+    const routeButton = await evaluate("(() => { const r=document.querySelector('#realRouteToggle').getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height/2}; })()");
+    for (const state of ["hidden", "ready"]) {
+      await send("Input.dispatchMouseEvent", { type: "mousePressed", ...routeButton, button: "left", buttons: 1, clickCount: 1 });
+      await send("Input.dispatchMouseEvent", { type: "mouseReleased", ...routeButton, button: "left", buttons: 0, clickCount: 1 });
+      await until(`document.querySelector('#realRouteSummary').dataset.state === '${state}'`, `地图内路线按钮切换到 ${state}`);
+    }
   }
   await pause(300);
   assert.match(await evaluate("document.querySelector('#realMapArea').textContent"), /已定位到你的附近/);
@@ -150,6 +156,17 @@ try {
   await still(clickedPin, "点击任务点后移动鼠标");
   await until("document.querySelector('#realMapCanvas .real-task-marker.is-selected .real-task-callout strong')", "真实地图选中标记气泡");
   assert.equal(await evaluate("document.querySelector('#realMapCanvas .real-task-callout strong').textContent"), "一起整理街区故事");
+  for (const [selected, label] of [[false, "再次点击关闭任务"], [true, "再次点击打开任务"]]) {
+    const markerBox = await evaluate("(() => { const r=document.querySelector('#realMapCanvas .real-task-marker[data-post-id=\"mine-live-smoke\"]').getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height*0.4}; })()");
+    await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: markerBox.x, y: markerBox.y, buttons: 0 });
+    await send("Input.dispatchMouseEvent", { type: "mousePressed", x: markerBox.x, y: markerBox.y, button: "left", buttons: 1, clickCount: 1 });
+    await send("Input.dispatchMouseEvent", { type: "mouseReleased", x: markerBox.x, y: markerBox.y, button: "left", buttons: 0, clickCount: 1 });
+    await until(selected ? "document.querySelector('#realMissionDetail h4')?.textContent === '一起整理街区故事'" : "document.querySelector('#realMissionDetail h4') === null", label);
+    if (!selected) assert.equal(await evaluate("document.querySelector('#realRouteSummary').dataset.state"), "hidden", "关闭任务时最近路线也应消失");
+    const beforeMove = await markerAt();
+    await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: markerBox.x + 46, y: markerBox.y + 24, buttons: 0 });
+    await still(beforeMove, `${label}后空手移动鼠标`);
+  }
   await pause(900);
   const taskShot = await send("Page.captureScreenshot", { format: "png" });
   await writeFile(path.join(root, ".tmp", "real-map-live-task.png"), Buffer.from(taskShot.data, "base64"));

@@ -90,6 +90,8 @@ html.modal-open,html.modal-open body{overflow:hidden}
 .real-map-toolbar>div:first-child{display:flex;flex-direction:column;gap:3px}.real-map-toolbar strong{font-size:13px}.real-map-toolbar span{font-size:11px;color:#526359}.real-map-toolbar>div:last-child{display:flex;gap:7px;flex-wrap:wrap}.real-map-toolbar button{min-height:36px;padding:0 10px;font-size:11px}
 .real-map-canvas{height:510px;min-height:360px;background:#e8efe4;border:1px solid #cbd9cc;border-radius:14px;overflow:hidden;position:relative}
 .real-map-canvas.has-demo-posts::after{content:"内置任务 · 随机示意点";position:absolute;top:11px;right:11px;z-index:5;pointer-events:none;padding:6px 9px;border-radius:6px;background:#fff;color:#6b5a3c;box-shadow:0 3px 10px rgba(31,50,38,.16);font-size:11px;font-weight:700}
+.real-map-route-toggle{position:absolute;top:11px;left:11px;z-index:6;min-height:34px;border:0;border-radius:8px;padding:0 11px;background:#fff;color:#1e5e49;box-shadow:0 3px 10px rgba(31,50,38,.16);font-size:12px;font-weight:700}
+.real-map-route-toggle:hover,.real-map-route-toggle:focus-visible{background:#edf5ec}
 .real-map-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:20px;background:#eff4eb;color:#365842}.real-map-empty strong{font-size:17px;margin-bottom:8px}.real-map-empty p{font-size:12px;line-height:1.7;max-width:35ch;margin:0}
 .real-retry-button{margin-top:14px;min-height:38px}.real-jump-mission{display:none}
 .real-map-status{font-size:11px;line-height:1.6;color:#526359;margin:9px 2px 0}
@@ -98,6 +100,7 @@ html.modal-open,html.modal-open body{overflow:hidden}
 .real-mission-panel .real-route-summary{display:flex;align-items:flex-start;gap:9px;margin:0 0 15px;padding:11px 12px;border-radius:10px;background:#f0f5ef;color:#315241;font-size:11px;line-height:1.6}
 .real-route-summary::before{content:"";display:block;flex:none;width:24px;height:0;margin-top:8px;border-top:5px solid #28735a;border-radius:5px}
 .real-route-summary:not([data-state="ready"])::before{border-color:#82958a}
+.real-route-summary>span{flex:1;min-width:0;overflow-wrap:anywhere}
 .real-mission-panel #realRouteStatus{color:#24674f;font-weight:600}
 .real-map-safety{border-top:1px solid var(--line);padding-top:12px;margin:17px 0 0!important;font-size:10px!important}
 .map-location-field{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:-8px 0 18px}.map-location-field p{font-size:12px;color:#526359;line-height:1.5;margin:0;flex:1 1 180px}.map-location-field button{min-height:36px;font-size:12px}
