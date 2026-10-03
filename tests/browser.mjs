@@ -488,7 +488,7 @@ try {
       return originalFetch(url, options);
     };
     class FakeLngLat { constructor(lng, lat) { this.lng=lng; this.lat=lat; } getLng() { return this.lng; } getLat() { return this.lat; } }
-    class FakeMap { constructor(id, opts={}) { this.events={}; this.center=opts.center || [120.067,30.297]; this.zoom=opts.zoom; document.getElementById(id).dataset.fakeMap='ready'; window.__maps.push(this); } on(name, fn) { this.events[name]=fn; } emit(name, data) { this.events[name]?.(data); } resize() {} setCenter(point) { this.center=point; } setZoom(zoom) { this.zoom=zoom; } getCenter() { return new FakeLngLat(...this.center); } }
+    class FakeMap { constructor(id, opts={}) { this.events={}; this.options=opts; this.center=opts.center || [120.067,30.297]; this.zoom=opts.zoom; document.getElementById(id).dataset.fakeMap='ready'; window.__maps.push(this); } on(name, fn) { this.events[name]=fn; } emit(name, data) { this.events[name]?.(data); } resize() {} setCenter(point) { this.center=point; } setZoom(zoom) { this.zoom=zoom; } getCenter() { return new FakeLngLat(...this.center); } }
     class FakeMarker { constructor(opts) { this.position=opts.position; this.title=opts.title; this.events={}; window.__markers.push(this); } on(name, fn) { this.events[name]=fn; } emit(name, data) { this.events[name]?.(data); } setMap() {} setPosition(point) { this.position=point; } getPosition() { return new FakeLngLat(...this.position); } }
     class FakePolyline { constructor(opts) { this.path=opts.path; window.__polylines.push(this); } setMap() {} }
     window.AMap={Map:FakeMap,Marker:FakeMarker,Polyline:FakePolyline,LngLat:FakeLngLat,convertFrom:(point,_kind,callback)=>callback('complete',{locations:[new FakeLngLat(point[0]+.0005,point[1]+.0005)]})};
@@ -498,6 +498,9 @@ try {
   await until("document.querySelectorAll('.post-card').length === 6 && !document.querySelector('#mapLocationOption').disabled");
   await click("#mapToggle");
   await until("document.querySelector('#realMapCanvas').dataset.fakeMap === 'ready' && /已定位/.test(document.querySelector('#realMapArea').textContent)");
+  assert.equal(await evaluate("window.__maps[0].zoom"), 16);
+  assert.equal(await evaluate("window.__maps[0].options.jogEnable"), false);
+  assert.equal(await evaluate("window.__maps[0].options.animateEnable"), false);
   assert.equal(await evaluate("document.querySelector('#demoMapLayout')"), null);
   assert.match(await evaluate("document.querySelector('#realMissionDetail').textContent"), /暂时没有/);
   await set("#mapAreaSearch", "文化中心"); await click('#mapAreaSearchForm button[type="submit"]');
@@ -511,6 +514,7 @@ try {
   await set("#timeMode", "weekly"); await set("#postWeekday", "6"); await set("#postStart", "14:00"); await set("#postEnd", "15:00");
   await set("#postLocation", "map"); await click("#openLocationPicker");
   await until("document.querySelector('#locationPickerDialog').open && document.querySelector('#locationPickerCanvas').dataset.fakeMap === 'ready'");
+  assert.equal(await evaluate("window.__maps[1].options.jogEnable"), false);
   await set("#locationSearch", "文化中心"); await click('#locationSearchForm button[type="submit"]');
   await until("document.querySelectorAll('#locationSearchResults [data-poi-index]').length === 1");
   await click('#locationSearchResults [data-poi-index="0"]');

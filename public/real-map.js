@@ -85,8 +85,15 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
       const position = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }));
       const point = await gpsToMap({ lng: position.coords.longitude, lat: position.coords.latitude });
       if (requestVersion !== selectionVersion) return;
-      map.setZoom(15);
-      map.setCenter(coordinates(point));
+      const longitudeScale = Math.cos(point.lat * Math.PI / 180);
+      const nearest = mappedPosts().map((post) => normalizeLocationPoint(post.locationPoint)).filter(Boolean)
+        .map((target) => ({ target, distance: Math.hypot((target.lng - point.lng) * longitudeScale, target.lat - point.lat) }))
+        .sort((left, right) => left.distance - right.distance)[0];
+      const center = nearest?.distance < 0.0025
+        ? [(point.lng + nearest.target.lng) / 2, (point.lat + nearest.target.lat) / 2]
+        : coordinates(point);
+      map.setZoom(16);
+      map.setCenter(center);
       setStart(point, "geo");
     } catch (error) {
       if (requestVersion !== selectionVersion) return;
@@ -108,7 +115,7 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
       const AMap = await loadAMap(config.key);
       if (!map) {
         $("#realMapCanvas").replaceChildren();
-        map = new AMap.Map("realMapCanvas", { zoom: 10, viewMode: "2D" });
+        map = new AMap.Map("realMapCanvas", { zoom: 15, viewMode: "2D", jogEnable: false, animateEnable: false });
         map.on("click", (event) => {
           setStart({ lng: event.lnglat.getLng(), lat: event.lnglat.getLat() });
         });
@@ -163,7 +170,7 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
         marker.on("click", (event) => {
           event?.originEvent?.stopPropagation?.();
           selectedId = selectedId === post.id ? null : post.id;
-          render();
+          requestAnimationFrame(render);
         });
         return marker;
       });
@@ -214,7 +221,7 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
       const AMap = await loadAMap(config.key);
       if (!pickerMap) {
         const initial = startPoint || (map ? normalizeLocationPoint({ lng: map.getCenter().getLng(), lat: map.getCenter().getLat() }) : null);
-        pickerMap = new AMap.Map("locationPickerCanvas", { zoom: initial ? 16 : 10, ...(initial ? { center: coordinates(initial) } : {}), viewMode: "2D" });
+        pickerMap = new AMap.Map("locationPickerCanvas", { zoom: initial ? 16 : 15, ...(initial ? { center: coordinates(initial) } : {}), viewMode: "2D", jogEnable: false, animateEnable: false });
         pickerMap.on("click", (event) => { setPickerPoint({ lng: event.lnglat.getLng(), lat: event.lnglat.getLat() }); $("#mapLocationName").value = ""; });
       } else pickerMap.resize();
       const prior = normalizeLocationPoint({ lng: $("#locationLng").value, lat: $("#locationLat").value });
