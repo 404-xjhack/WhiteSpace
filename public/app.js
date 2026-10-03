@@ -1,6 +1,7 @@
 import { cleanCategory, postTags, validateDraft, validateSchedule, normalizeSchedule, formatSchedule, displayTime, formatPublished, matchPost, matchFingerprint, MATCH_VERSION, LEGACY_OFFER_NEED, needExtractionInput, needExtractionKey, validExtractedNeed, hasAINeed } from "./model.js";
 import { MATERIALS, TIME_PREFERENCES, DEFAULT_CRITERIA, normalizeCriteria, criteriaKey, localRecommendations, validRecommendationData, restoreTodayState } from "./experience-planner.js";
 import { createTimeCapsuleUI } from "./time-capsule-ui.js";
+import { CAPSULE_STORAGE_KEY } from "./time-capsules.js";
 
 const $ = (selector) => document.querySelector(selector);
 const postList = $("#postList");
@@ -654,9 +655,12 @@ $("#resetDemo").addEventListener("click", () => {
   displayedMatchData = null; displayedMatches = []; matchesExpanded = false;
   for (const [key, value] of [[storagePosts, []], [storageInterest, []], [storageProfile, {}], [storageMatches, matchState]]) save(key, value);
   try { localStorage.removeItem(storageDumpling); } catch { showToast("浏览器暂时无法保存，当前页面仍可继续体验。"); }
+  let capsulesCleared = true;
+  try { localStorage.removeItem(CAPSULE_STORAGE_KEY); } catch { capsulesCleared = false; }
   experienceFrame?.contentWindow.postMessage({ version: 1, experienceId: "dumpling-house", type: "reset" }, location.origin);
   $("#searchInput").value = ""; $("#matchResults").hidden = true; $("#matchLoading").hidden = true; $("#matchWelcome").hidden = false;
-  setFilter("all"); window.scrollTo({ top: 0, behavior: "smooth" }); showToast("演示内容、资料、匹配记录和饺子工坊进度已重置。");
+  setFilter("all"); window.scrollTo({ top: 0, behavior: "smooth" });
+  showToast(capsulesCleared ? "演示内容、资料、匹配记录、饺子工坊进度和时间胶囊已重置。" : "时间胶囊未能清空，浏览器可能不允许本地存储，请重试。");
 });
 function publishDraft(data, nextProfile) {
   const post = { ...data, id: `mine-${crypto.randomUUID()}`, name: "我", avatar: "我", color: "self", createdAt: new Date().toISOString() };

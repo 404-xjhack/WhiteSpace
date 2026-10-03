@@ -219,6 +219,31 @@ try {
   assert.equal(await evaluate("document.querySelector('#capsuleHistoryError').hidden"), false);
   await evaluate("Storage.prototype.getItem=window.__getItem");
   passed("Standalone history/editor also work; corrupt and disabled storage show clear errors, preserve drafts and never overwrite history; readable entries remain accessible");
+
+  await cdp.send("Page.navigate", { url: app.url }); await until("document.querySelectorAll('.post-card').length===6");
+  const historyBeforeReset = JSON.stringify([first, second]);
+  await evaluate(`localStorage.setItem(${JSON.stringify(CAPSULE_STORAGE_KEY)},${JSON.stringify(historyBeforeReset)});window.__removeItem=Storage.prototype.removeItem;Storage.prototype.removeItem=function(key){if(key===${JSON.stringify(CAPSULE_STORAGE_KEY)})throw new DOMException('Disabled','SecurityError');return window.__removeItem.call(this,key)}`);
+  await click("#resetDemo");
+  assert.equal(await evaluate(`localStorage.getItem(${JSON.stringify(CAPSULE_STORAGE_KEY)})`), historyBeforeReset);
+  assert.match(await evaluate("document.querySelector('#toast').textContent"), /时间胶囊未能清空/);
+  await click("#openCapsuleHistory"); assert.equal(await evaluate("document.querySelectorAll('.capsule-list-item').length"), 2);
+  await click("#capsuleHistory [data-capsule-close]");
+  await evaluate("Storage.prototype.removeItem=window.__removeItem");
+  await click("#resetDemo"); assert.equal(await stored(), null);
+  assert.match(await evaluate("document.querySelector('#toast').textContent"), /时间胶囊已重置/);
+  await click("#openCapsuleHistory");
+  assert.equal(await evaluate("document.querySelectorAll('.capsule-list-item').length"), 0);
+  assert.equal(await evaluate("document.querySelector('#capsuleEmpty').hidden"), false);
+  await cdp.send("Page.reload"); await until("document.querySelectorAll('.post-card').length===6");
+  await click("#openCapsuleHistory"); assert.equal(await stored(), null);
+  assert.equal(await evaluate("document.querySelector('#capsuleEmpty').hidden"), false);
+  await click("#capsuleHistory [data-capsule-close]");
+  await evaluate(`localStorage.setItem(${JSON.stringify(CAPSULE_STORAGE_KEY)},'{broken')`);
+  await click("#resetDemo"); await click("#openCapsuleHistory");
+  assert.equal(await stored(), null);
+  assert.equal(await evaluate("document.querySelector('#capsuleHistoryError').hidden"), true);
+  assert.equal(await evaluate("document.querySelector('#capsuleEmpty').hidden"), false);
+  passed("Homepage reset clears capsules immediately and after reload, including corrupt history; a denied clear preserves records and reports failure until retry");
   assert.deepEqual(errors, [], "No uncaught browser exceptions");
   console.log(`Capsule browser checks passed: ${checks.length}; download: ${path.join(downloads, downloaded)}`);
 } catch (error) {
