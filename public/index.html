@@ -4,10 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#f8f8f4" />
-    <meta name="description" content="说出你想做什么，留白用 AI 推荐合适的协作伙伴，让社区里的兴趣、技能与需求互相发现。当前为使用示例人物的附近协作原型，发布与参与意向仅保存在本机。" />
+    <meta
+      name="description"
+      content="说出你想做什么，留白用 AI 推荐合适的协作伙伴，让社区里的兴趣、技能与需求互相发现。当前为使用示例人物的附近协作原型，发布与参与意向仅保存在本机。"
+    />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="留白 WhiteSpace · 找到附近一起做事的人" />
-    <meta property="og:description" content="想做一件事，找到一起做的人。留白从具体需求出发，让附近的活动、互助和协作更容易开始。当前为示例人物演示，参与意向仅保存在本机。" />
+    <meta
+      property="og:title"
+      content="留白 WhiteSpace · 找到附近一起做事的人"
+    />
+    <meta
+      property="og:description"
+      content="想做一件事，找到一起做的人。留白从具体需求出发，让附近的活动、互助和协作更容易开始。当前为示例人物演示，参与意向仅保存在本机。"
+    />
     <title>留白 WhiteSpace · 找到附近一起做事的人</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <script src="/theme.js"></script>
@@ -28,16 +37,52 @@
     <header class="site-header">
       <div class="header-inner">
         <a class="brand" href="/" aria-label="留白 WhiteSpace 首页">
-          <img class="brand-mark" src="/favicon.svg" alt="" aria-hidden="true" />
-          <span class="brand-text"><strong>留白</strong><small>WhiteSpace</small></span>
+          <img
+            class="brand-mark"
+            src="/favicon.svg"
+            alt=""
+            aria-hidden="true"
+          />
+          <span class="brand-text"
+            ><strong>留白</strong><small>WhiteSpace</small></span
+          >
         </a>
-        <div class="header-location"><span class="demo-badge">附近协作原型 · 示例人物</span></div>
-        <label class="theme-control" data-theme-control><span>外观</span><select data-theme-select aria-label="外观主题"><option value="light">浅色</option><option value="dark">深色</option><option value="system" selected>跟随系统</option></select></label>
+        <div class="header-location">
+          <span class="demo-badge">附近协作原型 · 示例人物</span>
+        </div>
+        <label class="theme-control" data-theme-control
+          ><span>外观</span
+          ><select data-theme-select aria-label="外观主题">
+            <option value="light">浅色</option>
+            <option value="dark">深色</option>
+            <option value="system" selected>跟随系统</option>
+          </select></label
+        >
         <nav class="header-actions" aria-label="主导航">
-          <button class="header-link map-nav-button" id="mapToggle" type="button" aria-controls="neighborhoodMap" aria-expanded="false">街区地图</button>
-          <button class="header-link capsule-history-entry" id="openCapsuleHistory" type="button">时间胶囊</button>
-          <button class="header-link" id="myPostsButton" type="button">我的发布 <span id="myPostCount" hidden>0</span></button>
-          <button class="primary-button" id="openCreateTop" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>发布想法</button>
+          <button
+            class="header-link map-nav-button"
+            id="mapToggle"
+            type="button"
+            aria-controls="neighborhoodMap"
+            aria-expanded="false"
+          >
+            街区地图
+          </button>
+          <button
+            class="header-link capsule-history-entry"
+            id="openCapsuleHistory"
+            type="button"
+          >
+            时间胶囊
+          </button>
+          <button class="header-link" id="myPostsButton" type="button">
+            我的发布 <span id="myPostCount" hidden>0</span>
+          </button>
+          <button class="primary-button" id="openCreateTop" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" /></svg
+            >发布想法
+          </button>
         </nav>
       </div>
     </header>
@@ -45,188 +90,1080 @@
     <main class="page-shell">
       <section class="page-intro" aria-labelledby="pageTitle">
         <div>
-          <h1 id="pageTitle">想做一件事，找到一起做的人。</h1>
-          <p>说出你想做什么，AI 帮你寻找合适的伙伴，让附近的活动、互助和协作更容易开始。</p>
-          <div class="intro-context"><span>演示使用内置资料；发布与参与意向仅保存在本机。</span><a href="#why-whitespace">了解留白 <span aria-hidden="true">↓</span></a></div>
+          <h1 id="pageTitle">让每一份价值需求，都被最近的善意接住。</h1>
+          <p>
+            说出你想做什么，AI
+            帮你寻找合适的伙伴，让附近的活动、互助和协作更容易开始。
+          </p>
+          <div class="intro-context">
+            <span>演示使用内置资料；发布与参与意向仅保存在本机。</span
+            ><a href="#why-whitespace"
+              >了解留白 <span aria-hidden="true">↓</span></a
+            >
+          </div>
         </div>
-        <button class="secondary-button today-entry" id="openToday" type="button">今天想参与什么？<span aria-hidden="true">→</span></button>
+        <button
+          class="secondary-button today-entry"
+          id="openToday"
+          type="button"
+        >
+          今天想参与什么？<span aria-hidden="true">→</span>
+        </button>
       </section>
 
-      <section id="neighborhoodMap" class="neighborhood-section" aria-labelledby="neighborhoodTitle" hidden>
+      <section
+        id="neighborhoodMap"
+        class="neighborhood-section"
+        aria-labelledby="neighborhoodTitle"
+        hidden
+      >
         <div class="neighborhood-heading">
-          <div><h2 id="neighborhoodTitle">看看街区里有哪些事</h2><p>定位或选定一个出发点，寻找可以一起做的事。</p></div>
+          <div>
+            <h2 id="neighborhoodTitle">看看街区里有哪些事</h2>
+            <p>定位或选定一个出发点，寻找可以一起做的事。</p>
+          </div>
           <span class="map-demo-label">真实底图 · 发布仅保存在本机</span>
         </div>
         <div id="realMapLayout" class="real-map-layout">
           <div class="real-map-column">
-            <div class="real-map-toolbar"><div><strong id="realMapArea">定位后查看身边的事</strong><span>点击地图空白处，可随时更换出发点</span></div><div><button id="realLocateButton" class="secondary-button" type="button">我的定位</button><button id="realDemoAreaButton" class="secondary-button" type="button">初始街区</button><button id="realPublishButton" class="primary-button" type="button">发布附近的事</button></div></div>
-            <div class="place-search-shell real-map-search"><form id="mapAreaSearchForm" class="location-search-form"><label class="sr-only" for="mapAreaSearch">搜索要查看的街区</label><input id="mapAreaSearch" type="search" placeholder="搜索城市、街区或公共地点" maxlength="60" /><button class="secondary-button" type="submit">搜索区域</button></form><div id="mapAreaSearchResults" class="place-results" aria-live="polite" hidden></div></div>
-            <div id="realMapCanvas" class="real-map-canvas" aria-label="高德真实地图"></div>
-            <button id="realJumpMission" class="real-jump-mission" type="button">查看任务与下一步 ↓</button>
-            <p id="realMapStatus" class="real-map-status" role="status">正在准备真实地图…</p>
+            <div class="real-map-toolbar">
+              <div>
+                <strong id="realMapArea">定位后查看身边的事</strong
+                ><span>点击地图空白处，可随时更换出发点</span>
+              </div>
+              <div>
+                <button
+                  id="realLocateButton"
+                  class="secondary-button"
+                  type="button"
+                >
+                  我的定位</button
+                ><button
+                  id="realDemoAreaButton"
+                  class="secondary-button"
+                  type="button"
+                >
+                  初始街区</button
+                ><button
+                  id="realPublishButton"
+                  class="primary-button"
+                  type="button"
+                >
+                  发布附近的事
+                </button>
+              </div>
+            </div>
+            <div class="place-search-shell real-map-search">
+              <form id="mapAreaSearchForm" class="location-search-form">
+                <label class="sr-only" for="mapAreaSearch"
+                  >搜索要查看的街区</label
+                ><input
+                  id="mapAreaSearch"
+                  type="search"
+                  placeholder="搜索城市、街区或公共地点"
+                  maxlength="60"
+                /><button class="secondary-button" type="submit">
+                  搜索区域
+                </button>
+              </form>
+              <div
+                id="mapAreaSearchResults"
+                class="place-results"
+                aria-live="polite"
+                hidden
+              ></div>
+            </div>
+            <div
+              id="realMapCanvas"
+              class="real-map-canvas"
+              aria-label="高德真实地图"
+            ></div>
+            <button
+              id="realJumpMission"
+              class="real-jump-mission"
+              type="button"
+            >
+              查看任务与下一步 ↓
+            </button>
+            <p id="realMapStatus" class="real-map-status" role="status">
+              正在准备真实地图…
+            </p>
           </div>
-          <aside class="real-mission-panel" aria-labelledby="realMissionTitle"><h3 id="realMissionTitle">地图上的可参与事项</h3><p class="real-demo-notice">内置任务是虚构演示，位置随机，并非真实约见点。</p><div id="realMissionDetail"></div><div id="realMissionList" class="real-mission-list"></div><p class="real-map-safety">集合点由发布者确认；请勿选择家庭住址或私人地址。出发点不会保存，当前发布和参与意向仅保存在这台设备。</p></aside>
+          <aside class="real-mission-panel" aria-labelledby="realMissionTitle">
+            <h3 id="realMissionTitle">地图上的可参与事项</h3>
+            <p class="real-demo-notice">
+              内置任务是虚构演示，位置随机，并非真实约见点。
+            </p>
+            <div id="realMissionDetail"></div>
+            <div id="realMissionList" class="real-mission-list"></div>
+            <p class="real-map-safety">
+              集合点由发布者确认；请勿选择家庭住址或私人地址。出发点不会保存，当前发布和参与意向仅保存在这台设备。
+            </p>
+          </aside>
         </div>
       </section>
 
       <div class="main-grid">
         <section class="feed-section" aria-labelledby="feedTitle">
-          <div class="section-heading"><div><h2 id="feedTitle">看看有哪些事可以一起做</h2><p>有人想找个伴，有人愿意分享经验，也有人需要搭把手。</p></div><span id="resultCount" class="result-count"></span></div>
+          <div class="section-heading">
+            <div>
+              <h2 id="feedTitle">看看有哪些事可以一起做</h2>
+              <p>有人想找个伴，有人愿意分享经验，也有人需要搭把手。</p>
+            </div>
+            <span id="resultCount" class="result-count"></span>
+          </div>
           <div class="feed-controls">
-            <label class="search-field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><span class="sr-only">搜索想法、技能或地点</span><input id="searchInput" type="search" placeholder="搜索想做的事、技能或地点" autocomplete="off" /></label>
-            <div class="filter-row" role="group" aria-label="筛选发布类型"><button class="filter-chip is-active" data-filter="all" type="button" aria-pressed="true">全部</button><button class="filter-chip" data-filter="need" type="button" aria-pressed="false">找人一起做</button><button class="filter-chip" data-filter="offer" type="button" aria-pressed="false">可以分享或帮忙</button><button class="filter-chip" data-filter="mine" type="button" aria-pressed="false">我的发布</button></div>
+            <label class="search-field"
+              ><svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="10.8" cy="10.8" r="6.5" />
+                <path d="m16 16 4.5 4.5" /></svg
+              ><span class="sr-only">搜索想法、技能或地点</span
+              ><input
+                id="searchInput"
+                type="search"
+                placeholder="搜索想做的事、技能或地点"
+                autocomplete="off"
+            /></label>
+            <div class="filter-row" role="group" aria-label="筛选发布类型">
+              <button
+                class="filter-chip is-active"
+                data-filter="all"
+                type="button"
+                aria-pressed="true"
+              >
+                全部</button
+              ><button
+                class="filter-chip"
+                data-filter="need"
+                type="button"
+                aria-pressed="false"
+              >
+                找人一起做</button
+              ><button
+                class="filter-chip"
+                data-filter="offer"
+                type="button"
+                aria-pressed="false"
+              >
+                可以分享或帮忙</button
+              ><button
+                class="filter-chip"
+                data-filter="mine"
+                type="button"
+                aria-pressed="false"
+              >
+                我的发布
+              </button>
+            </div>
           </div>
           <div id="postList" class="post-list" aria-live="polite"></div>
-          <div id="emptyState" class="empty-state" hidden><div class="empty-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M7 13h34v25H7zM14 20h20M14 27h14"/></svg></div><h3>暂时没有找到相关发布</h3><p>换个关键词，或者说说你想做什么。</p><button class="secondary-button" id="emptyCreate" type="button">发布我的想法</button></div>
-          <p class="data-note">内置人物与活动均为虚构示例；参与意向不会发送给真实用户。<button type="button" id="resetDemo" class="reset-link">重置演示</button></p>
+          <div id="emptyState" class="empty-state" hidden>
+            <div class="empty-icon" aria-hidden="true">
+              <svg viewBox="0 0 48 48">
+                <path d="M7 13h34v25H7zM14 20h20M14 27h14" />
+              </svg>
+            </div>
+            <h3>暂时没有找到相关发布</h3>
+            <p>换个关键词，或者说说你想做什么。</p>
+            <button class="secondary-button" id="emptyCreate" type="button">
+              发布我的想法
+            </button>
+          </div>
+          <p class="data-note">
+            内置人物与活动均为虚构示例；参与意向不会发送给真实用户。<button
+              type="button"
+              id="resetDemo"
+              class="reset-link"
+            >
+              重置演示
+            </button>
+          </p>
         </section>
 
         <aside class="match-column" aria-labelledby="matchTitle">
           <div class="match-panel" id="matchPanel">
-            <div class="match-panel-heading"><span class="match-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 12h5l3-7 3 14 3-7h2"/></svg></span><div><h2 id="matchTitle">找到一起做事的伙伴</h2><p>从你的需求与对方能带来的帮助出发</p></div></div>
-            <div id="matchWelcome" class="match-welcome"><div class="welcome-people" aria-hidden="true"><span>我</span><i></i><span>你</span></div><h3>找一个现在能一起<br />把这件事做起来的人。</h3><p>点击右上角“发布想法”，说说想做什么、需要什么帮助，或你可以带来什么。我们会从示例资料中推荐伙伴，说明理由并给出第一步。已有内容可从“我的发布”详情继续匹配。</p></div>
-            <div id="matchLoading" class="match-loading" hidden><div class="skeleton-line wide"></div><div class="skeleton-line"></div><div class="skeleton-card"></div><div class="skeleton-card"></div><p>正在比较需求与帮助，寻找伙伴并整理第一步…</p></div>
-            <div id="matchResults" class="match-results" hidden><div class="match-context"><span>根据你的发布</span><strong id="matchingPostTitle"></strong><p id="matchingPostConditions" class="match-conditions"></p><div class="match-context-actions"><button id="rerunMatch" type="button">重新匹配</button><button id="editMatchTime" type="button">调整活动时间</button></div></div><div class="match-source"><span id="matchSource"></span><small id="matchSourceDetail"></small></div><button id="moreMatches" class="ghost-button full" type="button" aria-expanded="false" aria-controls="matchList" hidden>展开其他候选</button><div id="matchList" class="match-list"></div><p id="matchDiagnostics" class="match-diagnostics" hidden></p></div>
+            <div class="match-panel-heading">
+              <span class="match-symbol" aria-hidden="true"
+                ><svg viewBox="0 0 24 24">
+                  <path d="M4 12h5l3-7 3 14 3-7h2" /></svg
+              ></span>
+              <div>
+                <h2 id="matchTitle">找到一起做事的伙伴</h2>
+                <p>从你的需求与对方能带来的帮助出发</p>
+              </div>
+            </div>
+            <div id="matchWelcome" class="match-welcome">
+              <div class="welcome-people" aria-hidden="true">
+                <span>我</span><i></i><span>你</span>
+              </div>
+              <h3>找一个现在能一起<br />把这件事做起来的人。</h3>
+              <p>
+                点击右上角“发布想法”，说说想做什么、需要什么帮助，或你可以带来什么。我们会从示例资料中推荐伙伴，说明理由并给出第一步。已有内容可从“我的发布”详情继续匹配。
+              </p>
+            </div>
+            <div id="matchLoading" class="match-loading" hidden>
+              <div class="skeleton-line wide"></div>
+              <div class="skeleton-line"></div>
+              <div class="skeleton-card"></div>
+              <div class="skeleton-card"></div>
+              <p>正在比较需求与帮助，寻找伙伴并整理第一步…</p>
+            </div>
+            <div id="matchResults" class="match-results" hidden>
+              <div class="match-context">
+                <span>根据你的发布</span
+                ><strong id="matchingPostTitle"></strong>
+                <p id="matchingPostConditions" class="match-conditions"></p>
+                <div class="match-context-actions">
+                  <button id="rerunMatch" type="button">重新匹配</button
+                  ><button id="editMatchTime" type="button">
+                    调整活动时间
+                  </button>
+                </div>
+              </div>
+              <div class="match-source">
+                <span id="matchSource"></span
+                ><small id="matchSourceDetail"></small>
+              </div>
+              <button
+                id="moreMatches"
+                class="ghost-button full"
+                type="button"
+                aria-expanded="false"
+                aria-controls="matchList"
+                hidden
+              >
+                展开其他候选
+              </button>
+              <div id="matchList" class="match-list"></div>
+              <p id="matchDiagnostics" class="match-diagnostics" hidden></p>
+            </div>
           </div>
-          <div class="safety-note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v5c0 5 3.2 8.5 8 10 4.8-1.5 8-5 8-10V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg><div><strong>线下见面，从公共空间开始</strong><p>原型中的“参与”只模拟表达意向。真实产品上线前会加入双方同意、身份与活动安全机制。</p></div></div>
+          <div class="safety-note">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3 4 6v5c0 5 3.2 8.5 8 10 4.8-1.5 8-5 8-10V6l-8-3Z" />
+              <path d="m9 12 2 2 4-4" />
+            </svg>
+            <div>
+              <strong>线下见面，从公共空间开始</strong>
+              <p>
+                原型中的“参与”只模拟表达意向。真实产品上线前会加入双方同意、身份与活动安全机制。
+              </p>
+            </div>
+          </div>
         </aside>
       </div>
     </main>
 
-    <section class="product-story" id="why-whitespace" aria-labelledby="storyTitle">
+    <section
+      class="product-story"
+      id="why-whitespace"
+      aria-labelledby="storyTitle"
+    >
       <div class="story-problem">
         <p class="story-label">为什么做留白</p>
         <h2 id="storyTitle">想法有了，一起做的人在哪里？</h2>
-        <p>想学摄影、修好一把旧椅子，或找人周末一起走走。发到群里，等人看到，再一个个沟通时间、地点和能做什么。有时事情还没开始，想法就搁下了。</p>
-        <p>身边有需要，也有愿意帮忙的人，却很难互相发现。我们重构的，是“找人一起做一件事”这件再普通不过的事情。</p>
+        <p>
+          想学摄影、修好一把旧椅子，或找人周末一起走走。发到群里，等人看到，再一个个沟通时间、地点和能做什么。有时事情还没开始，想法就搁下了。
+        </p>
+        <p>
+          身边有需要，也有愿意帮忙的人，却很难互相发现。我们重构的，是“找人一起做一件事”这件再普通不过的事情。
+        </p>
       </div>
       <div class="story-method" aria-labelledby="methodTitle">
         <h2 id="methodTitle">从一件具体的事开始。</h2>
         <ol class="story-steps">
-          <li><span class="story-step-number" aria-hidden="true">01</span><h3>说清楚想做什么</h3><p>描述这件事、需要的帮助，或愿意分享的能力，再补充时间和地点。</p></li>
-          <li><span class="story-step-number" aria-hidden="true">02</span><h3>看看为什么合适</h3><p>AI 根据发布内容与时间条件推荐伙伴，解释彼此能带来什么，并给出第一步建议。</p></li>
-          <li><span class="story-step-number" aria-hidden="true">03</span><h3>决定怎样一起开始</h3><p>查看对方的完整说明，表达参与意向。真正开始前，仍需双方确认时间、地点和分工。</p></li>
+          <li>
+            <span class="story-step-number" aria-hidden="true">01</span>
+            <h3>说清楚想做什么</h3>
+            <p>描述这件事、需要的帮助，或愿意分享的能力，再补充时间和地点。</p>
+          </li>
+          <li>
+            <span class="story-step-number" aria-hidden="true">02</span>
+            <h3>看看为什么合适</h3>
+            <p>
+              AI
+              根据发布内容与时间条件推荐伙伴，解释彼此能带来什么，并给出第一步建议。
+            </p>
+          </li>
+          <li>
+            <span class="story-step-number" aria-hidden="true">03</span>
+            <h3>决定怎样一起开始</h3>
+            <p>
+              查看对方的完整说明，表达参与意向。真正开始前，仍需双方确认时间、地点和分工。
+            </p>
+          </li>
         </ol>
-        <p class="story-demo-note">当前匹配使用六条虚构资料，AI 不可用时由本地规则提供建议。地图可查看地点与路线，但尚未按真实邻居的距离匹配；参与操作只记录本机意向，不会发送消息或自动组队。</p>
+        <p class="story-demo-note">
+          当前匹配使用六条虚构资料，AI
+          不可用时由本地规则提供建议。地图可查看地点与路线，但尚未按真实邻居的距离匹配；参与操作只记录本机意向，不会发送消息或自动组队。
+        </p>
       </div>
       <div class="story-impact" aria-labelledby="impactTitle">
         <h2 id="impactTitle">让身边已有的能力派上用场。</h2>
-        <p>愿意教摄影的人，遇见想学的人；会修家具的人，遇见舍不得丢掉旧椅子的人；新来的居民，遇见愿意一起散步的街坊。</p>
-        <p>我们希望让零散的时间、技能、兴趣和经验，变成可以开始的活动与互助。你也可以在发布中说明愿意带来的工具、设备或可用空间，让已有资源被看见、被更好地利用。</p>
+        <p>
+          愿意教摄影的人，遇见想学的人；会修家具的人，遇见舍不得丢掉旧椅子的人；新来的居民，遇见愿意一起散步的街坊。
+        </p>
+        <p>
+          我们希望让零散的时间、技能、兴趣和经验，变成可以开始的活动与互助。你也可以在发布中说明愿意带来的工具、设备或可用空间，让已有资源被看见、被更好地利用。
+        </p>
       </div>
       <div class="story-vision" aria-labelledby="visionTitle">
         <p class="story-label">长期愿景</p>
         <h2 id="visionTitle">让人与人的协作更容易。</h2>
-        <p>当更多重复事务被自动化，人们或许能把更多时间用于创造、兴趣和帮助他人。我们希望人与人的协作，也能像使用互联网服务一样容易开始。</p>
+        <p>
+          当更多重复事务被自动化，人们或许能把更多时间用于创造、兴趣和帮助他人。我们希望人与人的协作，也能像使用互联网服务一样容易开始。
+        </p>
         <p class="vision-line">AI 应该让人与人的协作更容易。</p>
       </div>
     </section>
-    <footer class="site-footer"><span>留白 WhiteSpace</span><p>让想做的事，遇见一起做的人。</p><a href="#pageTitle">回到想法 <span aria-hidden="true">↑</span></a></footer>
+    <footer class="site-footer">
+      <span>留白 WhiteSpace</span>
+      <p>让想做的事，遇见一起做的人。</p>
+      <a href="#pageTitle">回到想法 <span aria-hidden="true">↑</span></a>
+    </footer>
 
-    <dialog id="todayDialog" class="dialog today-dialog" aria-labelledby="todayTitle">
+    <dialog
+      id="todayDialog"
+      class="dialog today-dialog"
+      aria-labelledby="todayTitle"
+    >
       <form id="todayForm" novalidate>
-        <div class="dialog-header"><div><h2 id="todayTitle">今天想参与什么？</h2><p>做三个选择，从他人发布中找适合参与的想法。</p></div><button class="icon-button" type="button" data-close="todayDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div>
+        <div class="dialog-header">
+          <div>
+            <h2 id="todayTitle">今天想参与什么？</h2>
+            <p>做三个选择，从他人发布中找适合参与的想法。</p>
+          </div>
+          <button
+            class="icon-button"
+            type="button"
+            data-close="todayDialog"
+            aria-label="关闭"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 5l14 14M19 5 5 19" />
+            </svg>
+          </button>
+        </div>
         <div class="dialog-body">
           <div class="today-choices">
-            <label class="form-field">可用时间<select id="todayTimePreference" name="timePreference"><option value="short">短 · 轻松试一试</option><option value="medium" selected>中 · 从容体验</option><option value="long">长 · 深入投入</option></select></label>
-            <label class="form-field">同行人数 <span>含自己，1–50 人</span><input id="todayParticipants" name="participants" type="number" min="1" max="50" step="1" value="1" /></label>
-            <label class="form-field">参与主题<select id="todayTheme" name="theme"><option value="all">不限主题</option><option>社区生活</option><option>生活手艺</option><option>亲子共学</option><option>旧物新生</option><option>学习交流</option><option>数码互助</option></select></label>
+            <label class="form-field"
+              >可用时间<select id="todayTimePreference" name="timePreference">
+                <option value="short">短 · 轻松试一试</option>
+                <option value="medium" selected>中 · 从容体验</option>
+                <option value="long">长 · 深入投入</option>
+              </select></label
+            >
+            <label class="form-field"
+              >同行人数 <span>含自己，1–50 人</span
+              ><input
+                id="todayParticipants"
+                name="participants"
+                type="number"
+                min="1"
+                max="50"
+                step="1"
+                value="1"
+            /></label>
+            <label class="form-field"
+              >参与主题<select id="todayTheme" name="theme">
+                <option value="all">不限主题</option>
+                <option>社区生活</option>
+                <option>生活手艺</option>
+                <option>亲子共学</option>
+                <option>旧物新生</option>
+                <option>学习交流</option>
+                <option>数码互助</option>
+              </select></label
+            >
           </div>
-          <p class="form-hint today-time-hint">短、中、长只表示投入倾向；具体日期与参与时长，请查看原发布后自行选择。</p>
-          <details class="today-options"><summary>材料与其他限制 <span>选填</span></summary>
-            <fieldset class="today-materials"><legend>手边可用的材料</legend><div id="todayMaterials" class="today-checkboxes"></div></fieldset>
-            <fieldset class="today-materials"><legend>这次想怎样参与</legend><div class="today-checkboxes"><label><input name="indoorsOnly" type="checkbox" />不外出（仅线上）</label><label><input name="noPurchase" type="checkbox" />不添购材料</label><label><input name="lightOnly" type="checkbox" />轻量活动</label></div><p class="form-hint">按原发布已说明的材料要求筛选；未说明的条件会标记为待确认。</p></fieldset>
-            <label class="form-field">其他补充 <span>最多 160 字</span><textarea id="todayNotes" name="notes" rows="3" maxlength="160" placeholder="例如：想学木工、希望带孩子参加、只有手机，或其他需要留意的条件…"></textarea></label>
-            <p class="form-hint">AI 会参考你的补充筛选他人发布；未写明的时长、材料和余位需向发布者确认。</p>
+          <p class="form-hint today-time-hint">
+            短、中、长只表示投入倾向；具体日期与参与时长，请查看原发布后自行选择。
+          </p>
+          <details class="today-options">
+            <summary>材料与其他限制 <span>选填</span></summary>
+            <fieldset class="today-materials">
+              <legend>手边可用的材料</legend>
+              <div id="todayMaterials" class="today-checkboxes"></div>
+            </fieldset>
+            <fieldset class="today-materials">
+              <legend>这次想怎样参与</legend>
+              <div class="today-checkboxes">
+                <label
+                  ><input
+                    name="indoorsOnly"
+                    type="checkbox"
+                  />不外出（仅线上）</label
+                ><label
+                  ><input name="noPurchase" type="checkbox" />不添购材料</label
+                ><label
+                  ><input name="lightOnly" type="checkbox" />轻量活动</label
+                >
+              </div>
+              <p class="form-hint">
+                按原发布已说明的材料要求筛选；未说明的条件会标记为待确认。
+              </p>
+            </fieldset>
+            <label class="form-field"
+              >其他补充 <span>最多 160 字</span
+              ><textarea
+                id="todayNotes"
+                name="notes"
+                rows="3"
+                maxlength="160"
+                placeholder="例如：想学木工、希望带孩子参加、只有手机，或其他需要留意的条件…"
+              ></textarea>
+            </label>
+            <p class="form-hint">
+              AI
+              会参考你的补充筛选他人发布；未写明的时长、材料和余位需向发布者确认。
+            </p>
           </details>
           <p id="todayError" class="form-error" role="alert" hidden></p>
-          <p id="todayStatus" class="today-status" role="status" aria-live="polite">先选好条件，再看看哪些发布适合你参与。</p>
-          <section id="todayResults" class="today-results" aria-label="推荐他人发布" aria-live="polite" hidden>
-            <div class="today-source"><span id="todaySource"></span><small id="todaySourceDetail"></small></div>
-            <p id="todayConditions" class="form-hint"></p><p id="todayNotesWarning" class="today-notes" hidden></p>
+          <p
+            id="todayStatus"
+            class="today-status"
+            role="status"
+            aria-live="polite"
+          >
+            先选好条件，再看看哪些发布适合你参与。
+          </p>
+          <section
+            id="todayResults"
+            class="today-results"
+            aria-label="推荐他人发布"
+            aria-live="polite"
+            hidden
+          >
+            <div class="today-source">
+              <span id="todaySource"></span
+              ><small id="todaySourceDetail"></small>
+            </div>
+            <p id="todayConditions" class="form-hint"></p>
+            <p id="todayNotesWarning" class="today-notes" hidden></p>
             <div id="todayList" class="today-list"></div>
           </section>
         </div>
-        <div class="dialog-actions"><button class="ghost-button" type="button" data-close="todayDialog">返回首页</button><button class="primary-button" id="recommendToday" type="submit">找适合我的想法</button></div>
-      </form>
-    </dialog>
-
-    <dialog id="createDialog" class="dialog create-dialog" aria-labelledby="createTitle">
-      <form id="createForm" novalidate>
-        <div class="dialog-header"><div><h2 id="createTitle">发布想法</h2><p id="createSubtitle">说说想做什么、需要什么帮助，以及你能带来什么。</p></div><button class="icon-button" type="button" data-close="createDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div>
-        <div class="dialog-body">
-          <fieldset class="type-selector"><legend>你想怎样参与</legend><label><input type="radio" name="type" value="need" checked /><span>我想做一件事</span></label><label><input type="radio" name="type" value="offer" /><span>我能分享或帮忙</span></label></fieldset>
-          <details class="form-examples"><summary>不知道怎么写？试试一个社区示例</summary><button class="example-button" data-example="food" type="button">带孩子学包饺子 ↗</button><button class="example-button" data-example="repair" type="button">找人一起修旧椅子 ↗</button><button class="example-button" data-example="photo" type="button">分享手机摄影 ↗</button></details>
-          <label class="form-field"><b id="titleLabel">标题</b> <span id="titleHint">一句话说明想做的事</span><input id="postTitle" name="title" maxlength="48" placeholder="例如：想修好一把旧椅子，找会木工的人一起" required /></label>
-          <label class="form-field"><b id="descriptionLabel">具体说说</b> <span id="descriptionHint">需要什么帮助，希望谁一起参与？</span><textarea id="postDescription" name="description" maxlength="320" rows="4" placeholder="说说想做什么、需要什么帮助，以及你能带来什么…" required></textarea></label>
-          <div class="form-field category-field"><label for="categoryPicker">主题分类 <span>可添加多个；同时作为新发布的标签，最多 6 项</span></label><div class="category-controls"><select id="categoryPicker" name="category"><option value="">选择分类后添加</option><option>社区生活</option><option>生活手艺</option><option>亲子共学</option><option>旧物新生</option><option>学习交流</option><option>数码互助</option><option value="other">其他（自定义）</option></select><button id="addCategory" class="secondary-button" type="button">添加</button></div><input id="customCategory" name="customCategory" maxlength="30" placeholder="填写其他分类名称，最多 30 字" aria-label="其他分类名称" hidden /><div id="selectedCategories" class="selected-categories" aria-live="polite"></div></div>
-          <label class="form-field"><b id="timeLabel">活动时间</b><select id="timeMode" name="timeMode"><option value="">选择时间安排</option><option value="date">具体日期与时间段</option><option value="weekly">每周固定时间</option><option value="negotiable" id="negotiableTime" disabled hidden>时间可协商</option></select></label>
-          <div id="dateFields" hidden><label class="form-field">活动日期<input id="postDate" name="date" type="date" /></label></div>
-          <div id="weeklyFields" hidden><label class="form-field">每周活动日<select id="postWeekday" name="weekday"><option value="">选择星期</option><option value="1">周一</option><option value="2">周二</option><option value="3">周三</option><option value="4">周四</option><option value="5">周五</option><option value="6">周六</option><option value="0">周日</option></select></label></div>
-          <div id="clockFields" class="form-row" hidden><label class="form-field">开始时间<input id="postStart" name="start" type="time" /></label><label class="form-field">结束时间<input id="postEnd" name="end" type="time" /></label></div>
-          <label class="form-field"><b id="locationLabel">活动地点</b><select id="postLocation" name="location"><option value="">选择地点方式</option><option value="map" id="mapLocationOption" disabled>在地图选择公共集合点</option><option value="other">仅填写地点说明（不显示在地图）</option><option value="negotiable" id="negotiableLocation" disabled hidden>地点可协商</option></select></label>
-          <label id="locationOtherField" class="form-field" hidden>其他地点<input id="locationOther" name="locationOther" maxlength="40" placeholder="填写社区内的地点或补充说明" /></label>
-          <div id="mapLocationField" class="map-location-field" hidden><p id="pickedMapLocation">还未选择公共集合点。</p><button id="openLocationPicker" class="secondary-button" type="button">打开地图选点</button><input id="locationName" name="locationName" type="hidden" /><input id="locationLng" name="locationLng" type="hidden" /><input id="locationLat" name="locationLat" type="hidden" /><input id="publicPlaceConfirmed" name="publicPlaceConfirmed" type="hidden" /></div>
-          <label id="mapFirstStepField" class="form-field" hidden><b>见面后先做的一小步</b><span>3–80 字，写清可立即开始的动作</span><input id="mapFirstStep" name="firstStep" minlength="3" maxlength="80" placeholder="例如：先一起辨认三张旧照片的拍摄地点" /></label>
-          <label class="form-field">参与人数 <span>包含发布者；填写总人数，不区分人员组成</span><select id="participantMode" name="participantMode"><option value="negotiable">协商决定</option><option value="exact">明确人数</option><option value="range">人数范围</option></select></label>
-          <div id="exactParticipants" hidden><label class="form-field">总人数<input id="participantCount" name="participantCount" type="number" min="1" max="50" step="1" /></label></div>
-          <div id="rangeParticipants" class="form-row" hidden><label class="form-field">最少人数<input id="participantMin" name="participantMin" type="number" min="1" max="50" step="1" /></label><label class="form-field">最多人数<input id="participantMax" name="participantMax" type="number" min="1" max="50" step="1" /></label></div>
-          <details id="profileSection" class="profile-section"><summary>我的演示资料 <span id="profileSummary">社区成员</span></summary><p class="form-hint">只保存在本浏览器，用于后续发布；不是真实账号。身份说明随发布展示。</p><label class="form-field">身份或兴趣说明 <span>选填</span><input id="profileRole" name="role" maxlength="40" placeholder="例如：摄影爱好者、会修家具的街坊" /></label><label class="form-field">个人年龄 <span>选填，默认不公开</span><input id="profileAge" name="age" type="number" min="1" max="120" step="1" /></label><label class="checkbox-field"><input id="agePublic" name="agePublic" type="checkbox" />在本次发布中公开年龄</label></details>
-          <p class="form-hint">演示内容保存在当前浏览器，其他人暂时看不到。</p><p id="formError" class="form-error" role="alert" hidden></p>
+        <div class="dialog-actions">
+          <button class="ghost-button" type="button" data-close="todayDialog">
+            返回首页</button
+          ><button class="primary-button" id="recommendToday" type="submit">
+            找适合我的想法
+          </button>
         </div>
-        <div class="dialog-actions"><button class="ghost-button" type="button" data-close="createDialog">取消</button><button class="primary-button" id="publishButton" type="submit">发布并找伙伴</button></div>
       </form>
     </dialog>
 
-    <dialog id="locationPickerDialog" class="dialog location-picker-dialog" aria-labelledby="locationPickerTitle">
-      <div class="dialog-header"><div><h2 id="locationPickerTitle">选择公共集合点</h2><p>点地图、拖动标记，或搜索附近地点。</p></div><button class="icon-button" type="button" data-close="locationPickerDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div>
-      <div class="dialog-body"><div class="place-search-shell"><form id="locationSearchForm" class="location-search-form"><label class="sr-only" for="locationSearch">搜索公共地点</label><input id="locationSearch" type="search" placeholder="搜索公园、图书馆、社区中心等" maxlength="60" /><button class="secondary-button" type="submit">搜索地点</button></form><div id="locationSearchResults" class="place-results" aria-live="polite" hidden></div></div><div id="locationPickerCanvas" class="location-picker-canvas" aria-label="点击地图选点，或拖动标记微调"></div><p id="locationPickerStatus" class="form-hint" role="status">请在地图上选一个方便见面的公共地点。</p><label class="form-field">集合点名称<input id="mapLocationName" maxlength="40" placeholder="例如：图书馆正门" /></label><label class="checkbox-field location-public-check"><input id="publicPointCheck" type="checkbox" />这是适合公开展示的集合点，不是住宅或私人地址</label><p id="locationPickerError" class="form-error" role="alert" hidden></p></div>
-      <div class="dialog-actions"><button class="ghost-button" type="button" data-close="locationPickerDialog">返回发布</button><button id="saveLocationPoint" class="primary-button" type="button">确认集合点</button></div>
+    <dialog
+      id="createDialog"
+      class="dialog create-dialog"
+      aria-labelledby="createTitle"
+    >
+      <form id="createForm" novalidate>
+        <div class="dialog-header">
+          <div>
+            <h2 id="createTitle">发布想法</h2>
+            <p id="createSubtitle">
+              说说想做什么、需要什么帮助，以及你能带来什么。
+            </p>
+          </div>
+          <button
+            class="icon-button"
+            type="button"
+            data-close="createDialog"
+            aria-label="关闭"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 5l14 14M19 5 5 19" />
+            </svg>
+          </button>
+        </div>
+        <div class="dialog-body">
+          <fieldset class="type-selector">
+            <legend>你想怎样参与</legend>
+            <label
+              ><input type="radio" name="type" value="need" checked /><span
+                >我想做一件事</span
+              ></label
+            ><label
+              ><input type="radio" name="type" value="offer" /><span
+                >我能分享或帮忙</span
+              ></label
+            >
+          </fieldset>
+          <details class="form-examples">
+            <summary>不知道怎么写？试试一个社区示例</summary>
+            <button class="example-button" data-example="food" type="button">
+              带孩子学包饺子 ↗</button
+            ><button class="example-button" data-example="repair" type="button">
+              找人一起修旧椅子 ↗</button
+            ><button class="example-button" data-example="photo" type="button">
+              分享手机摄影 ↗
+            </button>
+          </details>
+          <label class="form-field"
+            ><b id="titleLabel">标题</b>
+            <span id="titleHint">一句话说明想做的事</span
+            ><input
+              id="postTitle"
+              name="title"
+              maxlength="48"
+              placeholder="例如：想修好一把旧椅子，找会木工的人一起"
+              required
+          /></label>
+          <label class="form-field"
+            ><b id="descriptionLabel">具体说说</b>
+            <span id="descriptionHint">需要什么帮助，希望谁一起参与？</span
+            ><textarea
+              id="postDescription"
+              name="description"
+              maxlength="320"
+              rows="4"
+              placeholder="说说想做什么、需要什么帮助，以及你能带来什么…"
+              required
+            ></textarea>
+          </label>
+          <div class="form-field category-field">
+            <label for="categoryPicker"
+              >主题分类
+              <span>可添加多个；同时作为新发布的标签，最多 6 项</span></label
+            >
+            <div class="category-controls">
+              <select id="categoryPicker" name="category">
+                <option value="">选择分类后添加</option>
+                <option>社区生活</option>
+                <option>生活手艺</option>
+                <option>亲子共学</option>
+                <option>旧物新生</option>
+                <option>学习交流</option>
+                <option>数码互助</option>
+                <option value="other">其他（自定义）</option></select
+              ><button id="addCategory" class="secondary-button" type="button">
+                添加
+              </button>
+            </div>
+            <input
+              id="customCategory"
+              name="customCategory"
+              maxlength="30"
+              placeholder="填写其他分类名称，最多 30 字"
+              aria-label="其他分类名称"
+              hidden
+            />
+            <div
+              id="selectedCategories"
+              class="selected-categories"
+              aria-live="polite"
+            ></div>
+          </div>
+          <label class="form-field"
+            ><b id="timeLabel">活动时间</b
+            ><select id="timeMode" name="timeMode">
+              <option value="">选择时间安排</option>
+              <option value="date">具体日期与时间段</option>
+              <option value="weekly">每周固定时间</option>
+              <option value="negotiable" id="negotiableTime" disabled hidden>
+                时间可协商
+              </option>
+            </select></label
+          >
+          <div id="dateFields" hidden>
+            <label class="form-field"
+              >活动日期<input id="postDate" name="date" type="date"
+            /></label>
+          </div>
+          <div id="weeklyFields" hidden>
+            <label class="form-field"
+              >每周活动日<select id="postWeekday" name="weekday">
+                <option value="">选择星期</option>
+                <option value="1">周一</option>
+                <option value="2">周二</option>
+                <option value="3">周三</option>
+                <option value="4">周四</option>
+                <option value="5">周五</option>
+                <option value="6">周六</option>
+                <option value="0">周日</option>
+              </select></label
+            >
+          </div>
+          <div id="clockFields" class="form-row" hidden>
+            <label class="form-field"
+              >开始时间<input id="postStart" name="start" type="time" /></label
+            ><label class="form-field"
+              >结束时间<input id="postEnd" name="end" type="time"
+            /></label>
+          </div>
+          <label class="form-field"
+            ><b id="locationLabel">活动地点</b
+            ><select id="postLocation" name="location">
+              <option value="">选择地点方式</option>
+              <option value="map" id="mapLocationOption" disabled>
+                在地图选择公共集合点
+              </option>
+              <option value="other">仅填写地点说明（不显示在地图）</option>
+              <option
+                value="negotiable"
+                id="negotiableLocation"
+                disabled
+                hidden
+              >
+                地点可协商
+              </option>
+            </select></label
+          >
+          <label id="locationOtherField" class="form-field" hidden
+            >其他地点<input
+              id="locationOther"
+              name="locationOther"
+              maxlength="40"
+              placeholder="填写社区内的地点或补充说明"
+          /></label>
+          <div id="mapLocationField" class="map-location-field" hidden>
+            <p id="pickedMapLocation">还未选择公共集合点。</p>
+            <button
+              id="openLocationPicker"
+              class="secondary-button"
+              type="button"
+            >
+              打开地图选点</button
+            ><input id="locationName" name="locationName" type="hidden" /><input
+              id="locationLng"
+              name="locationLng"
+              type="hidden"
+            /><input id="locationLat" name="locationLat" type="hidden" /><input
+              id="publicPlaceConfirmed"
+              name="publicPlaceConfirmed"
+              type="hidden"
+            />
+          </div>
+          <label id="mapFirstStepField" class="form-field" hidden
+            ><b>见面后先做的一小步</b><span>3–80 字，写清可立即开始的动作</span
+            ><input
+              id="mapFirstStep"
+              name="firstStep"
+              minlength="3"
+              maxlength="80"
+              placeholder="例如：先一起辨认三张旧照片的拍摄地点"
+          /></label>
+          <label class="form-field"
+            >参与人数 <span>包含发布者；填写总人数，不区分人员组成</span
+            ><select id="participantMode" name="participantMode">
+              <option value="negotiable">协商决定</option>
+              <option value="exact">明确人数</option>
+              <option value="range">人数范围</option>
+            </select></label
+          >
+          <div id="exactParticipants" hidden>
+            <label class="form-field"
+              >总人数<input
+                id="participantCount"
+                name="participantCount"
+                type="number"
+                min="1"
+                max="50"
+                step="1"
+            /></label>
+          </div>
+          <div id="rangeParticipants" class="form-row" hidden>
+            <label class="form-field"
+              >最少人数<input
+                id="participantMin"
+                name="participantMin"
+                type="number"
+                min="1"
+                max="50"
+                step="1" /></label
+            ><label class="form-field"
+              >最多人数<input
+                id="participantMax"
+                name="participantMax"
+                type="number"
+                min="1"
+                max="50"
+                step="1"
+            /></label>
+          </div>
+          <details id="profileSection" class="profile-section">
+            <summary>
+              我的演示资料 <span id="profileSummary">社区成员</span>
+            </summary>
+            <p class="form-hint">
+              只保存在本浏览器，用于后续发布；不是真实账号。身份说明随发布展示。
+            </p>
+            <label class="form-field"
+              >身份或兴趣说明 <span>选填</span
+              ><input
+                id="profileRole"
+                name="role"
+                maxlength="40"
+                placeholder="例如：摄影爱好者、会修家具的街坊" /></label
+            ><label class="form-field"
+              >个人年龄 <span>选填，默认不公开</span
+              ><input
+                id="profileAge"
+                name="age"
+                type="number"
+                min="1"
+                max="120"
+                step="1" /></label
+            ><label class="checkbox-field"
+              ><input
+                id="agePublic"
+                name="agePublic"
+                type="checkbox"
+              />在本次发布中公开年龄</label
+            >
+          </details>
+          <p class="form-hint">演示内容保存在当前浏览器，其他人暂时看不到。</p>
+          <p id="formError" class="form-error" role="alert" hidden></p>
+        </div>
+        <div class="dialog-actions">
+          <button class="ghost-button" type="button" data-close="createDialog">
+            取消</button
+          ><button class="primary-button" id="publishButton" type="submit">
+            发布并找伙伴
+          </button>
+        </div>
+      </form>
     </dialog>
 
-    <dialog id="detailDialog" class="dialog detail-dialog" aria-labelledby="detailTitle"><div class="dialog-header"><div><h2 id="detailTitle"></h2></div><button class="icon-button" type="button" data-close="detailDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div><div id="detailContent" class="dialog-body"></div><div class="dialog-actions"><button class="ghost-button" type="button" data-close="detailDialog">返回</button><button class="ghost-button" id="detailDeleteButton" type="button" hidden>删除</button><button class="ghost-button" id="detailEditButton" type="button" hidden>编辑发布</button><button class="ghost-button" id="detailTimeButton" type="button" hidden>调整时间</button><button class="ghost-button" id="detailNeedButton" type="button" hidden>AI 提炼希望获得</button><button class="primary-button" id="detailMatchButton" type="button" hidden>查看或重新匹配</button><button class="primary-button" id="interestButton" type="button">我想参与</button></div></dialog>
+    <dialog
+      id="locationPickerDialog"
+      class="dialog location-picker-dialog"
+      aria-labelledby="locationPickerTitle"
+    >
+      <div class="dialog-header">
+        <div>
+          <h2 id="locationPickerTitle">选择公共集合点</h2>
+          <p>点地图、拖动标记，或搜索附近地点。</p>
+        </div>
+        <button
+          class="icon-button"
+          type="button"
+          data-close="locationPickerDialog"
+          aria-label="关闭"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 5l14 14M19 5 5 19" />
+          </svg>
+        </button>
+      </div>
+      <div class="dialog-body">
+        <div class="place-search-shell">
+          <form id="locationSearchForm" class="location-search-form">
+            <label class="sr-only" for="locationSearch">搜索公共地点</label
+            ><input
+              id="locationSearch"
+              type="search"
+              placeholder="搜索公园、图书馆、社区中心等"
+              maxlength="60"
+            /><button class="secondary-button" type="submit">搜索地点</button>
+          </form>
+          <div
+            id="locationSearchResults"
+            class="place-results"
+            aria-live="polite"
+            hidden
+          ></div>
+        </div>
+        <div
+          id="locationPickerCanvas"
+          class="location-picker-canvas"
+          aria-label="点击地图选点，或拖动标记微调"
+        ></div>
+        <p id="locationPickerStatus" class="form-hint" role="status">
+          请在地图上选一个方便见面的公共地点。
+        </p>
+        <label class="form-field"
+          >集合点名称<input
+            id="mapLocationName"
+            maxlength="40"
+            placeholder="例如：图书馆正门" /></label
+        ><label class="checkbox-field location-public-check"
+          ><input
+            id="publicPointCheck"
+            type="checkbox"
+          />这是适合公开展示的集合点，不是住宅或私人地址</label
+        >
+        <p id="locationPickerError" class="form-error" role="alert" hidden></p>
+      </div>
+      <div class="dialog-actions">
+        <button
+          class="ghost-button"
+          type="button"
+          data-close="locationPickerDialog"
+        >
+          返回发布</button
+        ><button id="saveLocationPoint" class="primary-button" type="button">
+          确认集合点
+        </button>
+      </div>
+    </dialog>
 
-    <dialog id="deleteDialog" class="dialog" aria-labelledby="deleteTitle" aria-describedby="deleteDescription">
-      <div class="dialog-header"><div><h2 id="deleteTitle">删除这条发布？</h2><p id="deletePostTitle"></p></div><button class="icon-button" type="button" data-close="deleteDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div>
-      <div class="dialog-body"><p id="deleteDescription" class="form-hint">删除后无法恢复。这条发布及其匹配记录将从当前浏览器移除。</p><p id="deleteError" class="form-error" role="alert" hidden></p></div>
-      <div class="dialog-actions"><button id="cancelDelete" class="ghost-button" type="button" data-close="deleteDialog" autofocus>取消</button><button id="confirmDelete" class="primary-button danger-button" type="button">确认删除</button></div>
+    <dialog
+      id="detailDialog"
+      class="dialog detail-dialog"
+      aria-labelledby="detailTitle"
+    >
+      <div class="dialog-header">
+        <div><h2 id="detailTitle"></h2></div>
+        <button
+          class="icon-button"
+          type="button"
+          data-close="detailDialog"
+          aria-label="关闭"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 5l14 14M19 5 5 19" />
+          </svg>
+        </button>
+      </div>
+      <div id="detailContent" class="dialog-body"></div>
+      <div class="dialog-actions">
+        <button class="ghost-button" type="button" data-close="detailDialog">
+          返回</button
+        ><button
+          class="ghost-button"
+          id="detailDeleteButton"
+          type="button"
+          hidden
+        >
+          删除</button
+        ><button
+          class="ghost-button"
+          id="detailEditButton"
+          type="button"
+          hidden
+        >
+          编辑发布</button
+        ><button
+          class="ghost-button"
+          id="detailTimeButton"
+          type="button"
+          hidden
+        >
+          调整时间</button
+        ><button
+          class="ghost-button"
+          id="detailNeedButton"
+          type="button"
+          hidden
+        >
+          AI 提炼希望获得</button
+        ><button
+          class="primary-button"
+          id="detailMatchButton"
+          type="button"
+          hidden
+        >
+          查看或重新匹配</button
+        ><button class="primary-button" id="interestButton" type="button">
+          我想参与
+        </button>
+      </div>
+    </dialog>
+
+    <dialog
+      id="deleteDialog"
+      class="dialog"
+      aria-labelledby="deleteTitle"
+      aria-describedby="deleteDescription"
+    >
+      <div class="dialog-header">
+        <div>
+          <h2 id="deleteTitle">删除这条发布？</h2>
+          <p id="deletePostTitle"></p>
+        </div>
+        <button
+          class="icon-button"
+          type="button"
+          data-close="deleteDialog"
+          aria-label="关闭"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 5l14 14M19 5 5 19" />
+          </svg>
+        </button>
+      </div>
+      <div class="dialog-body">
+        <p id="deleteDescription" class="form-hint">
+          删除后无法恢复。这条发布及其匹配记录将从当前浏览器移除。
+        </p>
+        <p id="deleteError" class="form-error" role="alert" hidden></p>
+      </div>
+      <div class="dialog-actions">
+        <button
+          id="cancelDelete"
+          class="ghost-button"
+          type="button"
+          data-close="deleteDialog"
+          autofocus
+        >
+          取消</button
+        ><button
+          id="confirmDelete"
+          class="primary-button danger-button"
+          type="button"
+        >
+          确认删除
+        </button>
+      </div>
     </dialog>
 
     <dialog id="needDialog" class="dialog" aria-labelledby="needTitle">
       <form id="needForm" novalidate>
-        <div class="dialog-header"><div><h2 id="needTitle">确认希望获得</h2><p id="needPostTitle"></p></div><button class="icon-button" type="button" data-close="needDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div>
+        <div class="dialog-header">
+          <div>
+            <h2 id="needTitle">确认希望获得</h2>
+            <p id="needPostTitle"></p>
+          </div>
+          <button
+            class="icon-button"
+            type="button"
+            data-close="needDialog"
+            aria-label="关闭"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 5l14 14M19 5 5 19" />
+            </svg>
+          </button>
+        </div>
         <div class="dialog-body">
-          <p class="form-hint">AI 从你的说明中提炼这次分享希望获得的体验、交流或其他收获，请核对后保存；可以修改或留空。</p>
+          <p class="form-hint">
+            AI
+            从你的说明中提炼这次分享希望获得的体验、交流或其他收获，请核对后保存；可以修改或留空。
+          </p>
           <p id="needDescription" class="need-description"></p>
-          <label class="form-field">希望获得 <span>最多 160 字</span><textarea id="needValue" name="need" maxlength="160" rows="3" placeholder="说明中没有明确诉求时可留空"></textarea></label>
-          <button id="extractNeed" class="secondary-button" type="button">AI 重新提炼</button>
-          <p id="needStatus" class="need-status" role="status"></p><p id="needEvidence" class="form-hint" hidden></p>
+          <label class="form-field"
+            >希望获得 <span>最多 160 字</span
+            ><textarea
+              id="needValue"
+              name="need"
+              maxlength="160"
+              rows="3"
+              placeholder="说明中没有明确诉求时可留空"
+            ></textarea>
+          </label>
+          <button id="extractNeed" class="secondary-button" type="button">
+            AI 重新提炼
+          </button>
+          <p id="needStatus" class="need-status" role="status"></p>
+          <p id="needEvidence" class="form-hint" hidden></p>
           <p id="needError" class="form-error" role="alert" hidden></p>
         </div>
-        <div class="dialog-actions"><button class="ghost-button" type="button" data-close="needDialog">取消</button><button id="saveNeed" class="primary-button" type="submit">确认并发布</button></div>
+        <div class="dialog-actions">
+          <button class="ghost-button" type="button" data-close="needDialog">
+            取消</button
+          ><button id="saveNeed" class="primary-button" type="submit">
+            确认并发布
+          </button>
+        </div>
       </form>
     </dialog>
 
     <dialog id="scheduleDialog" class="dialog" aria-labelledby="scheduleTitle">
       <form id="scheduleForm" novalidate>
-        <div class="dialog-header"><div><h2 id="scheduleTitle">调整活动时间</h2><p id="schedulePostTitle"></p></div><button class="icon-button" type="button" data-close="scheduleDialog" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div>
-        <div class="dialog-body">
-          <label class="form-field">时间安排<select id="scheduleMode" name="timeMode"><option value="">选择时间安排</option><option value="date">具体日期与时间段</option><option value="weekly">每周固定时间</option><option value="negotiable" id="scheduleNegotiable">时间可协商</option></select></label>
-          <div id="scheduleDateFields" hidden><label class="form-field">活动日期<input id="scheduleDate" name="date" type="date" /></label></div>
-          <div id="scheduleWeeklyFields" hidden><label class="form-field">每周活动日<select id="scheduleWeekday" name="weekday"><option value="">选择星期</option><option value="1">周一</option><option value="2">周二</option><option value="3">周三</option><option value="4">周四</option><option value="5">周五</option><option value="6">周六</option><option value="0">周日</option></select></label></div>
-          <div id="scheduleClockFields" class="form-row" hidden><label class="form-field">开始时间<input id="scheduleStart" name="start" type="time" /></label><label class="form-field">结束时间<input id="scheduleEnd" name="end" type="time" /></label></div>
-          <p id="schedulePreview" class="schedule-preview" role="status"></p>
-          <p class="form-hint">保存后将为这条发布重新匹配。</p><p id="scheduleError" class="form-error" role="alert" hidden></p>
+        <div class="dialog-header">
+          <div>
+            <h2 id="scheduleTitle">调整活动时间</h2>
+            <p id="schedulePostTitle"></p>
+          </div>
+          <button
+            class="icon-button"
+            type="button"
+            data-close="scheduleDialog"
+            aria-label="关闭"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 5l14 14M19 5 5 19" />
+            </svg>
+          </button>
         </div>
-        <div class="dialog-actions"><button class="ghost-button" type="button" data-close="scheduleDialog">取消</button><button class="primary-button" id="saveSchedule" type="submit">保存并重新匹配</button></div>
+        <div class="dialog-body">
+          <label class="form-field"
+            >时间安排<select id="scheduleMode" name="timeMode">
+              <option value="">选择时间安排</option>
+              <option value="date">具体日期与时间段</option>
+              <option value="weekly">每周固定时间</option>
+              <option value="negotiable" id="scheduleNegotiable">
+                时间可协商
+              </option>
+            </select></label
+          >
+          <div id="scheduleDateFields" hidden>
+            <label class="form-field"
+              >活动日期<input id="scheduleDate" name="date" type="date"
+            /></label>
+          </div>
+          <div id="scheduleWeeklyFields" hidden>
+            <label class="form-field"
+              >每周活动日<select id="scheduleWeekday" name="weekday">
+                <option value="">选择星期</option>
+                <option value="1">周一</option>
+                <option value="2">周二</option>
+                <option value="3">周三</option>
+                <option value="4">周四</option>
+                <option value="5">周五</option>
+                <option value="6">周六</option>
+                <option value="0">周日</option>
+              </select></label
+            >
+          </div>
+          <div id="scheduleClockFields" class="form-row" hidden>
+            <label class="form-field"
+              >开始时间<input
+                id="scheduleStart"
+                name="start"
+                type="time" /></label
+            ><label class="form-field"
+              >结束时间<input id="scheduleEnd" name="end" type="time"
+            /></label>
+          </div>
+          <p id="schedulePreview" class="schedule-preview" role="status"></p>
+          <p class="form-hint">保存后将为这条发布重新匹配。</p>
+          <p id="scheduleError" class="form-error" role="alert" hidden></p>
+        </div>
+        <div class="dialog-actions">
+          <button
+            class="ghost-button"
+            type="button"
+            data-close="scheduleDialog"
+          >
+            取消</button
+          ><button class="primary-button" id="saveSchedule" type="submit">
+            保存并重新匹配
+          </button>
+        </div>
       </form>
     </dialog>
 
-    <dialog id="experienceDialog" class="dialog experience-dialog" aria-labelledby="experienceTitle">
+    <dialog
+      id="experienceDialog"
+      class="dialog experience-dialog"
+      aria-labelledby="experienceTitle"
+    >
       <div class="dialog-header experience-header">
-        <div><h2 id="experienceTitle">王阿姨的手工饺子工坊</h2><p id="experienceStatus" role="status" aria-live="polite">正在打开工坊…</p></div>
-        <label class="theme-control" data-theme-control><span>外观</span><select data-theme-select aria-label="工坊外观主题"><option value="light">浅色</option><option value="dark">深色</option><option value="system" selected>跟随系统</option></select></label>
-        <button class="ghost-button" type="button" data-close="experienceDialog" autofocus>返回详情</button>
+        <div>
+          <h2 id="experienceTitle">王阿姨的手工饺子工坊</h2>
+          <p id="experienceStatus" role="status" aria-live="polite">
+            正在打开工坊…
+          </p>
+        </div>
+        <label class="theme-control" data-theme-control
+          ><span>外观</span
+          ><select data-theme-select aria-label="工坊外观主题">
+            <option value="light">浅色</option>
+            <option value="dark">深色</option>
+            <option value="system" selected>跟随系统</option>
+          </select></label
+        >
+        <button
+          class="ghost-button"
+          type="button"
+          data-close="experienceDialog"
+          autofocus
+        >
+          返回详情
+        </button>
       </div>
       <div id="experienceContainer" class="experience-container"></div>
     </dialog>
