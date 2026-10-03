@@ -1,5 +1,6 @@
 import { cleanCategory, postTags, validateDraft, validateSchedule, normalizeSchedule, formatSchedule, displayTime, formatPublished, matchPost, matchFingerprint, MATCH_VERSION, LEGACY_OFFER_NEED, needExtractionInput, needExtractionKey, validExtractedNeed, hasAINeed } from "./model.js";
 import { MATERIALS, TIME_PREFERENCES, DEFAULT_CRITERIA, normalizeCriteria, criteriaKey, localRecommendations, validRecommendationData, restoreTodayState } from "./experience-planner.js";
+import { createTimeCapsuleUI } from "./time-capsule-ui.js";
 
 const $ = (selector) => document.querySelector(selector);
 const postList = $("#postList");
@@ -21,6 +22,8 @@ const storageInterest = "writespace.interest.v1";
 const storageProfile = "writespace.profile.v1";
 const storageMatches = "writespace.matches.v1";
 const storageDumpling = "writespace.experience.dumpling.v1";
+const capsules = createTimeCapsuleUI();
+$("#openCapsuleHistory").addEventListener("click", capsules.openHistory);
 
 function readSaved(key, fallback) {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
@@ -115,7 +118,7 @@ function setFilter(next) {
   });
   renderPosts();
 }
-function syncDialogLock() { document.documentElement.classList.toggle("modal-open", createDialog.open || detailDialog.open || deleteDialog.open || scheduleDialog.open || needDialog.open || experienceDialog.open || todayDialog.open); }
+function syncDialogLock() { document.documentElement.classList.toggle("modal-open", Boolean(document.querySelector("dialog[open]"))); }
 function openDialog(dialog) { if (!dialog.open) dialog.showModal(); syncDialogLock(); }
 function closeDialog(dialog) { dialog.close(); syncDialogLock(); }
 for (const dialog of [createDialog, detailDialog, deleteDialog, scheduleDialog, needDialog, experienceDialog, todayDialog]) dialog.addEventListener("close", syncDialogLock);
@@ -249,7 +252,8 @@ function openDumplingExperience() {
   experienceFrame = document.createElement("iframe");
   experienceFrame.id = "dumplingExperience";
   experienceFrame.title = "传统手工饺子制作体验";
-  experienceFrame.sandbox = "allow-scripts allow-same-origin allow-pointer-lock";
+  // Capsules use a local form and a user-triggered text download inside the scene.
+  experienceFrame.sandbox = "allow-scripts allow-same-origin allow-pointer-lock allow-forms allow-downloads";
   experienceFrame.src = "/dumpling-house.html?embed=1";
   $("#experienceContainer").replaceChildren(experienceFrame);
   openDialog(experienceDialog);
