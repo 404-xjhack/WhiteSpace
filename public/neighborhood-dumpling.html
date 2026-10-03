@@ -4,6 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>饺子店街区沙盘 · 留白 WriteSpace</title>
+  <meta name="description" content="在互动街区沙盘中观察拼餐、技能分享与邻里互助的可能。这是虚构需求的演示场景，不会联系邻居或建立真实协作。">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="饺子店街区沙盘 · 留白 WriteSpace">
+  <meta property="og:description" content="看看附近哪些小事可以一起做。虚构社区需求的互动演示，不会发布真实需求或自动组队。">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <style>
     body { margin: 0; overflow: hidden; background: #eae2d3;
@@ -1153,8 +1157,8 @@ const ZONES = [
     intro: '教擀皮换修电脑、剪纸换口语。手艺在人跟人之间流动的时候，交换的不只是技能，还有一段坐下来慢慢聊的时光——这样的时光，如今越来越稀罕了。' },
   { id: 'kitchen',   name: '开放厨房',  category: '帮厨',     center: [-5.3, -0.8],  radius: 1.6, mount: 'shop', desc: '晚高峰帮厨、洗碗帮工',
     intro: '灶火不熄，人情不断。晚高峰缺一把手的时候，总有邻居卷起袖子进来：揉面、看锅、洗碗。小店的热闹，一半是客人，一半是熟人。' },
-  { id: 'menuWall',  name: '后墙菜单牌', category: '公告求助', center: [2.2, -4.85],  radius: 1.2, mount: 'shop', desc: '寻物、招聘、打听事',
-    intro: '寻物、招聘、打听事。这块老菜单牌就像社区的树洞，写下的每一桩小事，都有路过的邻居记在心上。当求助被人接住，光柱就会悄悄暗下去。' },
+  { id: 'menuWall',  name: '后墙菜单牌', category: '公告求助', center: [2.2, -4.85],  radius: 1.2, mount: 'shop', desc: '寻物、找伙伴、打听事',
+    intro: '寻物、找伙伴、打听事。这块菜单牌展示一些邻里小事：有人需要帮助，也有人愿意搭把手。光柱随时间变化，示意不同时间可能出现的需求。' },
   { id: 'gate',      name: '大门台阶',  category: '迎送带路', center: [0, 5.6],      radius: 1.5, mount: 'shop', desc: '接人送物、雨天送伞',
     intro: '接人、送伞、带老人复诊。店门口的台阶迎来送往了许多年，顺路的善意总在这里发生——于人是举手之劳，于己是一整天的暖意。' },
   { id: 'standee',   name: '雨棚立牌',  category: '闲置交换', center: [-4.9, 7.0],   radius: 1.4, mount: 'shop', desc: '闲置物品以物换物',
@@ -1175,7 +1179,7 @@ const NEEDS = (() => {
     '拼餐搭伙': ['周末拼一锅饺子', '一人食求拼桌', '拼单买面粉', '晚饭搭伙 AA'],
     '技能交换': ['教擀皮换修电脑', '剪纸教学换英语口语', '包饺子速成换吉他入门'],
     '帮厨':     ['晚高峰缺一名帮厨', '求会包麦穗饺的师傅', '洗碗帮工两小时'],
-    '公告求助': ['寻物：红色保温杯', '求推荐附近修鞋摊', '本店招聘周末兼职'],
+    '公告求助': ['寻物：红色保温杯', '求推荐附近修鞋摊', '周末一起整理社区书架'],
     '迎送带路': ['带老人去医院复诊', '车站接人求带路', '雨天送伞到地铁口'],
     '闲置交换': ['闲置蒸笼换绿植', '旧课本换砂锅', '儿童餐椅转让'],
     '搬运接送': ['搬米面上三楼', '三轮车顺路带货', '帮忙抬冰柜'],
@@ -1404,7 +1408,7 @@ function renderZoneCard() {
     </div>
     <div class="zc-desc">${z.intro}</div>
     <div class="zc-meta">当前时段 ${n} 条「${z.category}」需求等待被接住 · 演示数据</div>
-    <div class="zc-foot">留白 WriteSpace · 此刻埋下的胶囊，给未来的人们考古</div>`;
+    <div class="zc-foot">留白 WriteSpace · 让想做的事，遇见一起做的人。</div>`;
   zoneCard.querySelector('.zc-x').addEventListener('click', closeZoneCard);
 }
 function closeZoneCard() {

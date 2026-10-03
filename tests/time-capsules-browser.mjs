@@ -80,6 +80,7 @@ try {
   const pages = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
   cdp = new CDP(pages.find((page) => page.type === "page").webSocketDebuggerUrl);
   await cdp.send("Runtime.enable"); await cdp.send("Page.enable"); await cdp.send("Network.enable");
+  await cdp.send("Page.bringToFront");
   await cdp.send("Emulation.setFocusEmulationEnabled", { enabled: true });
   await cdp.send("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: downloads });
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
@@ -204,8 +205,11 @@ try {
   await shot("capsules-saved-embedded-375.png");
   const second = (await stored())[0]; assert.equal((await stored()).length, 2);
   await click("#capsuleDetail [data-capsule-close]"); await click("#close-summary");
+  await until(`!${scope}.documentElement.classList.contains('modal-open')`);
   assert.equal(await evaluate(`${scope}.documentElement.classList.contains('modal-open')`), false);
-  scope = "document"; await click('#experienceDialog [data-close]'); await click('#detailDialog [data-close]');
+  scope = "document"; await click('#experienceDialog [data-close]');
+  await until("document.querySelector('#detailDialog').open && !document.querySelector('#dumplingExperience')");
+  await click('#detailDialog [data-close]');
   await click("#openCapsuleHistory");
   assert.deepEqual(await evaluate("[...document.querySelectorAll('[data-capsule-id]')].map(b=>b.dataset.capsuleId)"), [second.id, first.id]);
   assert.ok(await evaluate("document.querySelector('.capsule-summary').textContent.includes('这次放慢')"));
