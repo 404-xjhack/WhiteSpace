@@ -85,14 +85,8 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
       const position = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }));
       const point = await gpsToMap({ lng: position.coords.longitude, lat: position.coords.latitude });
       if (requestVersion !== selectionVersion) return;
-      const selected = mappedPosts().find((post) => post.id === selectedId);
-      const target = normalizeLocationPoint(selected?.locationPoint);
-      const nearby = target && Math.hypot((target.lng - point.lng) * 0.86, target.lat - point.lat) < 0.018;
-      const center = window.matchMedia("(max-width: 760px)").matches && nearby
-        ? [(point.lng + target.lng) / 2, (point.lat + target.lat) / 2]
-        : coordinates(point);
       map.setZoom(15);
-      map.setCenter(center);
+      map.setCenter(coordinates(point));
       setStart(point, "geo");
     } catch (error) {
       if (requestVersion !== selectionVersion) return;
@@ -154,9 +148,9 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
 
   function render() {
     const posts = mappedPosts();
-    if (!posts.some((post) => post.id === selectedId)) selectedId = posts[0]?.id || null;
+    if (!posts.some((post) => post.id === selectedId)) selectedId = null;
     const selected = posts.find((post) => post.id === selectedId);
-    $("#realJumpMission").textContent = selected ? `查看任务：${selected.title} ↓` : "查看发布指引 ↓";
+    $("#realJumpMission").textContent = selected ? `查看任务：${selected.title} ↓` : posts.length ? "查看街区任务 ↓" : "查看发布指引 ↓";
     if (map) {
       for (const marker of markers) marker.setMap(null);
       markers = posts.map((post) => {
@@ -168,16 +162,18 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
         const marker = new window.AMap.Marker({ map, position: coordinates(post.locationPoint), title: post.title, content: pin, anchor: "bottom-center", bubble: false, zIndex: selected ? 120 : 110 });
         marker.on("click", (event) => {
           event?.originEvent?.stopPropagation?.();
-          selectedId = post.id; render();
-          if (window.matchMedia("(max-width: 760px)").matches) $("#realMissionTitle").scrollIntoView({ behavior: "smooth", block: "start" });
+          selectedId = selectedId === post.id ? null : post.id;
+          render();
         });
         return marker;
       });
     }
     $("#realMissionList").innerHTML = posts.filter((post) => post.id !== selectedId).map((post) => `<button type="button" data-real-post="${escapeHtml(post.id)}"><strong>${escapeHtml(post.title)}</strong><span>${escapeHtml(post.name || "我")} · ${escapeHtml(post.location)}</span></button>`).join("");
     if (!selected) {
-      $("#realMissionDetail").innerHTML = '<p>这里暂时没有带公共集合点的本机任务。发布一件小事，在真实地图上选一个见面的公共地点，就能看到它出现在地图上。</p><button id="realEmptyPublish" class="primary-button" type="button">发布一件附近的事</button>';
-      $("#realEmptyPublish").addEventListener("click", openCreate);
+      $("#realMissionDetail").innerHTML = posts.length
+        ? '<p>点击地图上的任务点，或从下方列表选择一件事，查看详情和步行路线。</p>'
+        : '<p>这里暂时没有带公共集合点的本机任务。发布一件小事，在真实地图上选一个见面的公共地点，就能看到它出现在地图上。</p><button id="realEmptyPublish" class="primary-button" type="button">发布一件附近的事</button>';
+      if (!posts.length) $("#realEmptyPublish").addEventListener("click", openCreate);
       routeVersion++;
       routeLine?.setMap(null); routeLine = null;
       return;

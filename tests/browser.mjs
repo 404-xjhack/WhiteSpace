@@ -489,7 +489,7 @@ try {
     };
     class FakeLngLat { constructor(lng, lat) { this.lng=lng; this.lat=lat; } getLng() { return this.lng; } getLat() { return this.lat; } }
     class FakeMap { constructor(id, opts={}) { this.events={}; this.center=opts.center || [120.067,30.297]; this.zoom=opts.zoom; document.getElementById(id).dataset.fakeMap='ready'; window.__maps.push(this); } on(name, fn) { this.events[name]=fn; } emit(name, data) { this.events[name]?.(data); } resize() {} setCenter(point) { this.center=point; } setZoom(zoom) { this.zoom=zoom; } getCenter() { return new FakeLngLat(...this.center); } }
-    class FakeMarker { constructor(opts) { this.position=opts.position; this.events={}; window.__markers.push(this); } on(name, fn) { this.events[name]=fn; } emit(name, data) { this.events[name]?.(data); } setMap() {} setPosition(point) { this.position=point; } getPosition() { return new FakeLngLat(...this.position); } }
+    class FakeMarker { constructor(opts) { this.position=opts.position; this.title=opts.title; this.events={}; window.__markers.push(this); } on(name, fn) { this.events[name]=fn; } emit(name, data) { this.events[name]?.(data); } setMap() {} setPosition(point) { this.position=point; } getPosition() { return new FakeLngLat(...this.position); } }
     class FakePolyline { constructor(opts) { this.path=opts.path; window.__polylines.push(this); } setMap() {} }
     window.AMap={Map:FakeMap,Marker:FakeMarker,Polyline:FakePolyline,LngLat:FakeLngLat,convertFrom:(point,_kind,callback)=>callback('complete',{locations:[new FakeLngLat(point[0]+.0005,point[1]+.0005)]})};
   ` });
@@ -521,6 +521,10 @@ try {
   await until("document.querySelector('#createDialog').open");
   await set("#mapFirstStep", "先一起辨认三张旧照片的拍摄地点");
   await click("#publishButton");
+  await until("document.querySelector('#realMissionList [data-real-post]') !== null");
+  assert.equal(await evaluate("document.querySelector('#realMissionDetail h4')"), null);
+  assert.match(await evaluate("document.querySelector('#realMissionDetail').textContent"), /点击地图上的任务点/);
+  await evaluate("window.__markers.findLast(marker=>marker.title==='一起整理社区故事').emit('click',{originEvent:{stopPropagation(){}}})");
   await until("document.querySelector('#realMissionDetail h4')?.textContent === '一起整理社区故事'");
   const mappedPost = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0]");
   assert.deepEqual(mappedPost.locationPoint, { lng: 120.068, lat: 30.2984 });
@@ -530,6 +534,10 @@ try {
   await evaluate("window.__maps[0].emit('click',{lnglat:new AMap.LngLat(120.069,30.299)})");
   await until("new URL(window.__serviceWalkingCalls.at(-1),location.origin).searchParams.get('from') === '120.069,30.299'");
   assert.notEqual(await evaluate("new URL(window.__serviceWalkingCalls.at(-1),location.origin).searchParams.get('from')"), firstStart);
+  await evaluate("window.__markers.findLast(marker=>marker.title==='一起整理社区故事').emit('click',{originEvent:{stopPropagation(){}}})");
+  await until("document.querySelector('#realMissionDetail h4') === null");
+  await evaluate("window.__markers.findLast(marker=>marker.title==='一起整理社区故事').emit('click',{originEvent:{stopPropagation(){}}})");
+  await until("document.querySelector('#realMissionDetail h4')?.textContent === '一起整理社区故事'");
   await evaluate("Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(success){window.__releaseGeo=success}}})");
   await click("#realLocateButton");
   await until("typeof window.__releaseGeo === 'function'");
