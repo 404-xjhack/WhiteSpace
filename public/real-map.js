@@ -4,6 +4,10 @@ import { gpsToAmapPoint } from "./coordinates.js";
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 const coordinates = (point) => [point.lng, point.lat];
+const taskPinIcon = {
+  need: '<path d="M36 46 25.5 36.5c-8.5-7.7 1.5-17.5 10.5-8 9-9.5 19 0.3 10.5 8L36 46Z" fill="currentColor"/>',
+  offer: '<path d="m36 22 3.1 8.9L48 34l-8.9 3.1L36 46l-3.1-8.9L24 34l8.9-3.1L36 22Z" fill="currentColor"/><circle cx="48" cy="24" r="2" fill="currentColor"/><circle cx="24" cy="44" r="1.6" fill="currentColor"/>'
+};
 
 let scriptPromise;
 function loadAMap(key) {
@@ -39,7 +43,10 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
     selectionVersion++;
     startPoint = nextPoint;
     if (startMarker) startMarker.setMap(null);
-    const pin = document.createElement("span"); pin.className = "real-start-pin"; pin.setAttribute("aria-label", "你的出发点");
+    const pin = document.createElement("span");
+    pin.className = "real-start-pin";
+    pin.setAttribute("aria-label", "你的出发点");
+    pin.innerHTML = '<svg viewBox="0 0 40 50" aria-hidden="true"><path d="M20 47S3 31 3 20a17 17 0 0 1 34 0c0 11-17 27-17 27Z" fill="#2c82cf" stroke="#fff" stroke-width="3"/><circle cx="20" cy="20" r="7" fill="#fff"/></svg>';
     startMarker = new window.AMap.Marker({ map, position: coordinates(startPoint), content: pin, anchor: "center" });
     $("#realMapArea").textContent = source === "geo" ? "已定位到你的附近" : source === "search" ? "已选定查看区域" : "已选定出发点";
     $("#realMapStatus").textContent = "点击地图空白处可随时更换出发点；位置仅用于本次路线，不会保存。";
@@ -78,8 +85,14 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
       const position = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }));
       const point = await gpsToMap({ lng: position.coords.longitude, lat: position.coords.latitude });
       if (requestVersion !== selectionVersion) return;
+      const selected = mappedPosts().find((post) => post.id === selectedId);
+      const target = normalizeLocationPoint(selected?.locationPoint);
+      const nearby = target && Math.hypot((target.lng - point.lng) * 0.86, target.lat - point.lat) < 0.018;
+      const center = window.matchMedia("(max-width: 760px)").matches && nearby
+        ? [(point.lng + target.lng) / 2, (point.lat + target.lat) / 2]
+        : coordinates(point);
       map.setZoom(15);
-      map.setCenter(coordinates(point));
+      map.setCenter(center);
       setStart(point, "geo");
     } catch (error) {
       if (requestVersion !== selectionVersion) return;
@@ -147,11 +160,12 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
     if (map) {
       for (const marker of markers) marker.setMap(null);
       markers = posts.map((post) => {
-        const pin = document.createElement("span");
-        pin.className = `real-task-pin ${post.type === "offer" ? "is-offer" : "is-need"} ${post.id === selectedId ? "is-selected" : ""}`;
-        pin.textContent = post.type === "offer" ? "分享" : "需求";
+        const selected = post.id === selectedId;
+        const pin = document.createElement("div");
+        pin.className = `real-task-marker ${post.type === "offer" ? "is-offer" : "is-need"} ${selected ? "is-selected" : ""}`;
         pin.setAttribute("aria-label", post.title);
-        const marker = new window.AMap.Marker({ map, position: coordinates(post.locationPoint), title: post.title, content: pin, anchor: "bottom-center", bubble: false });
+        pin.innerHTML = `${selected ? `<div class="real-task-callout"><span>${post.type === "offer" ? "愿意分享" : "想去体验"}</span><strong>${escapeHtml(post.title)}</strong><small>${escapeHtml(post.location)}</small></div>` : ""}<svg class="real-task-pin" viewBox="0 0 72 86" aria-hidden="true"><path class="real-task-pin-body" d="M36 3C18 3 4 17 4 35c0 19 32 48 32 48s32-29 32-48C68 17 54 3 36 3Z"/><circle class="real-task-pin-ring" cx="36" cy="34" r="24"/><circle class="real-task-pin-face" cx="36" cy="34" r="19"/>${taskPinIcon[post.type === "offer" ? "offer" : "need"]}</svg>`;
+        const marker = new window.AMap.Marker({ map, position: coordinates(post.locationPoint), title: post.title, content: pin, anchor: "bottom-center", bubble: false, zIndex: selected ? 120 : 110 });
         marker.on("click", (event) => {
           event?.originEvent?.stopPropagation?.();
           selectedId = post.id; render();
