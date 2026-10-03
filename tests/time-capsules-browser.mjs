@@ -87,9 +87,9 @@ try {
   await cdp.send("Page.navigate", { url: app.url }); await until("document.querySelectorAll('.post-card').length===6");
   await until("document.querySelector('.site-header img.brand-mark')?.naturalWidth>0");
   assert.equal(await evaluate("document.querySelector('.site-header img.brand-mark').getAttribute('src')"), "/favicon.svg");
-  const existingKeys = ["writespace.posts.v1", "writespace.matches.v1", "writespace.profile.v1", "writespace.interest.v1", "writespace.today.v1"];
+  const existingKeys = ["whitespace.posts.v1", "whitespace.matches.v1", "whitespace.profile.v1", "whitespace.interest.v1", "whitespace.today.v1"];
   const existing = await evaluate(`Object.fromEntries(${JSON.stringify(existingKeys)}.map(k=>[k,localStorage.getItem(k)]))`);
-  await evaluate("WriteSpaceTheme.setPreference('dark')");
+  await evaluate("WhiteSpaceTheme.setPreference('dark')");
   await click("#openCapsuleHistory");
   assert.equal(await evaluate("document.querySelector('#capsuleEmpty').hidden"), false);
   assert.equal(await evaluate("document.querySelector('.capsule-empty-actions a')?.getAttribute('href')"), "/dumpling-house.html");
@@ -110,7 +110,7 @@ try {
   assert.equal(await evaluate("document.querySelector('#startScreen')"), null);
   assert.equal(await evaluate("document.querySelector('canvas')!==null"), true);
   const sceneTime=await evaluate("({value:document.querySelector('#slider').value,clock:document.querySelector('#clock').textContent,play:document.querySelector('#play').textContent})");
-  await evaluate("window.originalSceneCanvas=document.querySelector('canvas');WriteSpaceTheme.setPreference('light');WriteSpaceTheme.setPreference('dark');const select=document.querySelector('.scene-theme select');select.focus();select.dispatchEvent(new KeyboardEvent('keydown',{key:'v',bubbles:true}));");
+  await evaluate("window.originalSceneCanvas=document.querySelector('canvas');WhiteSpaceTheme.setPreference('light');WhiteSpaceTheme.setPreference('dark');const select=document.querySelector('.scene-theme select');select.focus();select.dispatchEvent(new KeyboardEvent('keydown',{key:'v',bubbles:true}));");
   assert.deepEqual(await evaluate("({value:document.querySelector('#slider').value,clock:document.querySelector('#clock').textContent,play:document.querySelector('#play').textContent})"),sceneTime);
   assert.equal(await evaluate("originalSceneCanvas===document.querySelector('canvas')"),true);
   assert.equal(await evaluate("document.querySelector('#walkBtn').textContent"),'漫游');
@@ -155,7 +155,7 @@ try {
   await type("#capsuleTitle", "我第一次亲手包饺子");
   await type("#capsuleWork", work); await type("#capsuleMoment", moment); await type("#capsuleNextTime", nextTime);
   const formValues = await evaluate(`Object.fromEntries(['title','work','moment','nextTime'].map(k=>[k,${query("#capsuleForm")}.elements[k].value]))`);
-  await evaluate("WriteSpaceTheme.setPreference('light');WriteSpaceTheme.setPreference('dark')");
+  await evaluate("WhiteSpaceTheme.setPreference('light');WhiteSpaceTheme.setPreference('dark')");
   await until("document.querySelector('#dumplingExperience').contentDocument.documentElement.dataset.theme==='dark'");
   assert.deepEqual(await evaluate(`Object.fromEntries(['title','work','moment','nextTime'].map(k=>[k,${query("#capsuleForm")}.elements[k].value]))`),formValues);
   assert.equal(await evaluate(`${query("#capsuleEditor")}.open`),true);

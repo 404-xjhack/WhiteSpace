@@ -86,7 +86,7 @@ html.modal-open,html.modal-open body{overflow:hidden}
 .today-time-hint{line-height:1.7;margin:-4px 0 18px}
 @media(max-width:420px){.dialog{max-height:95dvh}.dialog-actions{gap:8px}.dialog-actions .primary-button,.dialog-actions .ghost-button{font-size:12px;padding:0 12px}.category-controls button{padding:0 12px}.detail-grid{grid-template-columns:1fr}}
 
-/* Live neighborhood map keeps the established WriteSpace typography and action colors. */
+/* Live neighborhood map keeps the established WhiteSpace typography and action colors. */
 .map-nav-button{color:var(--green-dark);font-weight:700}
 .neighborhood-section{min-width:0}
 .neighborhood-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;margin-bottom:20px}

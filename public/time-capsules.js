@@ -1,4 +1,4 @@
-export const CAPSULE_STORAGE_KEY = "writespace.capsules.v1";
+export const CAPSULE_STORAGE_KEY = "whitespace.capsules.v1";
 export const CAPSULE_QUESTIONS = ["哪个瞬间让你愿意继续？", "下次想保留什么、换一种什么做法？"];
 
 export function validateCapsuleDraft(draft) {

@@ -286,4 +286,4 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, "127.0.0.1", () => console.log(`WriteSpace ready at http://localhost:${server.address().port}`));
+server.listen(PORT, "127.0.0.1", () => console.log(`WhiteSpace ready at http://localhost:${server.address().port}`));

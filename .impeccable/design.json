@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "generatedAt": "2026-10-02T03:11:13Z",
-  "title": "Design System: WriteSpace 留白",
+  "title": "Design System: WhiteSpace 留白",
   "extensions": {
     "colorMeta": {
       "bg": { "role": "neutral", "displayName": "纸白", "tonalRamp": ["#242820", "#3b4035", "#555b4e", "#727a6b", "#919b89", "#b4bdab", "#d8dfd1", "#f8f8f4"] },
@@ -71,7 +71,7 @@
     },
     {
       "name": "Header Navigation", "kind": "nav", "description": "品牌与发布入口共处的粘性页头。",
-      "html": "<nav class=\"ds-nav\" aria-label=\"主导航\"><strong>留白 <small>WriteSpace</small></strong><button>发布需求</button></nav>",
+      "html": "<nav class=\"ds-nav\" aria-label=\"主导航\"><strong>留白 <small>WhiteSpace</small></strong><button>发布需求</button></nav>",
       "css": ".ds-nav{display:flex;align-items:center;justify-content:space-between;gap:24px;max-width:520px;min-height:76px;padding:0 28px;border-bottom:1px solid var(--line,#e3e9e2);background:#fff;font-family:'Noto Sans SC','PingFang SC','Microsoft YaHei',system-ui,sans-serif;color:var(--ink,#1d2924)}.ds-nav strong{font-size:20px}.ds-nav small{font-size:10px;color:#7b8880;font-weight:400}.ds-nav button{min-height:40px;padding:0 17px;border:0;border-radius:9px;background:var(--green,#28735a);color:#fff;font-family:inherit;font-size:14px;font-weight:650;cursor:pointer}.ds-nav button:hover{background:var(--green-dark,#1e5e49)}.ds-nav button:focus-visible{outline:3px solid #8bc5a8;outline-offset:3px}.ds-nav button:active{background:#184c3b}"
     }
   ],

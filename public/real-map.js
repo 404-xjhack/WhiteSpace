@@ -17,7 +17,7 @@ function loadAMap(key) {
   if (scriptPromise) return scriptPromise;
   window._AMapSecurityConfig = { serviceHost: `${location.origin}/_AMapService` };
   scriptPromise = new Promise((resolve, reject) => {
-    const callbackName = "__writeSpaceAMapReady";
+    const callbackName = "__whiteSpaceAMapReady";
     const script = document.createElement("script");
     const timer = setTimeout(() => fail(new Error("地图加载超时")), 15000);
     function fail(error) { clearTimeout(timer); delete window[callbackName]; script.remove(); scriptPromise = null; reject(error); }
@@ -36,9 +36,9 @@ function loadAMap(key) {
 export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest, openCreate, onPick, editPost, deletePost }) {
   let config = { enabled: false, servicesEnabled: false };
   let map, pickerMap, pickerMarker, startMarker, routeLine;
-  const currentMapStyle = () => window.WriteSpaceTheme?.getState().resolvedTheme === "dark" ? "amap://styles/dark" : "amap://styles/normal";
+  const currentMapStyle = () => window.WhiteSpaceTheme?.getState().resolvedTheme === "dark" ? "amap://styles/dark" : "amap://styles/normal";
   let lastMapStyle = currentMapStyle();
-  window.addEventListener("writespace:themechange", () => {
+  window.addEventListener("whitespace:themechange", () => {
     const style = currentMapStyle();
     if (style === lastMapStyle) return;
     lastMapStyle = style;

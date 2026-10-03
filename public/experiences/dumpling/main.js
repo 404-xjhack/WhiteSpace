@@ -18,7 +18,7 @@ function showTool(id){if(!TOOLS.some(tool=>tool.id===id))return;selectedTool=id;
 $('tool-list').addEventListener('click',e=>{const button=e.target.closest('[data-tool]');if(button)showTool(button.dataset.tool);});
 function emit(type){
   const detail={version:1,experienceId:EXPERIENCE_ID,type,data:{currentStepId:state.currentStepId,completedStepIds:[...state.completedStepIds]}};
-  window.dispatchEvent(new CustomEvent('writespace:experience',{detail}));
+  window.dispatchEvent(new CustomEvent('whitespace:experience',{detail}));
   if(window.parent!==window)window.parent.postMessage(detail,location.origin);
 }
 function persist(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state));}catch{ $('progress').title='浏览器无法保存；当前页面仍可继续体验。';}}

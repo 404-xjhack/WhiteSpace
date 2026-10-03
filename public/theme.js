@@ -1,6 +1,6 @@
 // Shared, synchronous startup: resolve appearance before styles or business modules load.
 (() => {
-  const STORAGE_KEY = "writespace.theme.v1";
+  const STORAGE_KEY = "whitespace.theme.v1";
   const validPreference = (value) => ["light", "dark", "system"].includes(value);
   const validState = (value) => value && validPreference(value.preference)
     && ["light", "dark"].includes(value.resolvedTheme)
@@ -12,7 +12,7 @@
   function parentState() {
     try {
       if (window.parent !== window && window.parent.location.origin === location.origin) {
-        const value = window.parent.WriteSpaceTheme?.getState();
+        const value = window.parent.WhiteSpaceTheme?.getState();
         if (validState(value)) return value;
       }
     } catch { /* A different-origin embedding uses its own local preference. */ }
@@ -38,7 +38,7 @@
     root.style.backgroundColor = background;
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", background);
     syncControls();
-    if (changed) window.dispatchEvent(new CustomEvent("writespace:themechange", { detail: getState() }));
+    if (changed) window.dispatchEvent(new CustomEvent("whitespace:themechange", { detail: getState() }));
   }
   function getState() { return { preference, resolvedTheme }; }
   function reportSaveFailure() {
@@ -56,7 +56,7 @@
   function setPreference(value) {
     if (!validPreference(value)) return false;
     if (parentState()) {
-      window.parent.WriteSpaceTheme.setPreference(value);
+      window.parent.WhiteSpaceTheme.setPreference(value);
       const state = parentState(); apply(state.preference, state.resolvedTheme);
       return true;
     }
@@ -73,7 +73,7 @@
     if (state) apply(state.preference, state.resolvedTheme);
     else if (preference === "system") apply(preference);
   }
-  window.WriteSpaceTheme = Object.freeze({ getState, setPreference });
+  window.WhiteSpaceTheme = Object.freeze({ getState, setPreference });
   const inherited = parentState();
   if (inherited) apply(inherited.preference, inherited.resolvedTheme);
   else {
@@ -92,7 +92,7 @@
   window.addEventListener("message", (event) => {
     if (window.parent === window || event.source !== window.parent || event.origin !== location.origin) return;
     const message = event.data;
-    if (message?.channel !== "writespace-theme" || message.version !== 1 || message.type !== "sync" || !validState(message)) return;
+    if (message?.channel !== "whitespace-theme" || message.version !== 1 || message.type !== "sync" || !validState(message)) return;
     apply(message.preference, message.resolvedTheme);
   });
   window.addEventListener("pageshow", refresh);

@@ -7,7 +7,7 @@ const capsule = (id = "one", savedAt = "2026-10-03T10:00:00.000Z") => ({
   title: "我第一次亲手包饺子", work: "面皮从中间慢慢擀开。\n\n最后捏紧了边缘。\n", moment: "合上的瞬间。", nextTime: "少放一点馅。"
 });
 function memoryStorage() {
-  const data = new Map([["writespace.posts.v1", "原发布"]]);
+  const data = new Map([["whitespace.posts.v1", "原发布"]]);
   return { data, getItem: (key) => data.has(key) ? data.get(key) : null, setItem: (key, value) => data.set(key, value) };
 }
 
@@ -22,8 +22,8 @@ test("save preserves full work, orders newest first, and uses only its own key",
   assert.equal(saveCapsule(storage, newest).error, null);
   assert.equal(saveCapsule(storage, first).error, null);
   assert.deepEqual(readCapsules(storage).capsules, [newest, first]);
-  assert.equal(storage.data.get("writespace.posts.v1"), "原发布");
-  assert.deepEqual([...storage.data.keys()], ["writespace.posts.v1", CAPSULE_STORAGE_KEY]);
+  assert.equal(storage.data.get("whitespace.posts.v1"), "原发布");
+  assert.deepEqual([...storage.data.keys()], ["whitespace.posts.v1", CAPSULE_STORAGE_KEY]);
   assert.equal(saveCapsule(storage, first).error, null);
   assert.equal(readCapsules(storage).capsules.length, 2);
 });

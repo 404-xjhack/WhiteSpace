@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#f8f8f4">
-  <title>饺子店街区沙盘 · 留白 WriteSpace</title>
+  <title>饺子店街区沙盘 · 留白 WhiteSpace</title>
   <meta name="description" content="在互动街区沙盘中观察拼餐、技能分享与邻里互助的可能。这是虚构需求的演示场景，不会联系邻居或建立真实协作。">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="饺子店街区沙盘 · 留白 WriteSpace">
+  <meta property="og:title" content="饺子店街区沙盘 · 留白 WhiteSpace">
   <meta property="og:description" content="看看附近哪些小事可以一起做。虚构社区需求的互动演示，不会发布真实需求或自动组队。">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <script src="/theme.js"></script>
@@ -16,7 +16,7 @@
     body { margin: 0; overflow: hidden; background: var(--bg);
            font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
     canvas { display: block; }
-    /* —— 覆盖层 UI 统一采用 WriteSpace 设计令牌：纸白底 / 墨色 #1d2924 / 灰绿 #65736d / 主绿 #28735a —— */
+    /* —— 覆盖层 UI 统一采用 WhiteSpace 设计令牌：纸白底 / 墨色 #1d2924 / 灰绿 #65736d / 主绿 #28735a —— */
     #tip { position: fixed; left: 16px; bottom: 16px; padding: 8px 14px; border-radius: 9px;
            background: rgba(255,255,255,.88); color: #1d2924; font-size: 13px;
            border: 1px solid #e3e9e2; box-shadow: 0 12px 36px rgba(33,55,42,.08);
@@ -130,7 +130,7 @@
 </head>
 <body>
 <label class="theme-control scene-theme" data-theme-control><span>外观</span><select data-theme-select aria-label="外观主题"><option value="light">浅色</option><option value="dark">深色</option><option value="system" selected>跟随系统</option></select></label>
-<a class="scene-home" href="/" aria-label="留白 WriteSpace，返回首页"><img class="scene-home-mark" src="/favicon.svg" alt="" aria-hidden="true"><span><strong>留白</strong><small>回到首页</small></span></a>
+<a class="scene-home" href="/" aria-label="留白 WhiteSpace，返回首页"><img class="scene-home-mark" src="/favicon.svg" alt="" aria-hidden="true"><span><strong>留白</strong><small>回到首页</small></span></a>
 <div id="tip">左键拖拽旋转 · 滚轮缩放 · 按住滚轮键（中键）拖拽平移</div>
 <div id="zoneCard"></div>
 <div id="ui">
@@ -1197,7 +1197,7 @@ const ZONES = [
     intro: '打烊结伴、深夜自习。入夜后这盏路灯亮起来，照着晚回家的人，也守着还醒着的陪伴。把时间轴拖到 21 点，看它和夜色一起升温。' }   // 世界坐标，挂 out
 ];
 
-// mock 需求：固定种子，每次加载结果一致（后续接 WriteSpace API 时整块替换）
+// mock 需求：固定种子，每次加载结果一致（后续接 WhiteSpace API 时整块替换）
 const NEEDS = (() => {
   let seed = 20261002;
   const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
@@ -1434,7 +1434,7 @@ function renderZoneCard() {
     </div>
     <div class="zc-desc">${z.intro}</div>
     <div class="zc-meta">当前时段 ${n} 条「${z.category}」需求等待被接住 · 演示数据</div>
-    <div class="zc-foot">留白 WriteSpace · 让想做的事，遇见一起做的人。</div>`;
+    <div class="zc-foot">留白 WhiteSpace · 让想做的事，遇见一起做的人。</div>`;
   zoneCard.querySelector('.zc-x').addEventListener('click', closeZoneCard);
 }
 function closeZoneCard() {
