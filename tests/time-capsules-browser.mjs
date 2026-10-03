@@ -118,11 +118,56 @@ try {
   await click("#aboutBtn"); await until("document.querySelector('#sceneHelp').open");
   await assertTextContrast(evaluate,['.scene-help p','.scene-help button']);
   await click("#closeSceneHelp");
+  // Locate the visible scene's pickable activities, then open them with real mouse input.
+  const activityPoints = await evaluate(`(()=>{
+    const canvas=document.querySelector('canvas'),label=document.querySelector('#zoneLabel'),points={};
+    for(let y=100;y<innerHeight-130;y+=12)for(let x=100;x<innerWidth-100;x+=12){
+      canvas.dispatchEvent(new PointerEvent('pointermove',{clientX:x,clientY:y}));
+      if(canvas.style.cursor==='pointer'){
+        const name=label.querySelector('b')?.textContent;
+        if(name)(points[name]??=[]).push({x,y});
+      }
+    }
+    return Object.fromEntries(Object.entries(points).map(([name,list])=>[name,list[Math.floor(list.length/2)]]));
+  })()`);
+  assert.deepEqual(Object.keys(activityPoints).sort(), ['包饺子桌','亲子动手桌','照片交流桌','手艺分享台','散步集合点'].sort());
+  for (const [name, point] of Object.entries(activityPoints)) {
+    await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',...point,button:'left',clickCount:1});
+    await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',...point,button:'left',clickCount:1});
+    await until(`document.querySelector('#zoneCard .zc-head b')?.textContent===${JSON.stringify(name)}`);
+    assert.equal(await evaluate("document.querySelectorAll('#zoneCard .zc-examples li').length"),2);
+    const content=await evaluate("document.querySelector('#zoneCard').textContent");
+    for(const label of ['可以分享：','一起开始：','人物与活动均为虚构'])assert.ok(content.includes(label),`${name}: ${label}`);
+    await click('#zoneCard .zc-x');
+  }
+  const cookingPoint=activityPoints['包饺子桌'];
+  await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',...cookingPoint,button:'left',clickCount:1});
+  await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',...cookingPoint,button:'left',clickCount:1});
+  await until("document.querySelector('#zoneCard .zc-head b')?.textContent==='包饺子桌'");
+  await assertTextContrast(evaluate,['#zoneCard .zc-desc','#zoneCard .zc-examples p','#zoneCard .zc-examples span']);
+  await evaluate("WhiteSpaceTheme.setPreference('light')");
+  await assertTextContrast(evaluate,['#zoneCard .zc-desc','#zoneCard .zc-examples p','#zoneCard .zc-examples span']);
+  await shot('neighborhood-activities-1280.png');
+  await click('#slider');
+  for(const [key,code] of [['Home',36],['End',35]]){
+    await cdp.send('Input.dispatchKeyEvent',{type:'rawKeyDown',key,code:key,windowsVirtualKeyCode:code});
+    await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key,code:key,windowsVirtualKeyCode:code});
+    await until(`document.querySelectorAll('#zoneCard .zc-examples li').length===${key==='Home'?0:2}`);
+  }
+  await evaluate("document.querySelector('#slider').value='60';document.querySelector('#slider').dispatchEvent(new Event('input',{bubbles:true}))");
+  await until("document.querySelectorAll('#zoneCard .zc-examples li').length===1 && document.querySelector('#zoneCard .zc-meta').textContent.includes('14:00')");
+  await evaluate("document.querySelector('#slider').value='92';document.querySelector('#slider').dispatchEvent(new Event('input',{bubbles:true}))");
+  await until("document.querySelectorAll('#zoneCard .zc-examples li').length===2");
+  passed('Five collaboration activities open through scene clicks; concrete examples, theme contrast and live time changes work');
   for (const width of [375, 320]) {
     await cdp.send("Emulation.setDeviceMetricsOverride", { width, height: 700, deviceScaleFactor: 1, mobile: false });
     assert.equal(await evaluate("(()=>{const r=document.querySelector('#ui').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth+1})()"), true);
+    await until("(()=>{const r=document.querySelector('#zoneCard').getBoundingClientRect(),ui=document.querySelector('#ui').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth+1&&r.top>=0&&r.bottom<=ui.top-8})()");
+    assert.equal(await evaluate("document.querySelector('#zoneCard').scrollWidth<=document.querySelector('#zoneCard').clientWidth"),true);
+    await shot(`neighborhood-activities-${width}.png`);
     if (width === 375) await shot("neighborhood-dumpling-375.png");
   }
+  await click('#zoneCard .zc-x');
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
   await shot("neighborhood-dumpling-1280.png");
   await click(".scene-home"); await until("location.pathname==='/' && document.querySelectorAll('.post-card').length===6");
