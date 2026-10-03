@@ -19,3 +19,39 @@ body.embedded .experience-header{display:none}body.embedded .experience-shell{pa
 @media(max-width:760px){#summary-dialog{--dialog-scroll-inset:19px}#summary-dialog .dialog-heading{padding:19px}.summary-body{padding:17px 19px}.summary-actions{padding:14px 19px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 .experience-header .brand{color:var(--ink);text-decoration:none}.experience-header img.brand-mark{background:none;border-radius:0;object-fit:contain}.experience-header .brand:hover img.brand-mark{opacity:.85}.experience-header .brand:focus-visible{outline:3px solid #89bea0;outline-offset:3px;border-radius:8px}
+
+.experience-header{gap:20px}
+@media(max-width:1000px){.experience-header .header-label{display:none}.experience-header #open-capsule-history{margin-left:auto}}
+@media(max-width:760px){
+  .experience-header{height:auto;min-height:80px;flex-wrap:wrap;gap:4px 12px;padding:6px 16px}
+  .experience-header .theme-control{flex-basis:100%;justify-content:flex-end}
+  .experience-header .theme-control select{min-height:28px;padding:3px 6px}
+  .experience-header>.text-button{margin-left:0}
+  .experience-header #open-capsule-history{margin-left:auto}
+}
+:root[data-theme="dark"] :is(.experience-header,.quiet-button,.step-tab,.stage-card,.learning-panel,.drag-tool>span){background:var(--surface)}
+:root[data-theme="dark"] .mode-switch button.active{background:var(--surface)}
+:root[data-theme="dark"] :is(.primary-button,.step-tab.active .number,.drag-tool){color:var(--on-green)}
+:root[data-theme="dark"] .primary-button:hover{background:var(--green-dark)}
+:root[data-theme="dark"] :is(.step-tab .number,.mode-switch,.panel-actions,.tool-detail,.tool-browser button,.loading){background:var(--surface-2)}
+:root[data-theme="dark"] :is(.step-tab.active,.step-tab.done:not(.active) .number){background:var(--green-soft);color:var(--green)}
+:root[data-theme="dark"] .step-tab.active .number{background:var(--green);color:var(--on-green)}
+:root[data-theme="dark"] :is(.step-tab.active,.step-tab:hover){border-color:var(--green)}
+:root[data-theme="dark"] :is(.panel-content>p,.tool-line span,.tool-detail b,.loading,.diagram-label){color:var(--muted)}
+:root[data-theme="dark"] :is(.scene-heading>span,.scene-heading small,.scene-hint){background:var(--overlay);color:var(--ink)}
+:root[data-theme="dark"] .eyebrow span{background:var(--peach);color:var(--orange)}
+:root[data-theme="dark"] .drag-tool{background:var(--green);border-color:var(--on-green)}
+:root[data-theme="dark"] .drop-target{background:#203d2e99}
+:root[data-theme="dark"] dialog::backdrop{background:var(--backdrop)}
+:root[data-theme="dark"] :is(button,input,[tabindex]):focus-visible{outline-color:var(--focus-ring)}
+:root[data-theme="dark"] button:disabled{opacity:.75}
+/* Keep natural illustration/material colors and the existing WebGL light unchanged. */
+.panel-content,dialog{--scroll-thumb:var(--scroll-thumb-default);scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) transparent}
+.panel-content:is(:hover,:focus-within),dialog:is(:hover,:focus-within){--scroll-thumb:var(--scroll-thumb-active)}
+@supports selector(::-webkit-scrollbar){
+  .panel-content,dialog{scrollbar-width:auto;scrollbar-color:auto}
+  .panel-content::-webkit-scrollbar,dialog::-webkit-scrollbar{width:6px}
+  .panel-content::-webkit-scrollbar-track,dialog::-webkit-scrollbar-track{background:transparent}
+  .panel-content::-webkit-scrollbar-thumb,dialog::-webkit-scrollbar-thumb{background:var(--scroll-thumb);border:1px solid transparent;background-clip:padding-box;border-radius:999px;min-height:36px}
+  .panel-content::-webkit-scrollbar-button,dialog::-webkit-scrollbar-button{display:none;width:0;height:0}
+}

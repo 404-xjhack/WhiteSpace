@@ -10,6 +10,8 @@
     <meta property="og:description" content="想做一件事，找到一起做的人。留白从具体需求出发，让附近的活动、互助和协作更容易开始。当前为示例人物演示，参与意向仅保存在本机。" />
     <title>留白 WriteSpace · 找到附近一起做事的人</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <script src="/theme.js"></script>
+    <link rel="stylesheet" href="/theme.css" />
     <link rel="stylesheet" href="/styles.css" />
     <link rel="stylesheet" href="/time-capsules.css" />
     <script type="module" src="/app.js"></script>
@@ -36,6 +38,7 @@
           <button class="header-link" id="myPostsButton" type="button">我的发布 <span id="myPostCount" hidden>0</span></button>
           <button class="primary-button" id="openCreateTop" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>发布想法</button>
         </nav>
+        <label class="theme-control" data-theme-control><span>外观</span><select data-theme-select aria-label="外观主题"><option value="light">浅色</option><option value="dark">深色</option><option value="system" selected>跟随系统</option></select></label>
       </div>
     </header>
 
@@ -222,6 +225,7 @@
     <dialog id="experienceDialog" class="dialog experience-dialog" aria-labelledby="experienceTitle">
       <div class="dialog-header experience-header">
         <div><h2 id="experienceTitle">王阿姨的手工饺子工坊</h2><p id="experienceStatus" role="status" aria-live="polite">正在打开工坊…</p></div>
+        <label class="theme-control" data-theme-control><span>外观</span><select data-theme-select aria-label="工坊外观主题"><option value="light">浅色</option><option value="dark">深色</option><option value="system" selected>跟随系统</option></select></label>
         <button class="ghost-button" type="button" data-close="experienceDialog" autofocus>返回详情</button>
       </div>
       <div id="experienceContainer" class="experience-container"></div>

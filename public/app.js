@@ -282,10 +282,17 @@ function openDumplingExperience() {
   experienceFrame.title = "传统手工饺子制作体验";
   // Capsules use a local form and a user-triggered text download inside the scene.
   experienceFrame.sandbox = "allow-scripts allow-same-origin allow-pointer-lock allow-forms allow-downloads";
+  experienceFrame.addEventListener("load", syncExperienceTheme);
   experienceFrame.src = "/dumpling-house.html?embed=1";
   $("#experienceContainer").replaceChildren(experienceFrame);
   openDialog(experienceDialog);
 }
+
+function syncExperienceTheme() {
+  if (!experienceFrame || !window.WriteSpaceTheme) return;
+  experienceFrame.contentWindow?.postMessage({ channel: "writespace-theme", version: 1, type: "sync", ...window.WriteSpaceTheme.getState() }, location.origin);
+}
+window.addEventListener("writespace:themechange", syncExperienceTheme);
 
 experienceDialog.addEventListener("close", () => {
   // Unmount the scene so a closed experience stops drawing and using GPU resources.

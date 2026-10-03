@@ -65,16 +65,16 @@ html.modal-open,html.modal-open body{overflow:hidden}
   .page-shell{height:calc(100dvh - 76px);display:flex;flex-direction:column;padding-bottom:24px}
   .page-intro{flex:0 0 auto}
   .main-grid{flex:1 1 auto;min-height:0;align-items:stretch}
-  .feed-section,.match-column{min-height:0;margin-right:-6px;padding-right:6px;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable;--scroll-thumb:#bdcfc3;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) transparent}
-  .feed-section:is(:hover,:focus-within),.match-column:is(:hover,:focus-within){--scroll-thumb:#789a85}
+  .feed-section,.match-column{min-height:0;margin-right:-6px;padding-right:6px;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable;--scroll-thumb:var(--scroll-thumb-default);scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) transparent}
+  .feed-section:is(:hover,:focus-within),.match-column:is(:hover,:focus-within){--scroll-thumb:var(--scroll-thumb-active)}
   .match-column{position:static}
 }
 /* Reuse the homepage's slim scrollbars for dialogs and map tasks. */
 .dialog{--dialog-body-inset:27px}
-.dialog-body{margin-right:calc(var(--dialog-body-inset) - 6px);padding-right:6px;--scroll-thumb:#bdcfc3;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) transparent}
+.dialog-body{margin-right:calc(var(--dialog-body-inset) - 6px);padding-right:6px;--scroll-thumb:var(--scroll-thumb-default);scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) transparent}
 #createDialog .dialog-body,#detailDialog .dialog-body{margin-right:8px;padding-right:calc(var(--dialog-body-inset) - 8px)}
-.real-mission-panel{scrollbar-gutter:stable;--scroll-thumb:#bdcfc3;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) transparent}
-.dialog-body:is(:hover,:focus-within),.real-mission-panel:is(:hover,:focus-within){--scroll-thumb:#789a85}
+.real-mission-panel{scrollbar-gutter:stable;--scroll-thumb:var(--scroll-thumb-default);scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) transparent}
+.dialog-body:is(:hover,:focus-within),.real-mission-panel:is(:hover,:focus-within){--scroll-thumb:var(--scroll-thumb-active)}
 @supports selector(::-webkit-scrollbar){
   .feed-section,.match-column,.dialog-body,.real-mission-panel{scrollbar-width:auto;scrollbar-color:auto}
   .feed-section::-webkit-scrollbar,.match-column::-webkit-scrollbar,.dialog-body::-webkit-scrollbar,.real-mission-panel::-webkit-scrollbar{width:6px}
@@ -190,8 +190,8 @@ html.modal-open,html.modal-open body{overflow:hidden}
 .site-footer{display:flex;align-items:center;justify-content:space-between;gap:15px;padding-top:20px;padding-bottom:28px;border-top:1px solid var(--line);color:var(--muted);font-size:12px}
 .site-footer p{margin:0}
 .page-shell.map-active~.product-story,.page-shell.map-active~.site-footer{display:none}
-html{--scroll-thumb:#bdcfc3;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) transparent}
-html:is(:hover,:focus-within){--scroll-thumb:#789a85}
+html{--scroll-thumb:var(--scroll-thumb-default);scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) transparent}
+html:is(:hover,:focus-within){--scroll-thumb:var(--scroll-thumb-active)}
 @supports selector(::-webkit-scrollbar){
   html{scrollbar-width:auto;scrollbar-color:auto}
   html::-webkit-scrollbar{width:6px}
@@ -230,3 +230,64 @@ html:is(:hover,:focus-within){--scroll-thumb:#789a85}
   .experience-header p{font-size:11px;line-height:1.5}
   .experience-header .ghost-button{font-size:12px;padding:0 12px}
 }
+
+/* Appearance changes only colors; existing business layout and scroll behavior stay intact. */
+.site-header .header-inner{gap:20px}
+.site-header .header-actions{gap:16px}
+.site-header .theme-control{margin-left:auto}
+.experience-header>div{flex:1;min-width:0}
+@media(max-width:1100px){.site-header .header-location{display:none}.site-header .header-actions{margin-left:auto}}
+@media(max-width:760px){
+  .site-header{height:80px}
+  .site-header .header-inner{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:36px 28px;gap:4px 8px;padding:6px 16px}
+  .site-header .brand{grid-column:1;grid-row:1}
+  .site-header .header-actions{grid-column:2;grid-row:1;justify-self:end;gap:8px}
+  .site-header .theme-control{grid-column:1/-1;grid-row:2;justify-self:end;margin:0}
+  .site-header .theme-control select{min-height:28px;padding:3px 6px}
+}
+@media(max-width:420px){.site-header .header-inner{gap:4px 6px}.site-header .header-actions{gap:6px}}
+@media(max-width:600px){
+  .experience-header{flex-wrap:wrap}
+  .experience-header>div{flex-basis:100%}
+  .experience-header .theme-control{margin-right:auto}
+}
+:root[data-theme="dark"] :is(.site-header){background:var(--overlay)}
+:root[data-theme="dark"] :is(.ghost-button,.search-field input,.match-panel,.dialog,.form-field input,.form-field textarea,.form-field select,.empty-state,.real-mission-panel,.real-mission-list button,.location-search-form input,.place-results,.place-results button,.real-map-route-toggle,.real-task-callout,.real-task-callout::after){background:var(--surface);color:var(--ink);border-color:var(--line)}
+:root[data-theme="dark"] :is(.primary-button,.header-link span){color:var(--on-green)}
+:root[data-theme="dark"] :is(.danger-button,.primary-button.danger-button){background:var(--danger);color:var(--on-danger)}
+:root[data-theme="dark"] :is(.danger-button,.primary-button.danger-button):hover:not(:disabled){background:#ffd0ca}
+:root[data-theme="dark"] :is(.danger-text,.ghost-button.danger-button){color:var(--danger);border-color:var(--danger)}
+:root[data-theme="dark"] :is(.danger-text,.ghost-button.danger-button):hover{background:#422a29}
+:root[data-theme="dark"] :is(.brand-text small,.header-link,.result-count,.search-field svg,.filter-chip,.author-lines span,.post-age,.post-description,.post-tags span,.post-footer .post-foot-item,.data-note,.match-panel-heading p,.match-welcome>p,.prompt-examples>span,.match-loading p,.match-context span,.match-source small,.match-card p,.match-first-step strong,.safety-note,.safety-note p,.form-field>span,.form-hint,.detail-person small,.detail-description,.detail-grid span,.detail-info,.detail-footnote,.match-empty,.type-selector span,.real-map-toolbar span,.real-map-status,.real-mission-panel p,.real-mission-list span,.map-location-field p,.place-results span,.place-result-state,.today-checkboxes label,.today-card p,.today-card li){color:var(--muted)}
+:root[data-theme="dark"] :is(.search-field input,.form-field input,.form-field textarea,.location-search-form input)::placeholder{color:var(--muted);opacity:1}
+:root[data-theme="dark"] :is(.header-link:hover,.filter-chip.is-active,.example-button,.example-button span,.match-card-top em,.detail-label,.real-mission-type,.real-map-route-toggle,.real-mission-panel #realRouteStatus){color:var(--green)}
+:root[data-theme="dark"] :is(.filter-chip.is-active,.match-card-top em,.match-source span,.selected-category,.type-selector input:checked+span,.real-mission-type){background:var(--green-soft);border-color:var(--green);color:var(--green-dark)}
+:root[data-theme="dark"] :is(.secondary-button:hover,.ghost-button:hover,.filter-chip:hover,.example-button:hover,.real-mission-list button:hover,.place-results button:hover,.place-results button:focus-visible,.real-map-route-toggle:hover,.real-map-route-toggle:focus-visible){background:var(--surface-2)}
+:root[data-theme="dark"] :is(.post-tags span,.icon-button,.match-first-step,.detail-grid>div,.need-description,.real-map-canvas,.location-picker-canvas,.real-map-empty,.today-notes){background:var(--surface-2);border-color:var(--line)}
+:root[data-theme="dark"] .icon-button{color:var(--muted)}
+:root[data-theme="dark"] .icon-button:hover{background:var(--green-soft)}
+:root[data-theme="dark"] :is(.post-footer,.match-panel-heading,.post-card:hover){border-color:var(--line)}
+:root[data-theme="dark"] :is(.dialog,.capsule-dialog)::backdrop{background:var(--backdrop)}
+:root[data-theme="dark"] :focus-visible{outline-color:var(--focus-ring)}
+:root[data-theme="dark"] :is(.search-field input,.form-field input,.form-field textarea,.form-field select):focus{border-color:var(--green);box-shadow:0 0 0 3px var(--green-soft)}
+:root[data-theme="dark"] .form-field [aria-invalid="true"]{border-color:var(--danger)}
+:root[data-theme="dark"] .form-field .field-error{color:var(--danger)}
+:root[data-theme="dark"] :is(.demo-badge,.candidate-source,.map-demo-label,.match-source span.local,.detail-experience,.post-card .type-label.need){background:var(--peach);color:var(--orange);border-color:#70513b}
+:root[data-theme="dark"] .post-card .type-label{background:var(--green-soft);color:var(--green)}
+:root[data-theme="dark"] .real-mission-panel .real-demo-notice{color:var(--orange)}
+:root[data-theme="dark"] :is(.real-first-step,.detail-first-step){background:var(--green-soft);color:var(--green-dark)!important}
+:root[data-theme="dark"] .real-mission-panel .real-route-summary{background:#223746;color:#b4d8f2}
+:root[data-theme="dark"] .real-route-summary:not([data-state="ready"])::before{border-color:var(--muted)}
+:root[data-theme="dark"] .real-map-empty{color:var(--ink)}
+:root[data-theme="dark"] .real-jump-mission{background:var(--green-soft);border-color:var(--line)}
+:root[data-theme="dark"] .experience-container iframe{background:var(--bg)}
+:root[data-theme="dark"] .welcome-people span{background:var(--green-soft);color:var(--green)}
+:root[data-theme="dark"] .welcome-people span:last-child{background:var(--peach);color:var(--orange)}
+:root[data-theme="dark"] .welcome-people i{background:var(--line)}
+:root[data-theme="dark"] :is(.skeleton-line,.skeleton-card){background-image:linear-gradient(90deg,var(--surface-2) 25%,#35463b 50%,var(--surface-2) 75%)}
+:root[data-theme="dark"] .avatar.peach{background:#4b3024;color:#f1bd9a}
+:root[data-theme="dark"] .avatar.blue{background:#233a52;color:#b4d8f2}
+:root[data-theme="dark"] :is(.avatar.mint,.avatar.self){background:var(--green-soft);color:var(--green)}
+:root[data-theme="dark"] .avatar.lavender{background:#3e304f;color:#d8c0ef}
+:root[data-theme="dark"] :is(.avatar.sand,.avatar.yellow){background:#443b24;color:#e5d2a1}
+:root[data-theme="dark"] button:disabled{opacity:.75}

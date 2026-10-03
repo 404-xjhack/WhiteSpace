@@ -6,7 +6,7 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import http from "node:http";
-import { root, startServer } from "./helpers.mjs";
+import { root, startServer, assertTextContrast } from "./helpers.mjs";
 import { MATCH_VERSION } from "../public/model.js";
 
 if (typeof WebSocket === "undefined") throw new Error("Browser checks require Node.js 22+ (WebSocket).");
@@ -104,9 +104,94 @@ try {
   connection = new CDP(targets.find((target) => target.type === "page").webSocketDebuggerUrl);
   await connection.send("Runtime.enable"); await connection.send("Page.enable"); await connection.send("Network.enable");
   await connection.send("Page.bringToFront");
+  const firstContentProbe = await connection.send("Page.addScriptToEvaluateOnNewDocument", { source: `
+    new MutationObserver(function (_records, observer) {
+      if (!document.querySelector('.site-header')) return;
+      window.themeAtFirstContent = document.documentElement.dataset.theme;
+      observer.disconnect();
+    }).observe(document, { childList:true, subtree:true });
+  ` });
+  const emulateTheme = (value) => connection.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value }] });
+  await emulateTheme("dark");
   await connection.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
   await connection.send("Page.navigate", { url: app.url });
   await until("document.querySelectorAll('.post-card').length === 6");
+  assert.deepEqual(await evaluate("WriteSpaceTheme.getState()"), { preference: "system", resolvedTheme: "dark" });
+  assert.equal(await evaluate("window.themeAtFirstContent"), "dark");
+  assert.equal(await evaluate("localStorage.getItem('writespace.theme.v1')"), null, "Startup does not write a preference");
+  await emulateTheme("light"); await until("document.documentElement.dataset.theme==='light'");
+  await set('.site-header [data-theme-select]', 'dark');
+  await emulateTheme("dark"); await emulateTheme("light"); await pause(100);
+  assert.deepEqual(await evaluate("WriteSpaceTheme.getState()"), { preference: "dark", resolvedTheme: "dark" });
+  await reload(); assert.equal(await evaluate("window.themeAtFirstContent"), "dark");
+  assert.equal(await evaluate("getComputedStyle(document.documentElement).colorScheme"), "dark");
+  await set('.site-header [data-theme-select]', 'light');
+  await emulateTheme("dark"); await pause(100);
+  assert.equal(await evaluate("document.documentElement.dataset.theme"), "light");
+  await set('.site-header [data-theme-select]', 'system'); await until("document.documentElement.dataset.theme==='dark'");
+  await emulateTheme("light"); await until("document.documentElement.dataset.theme==='light'");
+  await evaluate("localStorage.setItem('writespace.theme.v1','invalid')");
+  await reload(); assert.deepEqual(await evaluate("WriteSpaceTheme.getState()"), { preference: "system", resolvedTheme: "light" });
+
+  const peerTarget = await connection.send("Target.createTarget", { url: app.url });
+  try {
+    const peerPages = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
+    const peer = new CDP(peerPages.find((page) => page.id === peerTarget.targetId).webSocketDebuggerUrl);
+    await peer.send("Runtime.enable");
+    await until("WriteSpaceTheme.getState().preference==='system'");
+    let peerReady = false;
+    for (let i = 0; i < 80 && !peerReady; i++) {
+      peerReady = (await peer.send("Runtime.evaluate", { expression: "Boolean(window.WriteSpaceTheme)", returnByValue:true })).result.value;
+      if (!peerReady) await pause(80);
+    }
+    assert.ok(peerReady);
+    await peer.send("Runtime.evaluate", { expression: "WriteSpaceTheme.setPreference('dark')" });
+    await until("WriteSpaceTheme.getState().preference==='dark'");
+    await set('.site-header [data-theme-select]', 'light');
+    let peerPreference;
+    for (let i = 0; i < 80; i++) {
+      peerPreference = (await peer.send("Runtime.evaluate", { expression: "WriteSpaceTheme.getState().preference", returnByValue:true })).result.value;
+      if (peerPreference === 'light') break;
+      await pause(80);
+    }
+    assert.equal(peerPreference, 'light');
+    await peer.send("Runtime.evaluate", { expression: "localStorage.removeItem('writespace.theme.v1')" });
+    await until("WriteSpaceTheme.getState().preference==='system'");
+    peer.socket.close();
+  } finally { await connection.send("Target.closeTarget", { targetId: peerTarget.targetId }); }
+
+  const deniedReads = await connection.send("Page.addScriptToEvaluateOnNewDocument", { source: "Object.defineProperty(window,'localStorage',{configurable:true,get(){throw new DOMException('Disabled','SecurityError')}});" });
+  await reload();
+  assert.equal(await evaluate("WriteSpaceTheme.getState().preference"), "system");
+  await set('.site-header [data-theme-select]', 'dark');
+  assert.equal(await evaluate("document.documentElement.dataset.theme"), 'dark');
+  assert.match(await evaluate("document.querySelector('.theme-save-status').textContent"), /无法保存/);
+  await connection.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: deniedReads.identifier });
+  await reload();
+  await set('.site-header [data-theme-select]', 'dark');
+  await evaluate("window.originalThemeWrite=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k==='writespace.theme.v1')throw new DOMException('Full','QuotaExceededError');return originalThemeWrite.call(this,k,v)};WriteSpaceTheme.setPreference('light');window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}));");
+  assert.equal(await evaluate("document.documentElement.dataset.theme"), 'light', "Resume cannot restore a stale persisted preference over a failed write");
+  await evaluate("Storage.prototype.setItem=window.originalThemeWrite;delete window.originalThemeWrite;WriteSpaceTheme.setPreference('dark')");
+  await connection.send("Network.setCacheDisabled", { cacheDisabled: true });
+  await connection.send("Network.emulateNetworkConditions", { offline:false, latency:80, downloadThroughput:150000, uploadThroughput:150000 });
+  await connection.send("Network.setBlockedURLs", { urls:["*/app.js"] });
+  await connection.send("Page.reload");
+  await until("document.querySelector('.site-header [data-theme-select]')?.value==='dark' && window.themeAtFirstContent==='dark'");
+  assert.equal(await evaluate("document.querySelectorAll('.post-card').length"),0,"Theme startup does not wait for business initialization");
+  assert.equal(await evaluate("getComputedStyle(document.documentElement).backgroundColor"),"rgb(20, 27, 23)");
+  const startupShot=await connection.send("Page.captureScreenshot",{format:"png"});
+  await writeFile(path.join(root,".tmp","theme-cold-start-dark.png"),Buffer.from(startupShot.data,"base64"));
+  await set('.site-header [data-theme-select]', 'light');
+  assert.equal(await evaluate("document.documentElement.dataset.theme"),'light');
+  await set('.site-header [data-theme-select]', 'dark');
+  await connection.send("Network.setBlockedURLs", { urls:[] });
+  await connection.send("Network.emulateNetworkConditions", { offline:false, latency:0, downloadThroughput:-1, uploadThroughput:-1 });
+  await connection.send("Network.setCacheDisabled", { cacheDisabled:false });
+  await reload();
+  await connection.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: firstContentProbe.identifier });
+  passed("Theme: system startup before content, live changes, explicit overrides, reload, invalid/denied storage and real cross-tab synchronization");
+  await assertTextContrast(evaluate, ['.post-description','.post-tags span','.match-panel-heading p','.filter-chip.is-active','.site-header .primary-button','.today-entry','.theme-control select']);
+  passed("Dark theme text, buttons, selected filters and native controls meet 4.5:1 contrast");
   assert.equal(await evaluate("document.querySelectorAll('#openCreateIntro,#openCreatePanel').length"), 0);
   assert.equal(await evaluate("document.querySelector('#emptyState').hidden"), true);
   assert.equal(await evaluate("document.title"), "留白 WriteSpace · 找到附近一起做事的人");
@@ -156,6 +241,10 @@ try {
   assert.equal(await evaluate("document.activeElement.id"), "postTitle");
   assert.match(await evaluate("document.querySelector('#formError').textContent"), /标题/);
   await set("#postTitle", "修椅"); await set("#postDescription", "帮修");
+  await evaluate("WriteSpaceTheme.setPreference('light');WriteSpaceTheme.setPreference('dark')");
+  assert.equal(await evaluate("document.querySelector('#postTitle').value"), "修椅");
+  assert.equal(await evaluate("document.querySelector('#postDescription').value"), "帮修");
+  assert.equal(await evaluate("document.querySelector('#createDialog').open"), true);
   await set("#categoryPicker", "旧物新生"); await click("#addCategory");
   await set("#categoryPicker", "旧物新生"); await click("#addCategory");
   assert.equal(await evaluate("document.querySelectorAll('.selected-category').length"), 1);
@@ -281,6 +370,7 @@ try {
   await evaluate("import('/experiences/dumpling/state.js').then(S=>{let state=S.focusStep(S.createState(),'roll');state=S.perform(state,'press').state;state=S.perform(state,'roll').state;localStorage.setItem('writespace.experience.dumpling.v1',JSON.stringify(state));})");
   await click("#resetDemo"); assert.equal(await evaluate("document.querySelectorAll('.post-card').length"), 6);
   assert.equal(await evaluate("localStorage.getItem('writespace.experience.dumpling.v1')"),null);
+  assert.equal(await evaluate("localStorage.getItem('writespace.theme.v1')"), "dark", "Demo reset preserves appearance");
   assert.equal(await evaluate("document.querySelector('#matchWelcome').hidden"), false);
   await reload(); assert.equal(await evaluate("document.querySelector('#matchWelcome').hidden"), false);
   passed("Reset clears publishing, profile, interest, matching and dumpling learning persistence");
@@ -826,7 +916,7 @@ try {
   aiExperienceReply = validExperienceReply;
   await connection.send("Network.setBlockedURLs", { urls: ["*/data.json"] });
   await connection.send("Page.reload");
-  await until("document.querySelector('#toast').textContent.includes('载入失败')");
+  await until("document.querySelector('#toast')?.textContent.includes('载入失败')");
   await click("#openToday"); await click("#recommendToday");
   await until("!document.querySelector('#recommendToday').disabled && document.querySelectorAll('.today-card').length===1");
   assert.equal(await evaluate("document.querySelector('#todaySource').textContent"), "AI 筛选推荐");
