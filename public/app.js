@@ -21,12 +21,12 @@ const needForm = $("#needForm");
 const toast = $("#toast");
 const todayDialog = $("#todayDialog");
 const todayForm = $("#todayForm");
-const storageToday = "writespace.today.v1";
-const storagePosts = "writespace.posts.v1";
-const storageInterest = "writespace.interest.v1";
-const storageProfile = "writespace.profile.v1";
-const storageMatches = "writespace.matches.v1";
-const storageDumpling = "writespace.experience.dumpling.v1";
+const storageToday = "whitespace.today.v1";
+const storagePosts = "whitespace.posts.v1";
+const storageInterest = "whitespace.interest.v1";
+const storageProfile = "whitespace.profile.v1";
+const storageMatches = "whitespace.matches.v1";
+const storageDumpling = "whitespace.experience.dumpling.v1";
 const capsules = createTimeCapsuleUI();
 $("#openCapsuleHistory").addEventListener("click", capsules.openHistory);
 
@@ -282,10 +282,17 @@ function openDumplingExperience() {
   experienceFrame.title = "传统手工饺子制作体验";
   // Capsules use a local form and a user-triggered text download inside the scene.
   experienceFrame.sandbox = "allow-scripts allow-same-origin allow-pointer-lock allow-forms allow-downloads";
+  experienceFrame.addEventListener("load", syncExperienceTheme);
   experienceFrame.src = "/dumpling-house.html?embed=1";
   $("#experienceContainer").replaceChildren(experienceFrame);
   openDialog(experienceDialog);
 }
+
+function syncExperienceTheme() {
+  if (!experienceFrame || !window.WhiteSpaceTheme) return;
+  experienceFrame.contentWindow?.postMessage({ channel: "whitespace-theme", version: 1, type: "sync", ...window.WhiteSpaceTheme.getState() }, location.origin);
+}
+window.addEventListener("whitespace:themechange", syncExperienceTheme);
 
 experienceDialog.addEventListener("close", () => {
   // Unmount the scene so a closed experience stops drawing and using GPU resources.

@@ -6,7 +6,7 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import http from "node:http";
-import { root, startServer } from "./helpers.mjs";
+import { root, startServer, assertTextContrast } from "./helpers.mjs";
 import { MATCH_VERSION } from "../public/model.js";
 
 if (typeof WebSocket === "undefined") throw new Error("Browser checks require Node.js 22+ (WebSocket).");
@@ -25,6 +25,7 @@ let connection;
 let aiApp;
 let aiMock;
 let mapApp;
+let mapScriptRequest;
 const errors = [];
 const checks = [];
 
@@ -39,6 +40,7 @@ class CDP {
         this.pending.delete(data.id); clearTimeout(request.timer);
         if (data.error) request.reject(new Error(data.error.message)); else request.resolve(data.result);
       } else if (data.method === "Runtime.exceptionThrown") errors.push(data.params.exceptionDetails.exception?.description || data.params.exceptionDetails.text);
+      else if (data.method === "Fetch.requestPaused") mapScriptRequest = data.params;
     });
   }
   async send(method, params = {}) {
@@ -104,12 +106,97 @@ try {
   connection = new CDP(targets.find((target) => target.type === "page").webSocketDebuggerUrl);
   await connection.send("Runtime.enable"); await connection.send("Page.enable"); await connection.send("Network.enable");
   await connection.send("Page.bringToFront");
+  const firstContentProbe = await connection.send("Page.addScriptToEvaluateOnNewDocument", { source: `
+    new MutationObserver(function (_records, observer) {
+      if (!document.querySelector('.site-header')) return;
+      window.themeAtFirstContent = document.documentElement.dataset.theme;
+      observer.disconnect();
+    }).observe(document, { childList:true, subtree:true });
+  ` });
+  const emulateTheme = (value) => connection.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value }] });
+  await emulateTheme("dark");
   await connection.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
   await connection.send("Page.navigate", { url: app.url });
   await until("document.querySelectorAll('.post-card').length === 6");
+  assert.deepEqual(await evaluate("WhiteSpaceTheme.getState()"), { preference: "system", resolvedTheme: "dark" });
+  assert.equal(await evaluate("window.themeAtFirstContent"), "dark");
+  assert.equal(await evaluate("localStorage.getItem('whitespace.theme.v1')"), null, "Startup does not write a preference");
+  await emulateTheme("light"); await until("document.documentElement.dataset.theme==='light'");
+  await set('.site-header [data-theme-select]', 'dark');
+  await emulateTheme("dark"); await emulateTheme("light"); await pause(100);
+  assert.deepEqual(await evaluate("WhiteSpaceTheme.getState()"), { preference: "dark", resolvedTheme: "dark" });
+  await reload(); assert.equal(await evaluate("window.themeAtFirstContent"), "dark");
+  assert.equal(await evaluate("getComputedStyle(document.documentElement).colorScheme"), "dark");
+  await set('.site-header [data-theme-select]', 'light');
+  await emulateTheme("dark"); await pause(100);
+  assert.equal(await evaluate("document.documentElement.dataset.theme"), "light");
+  await set('.site-header [data-theme-select]', 'system'); await until("document.documentElement.dataset.theme==='dark'");
+  await emulateTheme("light"); await until("document.documentElement.dataset.theme==='light'");
+  await evaluate("localStorage.setItem('whitespace.theme.v1','invalid')");
+  await reload(); assert.deepEqual(await evaluate("WhiteSpaceTheme.getState()"), { preference: "system", resolvedTheme: "light" });
+
+  const peerTarget = await connection.send("Target.createTarget", { url: app.url });
+  try {
+    const peerPages = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
+    const peer = new CDP(peerPages.find((page) => page.id === peerTarget.targetId).webSocketDebuggerUrl);
+    await peer.send("Runtime.enable");
+    await until("WhiteSpaceTheme.getState().preference==='system'");
+    let peerReady = false;
+    for (let i = 0; i < 80 && !peerReady; i++) {
+      peerReady = (await peer.send("Runtime.evaluate", { expression: "Boolean(window.WhiteSpaceTheme)", returnByValue:true })).result.value;
+      if (!peerReady) await pause(80);
+    }
+    assert.ok(peerReady);
+    await peer.send("Runtime.evaluate", { expression: "WhiteSpaceTheme.setPreference('dark')" });
+    await until("WhiteSpaceTheme.getState().preference==='dark'");
+    await set('.site-header [data-theme-select]', 'light');
+    let peerPreference;
+    for (let i = 0; i < 80; i++) {
+      peerPreference = (await peer.send("Runtime.evaluate", { expression: "WhiteSpaceTheme.getState().preference", returnByValue:true })).result.value;
+      if (peerPreference === 'light') break;
+      await pause(80);
+    }
+    assert.equal(peerPreference, 'light');
+    await peer.send("Runtime.evaluate", { expression: "localStorage.removeItem('whitespace.theme.v1')" });
+    await until("WhiteSpaceTheme.getState().preference==='system'");
+    peer.socket.close();
+  } finally { await connection.send("Target.closeTarget", { targetId: peerTarget.targetId }); }
+
+  const deniedReads = await connection.send("Page.addScriptToEvaluateOnNewDocument", { source: "Object.defineProperty(window,'localStorage',{configurable:true,get(){throw new DOMException('Disabled','SecurityError')}});" });
+  await reload();
+  assert.equal(await evaluate("WhiteSpaceTheme.getState().preference"), "system");
+  await set('.site-header [data-theme-select]', 'dark');
+  assert.equal(await evaluate("document.documentElement.dataset.theme"), 'dark');
+  assert.match(await evaluate("document.querySelector('.theme-save-status').textContent"), /无法保存/);
+  await connection.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: deniedReads.identifier });
+  await reload();
+  await set('.site-header [data-theme-select]', 'dark');
+  await evaluate("window.originalThemeWrite=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k==='whitespace.theme.v1')throw new DOMException('Full','QuotaExceededError');return originalThemeWrite.call(this,k,v)};WhiteSpaceTheme.setPreference('light');window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}));");
+  assert.equal(await evaluate("document.documentElement.dataset.theme"), 'light', "Resume cannot restore a stale persisted preference over a failed write");
+  await evaluate("Storage.prototype.setItem=window.originalThemeWrite;delete window.originalThemeWrite;WhiteSpaceTheme.setPreference('dark')");
+  await connection.send("Network.setCacheDisabled", { cacheDisabled: true });
+  await connection.send("Network.emulateNetworkConditions", { offline:false, latency:80, downloadThroughput:150000, uploadThroughput:150000 });
+  await connection.send("Network.setBlockedURLs", { urls:["*/app.js"] });
+  await connection.send("Page.reload");
+  await until("document.querySelector('.site-header [data-theme-select]')?.value==='dark' && window.themeAtFirstContent==='dark'");
+  assert.equal(await evaluate("document.querySelectorAll('.post-card').length"),0,"Theme startup does not wait for business initialization");
+  assert.equal(await evaluate("getComputedStyle(document.documentElement).backgroundColor"),"rgb(24, 26, 29)");
+  const startupShot=await connection.send("Page.captureScreenshot",{format:"png"});
+  await writeFile(path.join(root,".tmp","theme-cold-start-dark.png"),Buffer.from(startupShot.data,"base64"));
+  await set('.site-header [data-theme-select]', 'light');
+  assert.equal(await evaluate("document.documentElement.dataset.theme"),'light');
+  await set('.site-header [data-theme-select]', 'dark');
+  await connection.send("Network.setBlockedURLs", { urls:[] });
+  await connection.send("Network.emulateNetworkConditions", { offline:false, latency:0, downloadThroughput:-1, uploadThroughput:-1 });
+  await connection.send("Network.setCacheDisabled", { cacheDisabled:false });
+  await reload();
+  await connection.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: firstContentProbe.identifier });
+  passed("Theme: system startup before content, live changes, explicit overrides, reload, invalid/denied storage and real cross-tab synchronization");
+  await assertTextContrast(evaluate, ['.post-description','.post-tags span','.match-panel-heading p','.filter-chip.is-active','.site-header .primary-button','.today-entry','.theme-control select']);
+  passed("Dark theme text, buttons, selected filters and native controls meet 4.5:1 contrast");
   assert.equal(await evaluate("document.querySelectorAll('#openCreateIntro,#openCreatePanel').length"), 0);
   assert.equal(await evaluate("document.querySelector('#emptyState').hidden"), true);
-  assert.equal(await evaluate("document.title"), "留白 WriteSpace · 找到附近一起做事的人");
+  assert.equal(await evaluate("document.title"), "留白 WhiteSpace · 找到附近一起做事的人");
   assert.equal(await evaluate("document.querySelector('#pageTitle').textContent"), "想做一件事，找到一起做的人。");
   assert.match(await evaluate("document.querySelector('meta[property=\"og:description\"]').content"), /示例人物.*本机/);
   assert.equal(await evaluate("document.querySelector('.page-shell').contains(document.querySelector('.product-story'))"), false);
@@ -156,6 +243,10 @@ try {
   assert.equal(await evaluate("document.activeElement.id"), "postTitle");
   assert.match(await evaluate("document.querySelector('#formError').textContent"), /标题/);
   await set("#postTitle", "修椅"); await set("#postDescription", "帮修");
+  await evaluate("WhiteSpaceTheme.setPreference('light');WhiteSpaceTheme.setPreference('dark')");
+  assert.equal(await evaluate("document.querySelector('#postTitle').value"), "修椅");
+  assert.equal(await evaluate("document.querySelector('#postDescription').value"), "帮修");
+  assert.equal(await evaluate("document.querySelector('#createDialog').open"), true);
   await set("#categoryPicker", "旧物新生"); await click("#addCategory");
   await set("#categoryPicker", "旧物新生"); await click("#addCategory");
   assert.equal(await evaluate("document.querySelectorAll('.selected-category').length"), 1);
@@ -174,7 +265,7 @@ try {
   await assertModal("#createDialog", true); await click("#publishButton"); await readyMatch("修椅");
   assert.equal(await evaluate("document.querySelector('#matchSource').textContent"), "本地规则匹配");
   assert.equal(await evaluate("document.querySelector('#demoMapLayout')"), null);
-  let posts = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))");
+  let posts = await evaluate("JSON.parse(localStorage.getItem('whitespace.posts.v1'))");
   const repairId = posts[0].id;
   assert.deepEqual(posts[0].categories, ["旧物新生", "邻里 修理"]); assert.ok(!posts[0].tags.includes("数码互助"));
   assert.equal(posts[0].age, "27岁"); assert.equal(posts[0].role, "新搬来的邻居"); assert.equal(posts[0].participants, "2–5人"); assert.ok(posts[0].createdAt);
@@ -191,7 +282,7 @@ try {
 
   await click('[data-post-id="p3"]'); await click("#interestButton");
   assert.equal(await evaluate("document.querySelector('#interestButton').textContent"), "取消参与意向");
-  await click("#interestButton"); assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('writespace.interest.v1'))"), []);
+  await click("#interestButton"); assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('whitespace.interest.v1'))"), []);
   await click("#interestButton"); await click('#detailDialog [data-close="detailDialog"]');
   await reload(); await click('[data-post-id="p3"]');
   assert.equal(await evaluate("document.querySelector('#interestButton').textContent"), "取消参与意向");
@@ -211,7 +302,7 @@ try {
   await until("document.querySelector('#needDialog').open && !document.querySelector('#extractNeed').disabled");
   assert.match(await evaluate("document.querySelector('#needStatus').textContent"), /尚未配置/);
   await click("#saveNeed"); await readyMatch("摄影");
-  posts = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))");
+  posts = await evaluate("JSON.parse(localStorage.getItem('whitespace.posts.v1'))");
   const photoId = posts[0].id;
   assert.equal(posts[0].age, ""); assert.equal(posts[0].time, "时间可协商"); assert.equal(posts[0].location, "地点可协商"); assert.equal(posts[0].participants, "3人");
   assert.equal(posts[0].need, "");
@@ -241,7 +332,7 @@ try {
     await writeFile(path.join(root, ".tmp", "scrollbar-create-" + size.width + ".png"), Buffer.from(createScrollShot.data, "base64"));
     await set("#timeMode", "date"); await set("#postDate", "2026-10-04"); await set("#postStart", "09:00"); await set("#postEnd", "11:00");
     await click('#createDialog [data-close="createDialog"]');
-    await evaluate(`(() => { const posts=JSON.parse(localStorage.getItem('writespace.posts.v1')); posts.find(p=>p.id===${JSON.stringify(repairId)}).description=('长说明'+String.fromCharCode(10)).repeat(80); localStorage.setItem('writespace.posts.v1',JSON.stringify(posts)); })()`);
+    await evaluate(`(() => { const posts=JSON.parse(localStorage.getItem('whitespace.posts.v1')); posts.find(p=>p.id===${JSON.stringify(repairId)}).description=('长说明'+String.fromCharCode(10)).repeat(80); localStorage.setItem('whitespace.posts.v1',JSON.stringify(posts)); })()`);
     await reload(); await click(`[data-post-id="${repairId}"]`); await assertModal("#detailDialog", true);
     const detailScrollShot = await connection.send("Page.captureScreenshot", { format: "png" });
     await writeFile(path.join(root, ".tmp", "scrollbar-detail-" + size.width + ".png"), Buffer.from(detailScrollShot.data, "base64"));
@@ -257,7 +348,7 @@ try {
   await set("#timeMode", "date"); await set("#postDate", "2026-10-04"); await set("#postStart", "09:00"); await set("#postEnd", "10:00");
   await set("#postLocation", "other"); await set("#locationOther", "社区花园");
   await click("#publishButton"); await readyMatch("散步");
-  const datedPost = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0]");
+  const datedPost = await evaluate("JSON.parse(localStorage.getItem('whitespace.posts.v1'))[0]");
   assert.equal(datedPost.time, "2026-10-04 09:00–10:00"); assert.equal(datedPost.location, "社区花园"); assert.equal(datedPost.participants, "协商决定");
   await click("#openCreateTop");
   await click('.form-examples summary'); await click('[data-example="food"]');
@@ -265,7 +356,7 @@ try {
   await click("#publishButton"); await readyMatch("想带孩子学包饺子，找愿意教的人");
   passed("B02/U09: single modal scroll at 1280/375/320 px, long details, reachable actions and usable example");
 
-  await evaluate("(() => { const posts=JSON.parse(localStorage.getItem('writespace.posts.v1')); posts[0].createdAt=new Date(Date.now()-120000).toISOString(); localStorage.setItem('writespace.posts.v1',JSON.stringify(posts)); })()");
+  await evaluate("(() => { const posts=JSON.parse(localStorage.getItem('whitespace.posts.v1')); posts[0].createdAt=new Date(Date.now()-120000).toISOString(); localStorage.setItem('whitespace.posts.v1',JSON.stringify(posts)); })()");
   await reload();
   assert.equal(await evaluate("document.querySelector('.post-age').textContent"), "2分钟前");
   await click(".post-card-action"); assert.equal(await evaluate("document.querySelector('#detailContent [data-published-id]').textContent"), "2分钟前"); await click('#detailDialog [data-close="detailDialog"]');
@@ -273,14 +364,15 @@ try {
   await evaluate("window.__clockNow=Date.now; Date.now=()=>window.__clockNow()+60000; document.dispatchEvent(new Event('visibilitychange'))");
   assert.equal(await evaluate("document.querySelector('.post-age').textContent"), "3分钟前");
   await evaluate("Date.now=window.__clockNow");
-  await evaluate("localStorage.setItem('writespace.posts.v1',JSON.stringify([{id:'mine-legacy',title:'旧发布',description:'旧说明',type:'need',category:'社区生活',time:'周末下午',location:'春和社区',published:'刚刚'}]))");
+  await evaluate("localStorage.setItem('whitespace.posts.v1',JSON.stringify([{id:'mine-legacy',title:'旧发布',description:'旧说明',type:'need',category:'社区生活',time:'周末下午',location:'春和社区',published:'刚刚'}]))");
   await reload(); assert.equal(await evaluate("document.querySelector('.post-age').textContent"), "发布时间未知");
   await click('[data-post-id="mine-legacy"]'); assert.equal(await evaluate("document.querySelector('#detailMatchButton').hidden"), false); await click('#detailDialog [data-close="detailDialog"]');
   passed("B07/U08: relative timestamps agree in list/detail; legacy posts retain matching access");
 
-  await evaluate("import('/experiences/dumpling/state.js').then(S=>{let state=S.focusStep(S.createState(),'roll');state=S.perform(state,'press').state;state=S.perform(state,'roll').state;localStorage.setItem('writespace.experience.dumpling.v1',JSON.stringify(state));})");
+  await evaluate("import('/experiences/dumpling/state.js').then(S=>{let state=S.focusStep(S.createState(),'roll');state=S.perform(state,'press').state;state=S.perform(state,'roll').state;localStorage.setItem('whitespace.experience.dumpling.v1',JSON.stringify(state));})");
   await click("#resetDemo"); assert.equal(await evaluate("document.querySelectorAll('.post-card').length"), 6);
-  assert.equal(await evaluate("localStorage.getItem('writespace.experience.dumpling.v1')"),null);
+  assert.equal(await evaluate("localStorage.getItem('whitespace.experience.dumpling.v1')"),null);
+  assert.equal(await evaluate("localStorage.getItem('whitespace.theme.v1')"), "dark", "Demo reset preserves appearance");
   assert.equal(await evaluate("document.querySelector('#matchWelcome').hidden"), false);
   await reload(); assert.equal(await evaluate("document.querySelector('#matchWelcome').hidden"), false);
   passed("Reset clears publishing, profile, interest, matching and dumpling learning persistence");
@@ -292,32 +384,32 @@ try {
   await set("#postDescription", reportedDescription);
   await set("#categoryPicker", "other"); await set("#customCategory", "test"); await click("#addCategory");
   await click("#publishButton"); await readyMatch(reportedTitle);
-  const reportedId = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0].id");
+  const reportedId = await evaluate("JSON.parse(localStorage.getItem('whitespace.posts.v1'))[0].id");
   assert.equal(await evaluate("document.querySelector('[data-match-id=\"p3\"]') !== null"), true);
   assert.match(await evaluate("document.querySelector('#matchingPostConditions').textContent"), /每周日 09:00–11:00.*公共集合点待确认/);
   await reload(); await readyMatch(reportedTitle);
   assert.match(await evaluate("document.querySelector('#matchList').textContent"), /陈师傅/);
   passed("Reported case: full chair repair + custom test + Sunday visibly returns Chen and survives reload");
 
-  const beforeCacheUpdate = await evaluate("Object.fromEntries(['writespace.posts.v1','writespace.profile.v1','writespace.interest.v1','writespace.experience.dumpling.v1','writespace.capsules.v1'].map(key=>[key,localStorage.getItem(key)]))");
-  await evaluate(`(() => { const cache=JSON.parse(localStorage.getItem('writespace.matches.v1')); cache.byPost[${JSON.stringify(reportedId)}].algorithmVersion='content-v2'; cache.byPost[${JSON.stringify(reportedId)}].matches[0].reason='旧的未来自动化匹配理由'; localStorage.setItem('writespace.matches.v1',JSON.stringify(cache)); })()`);
+  const beforeCacheUpdate = await evaluate("Object.fromEntries(['whitespace.posts.v1','whitespace.profile.v1','whitespace.interest.v1','whitespace.experience.dumpling.v1','whitespace.capsules.v1'].map(key=>[key,localStorage.getItem(key)]))");
+  await evaluate(`(() => { const cache=JSON.parse(localStorage.getItem('whitespace.matches.v1')); cache.byPost[${JSON.stringify(reportedId)}].algorithmVersion='content-v2'; cache.byPost[${JSON.stringify(reportedId)}].matches[0].reason='旧的未来自动化匹配理由'; localStorage.setItem('whitespace.matches.v1',JSON.stringify(cache)); })()`);
   await reload(); await readyMatch(reportedTitle);
   assert.equal(await evaluate("document.querySelector('[data-match-id=\"p3\"]') !== null"), true);
   assert.doesNotMatch(await evaluate("document.querySelector('#matchList').textContent"), /旧的未来自动化匹配理由/);
-  assert.equal(await evaluate(`JSON.parse(localStorage.getItem('writespace.matches.v1')).byPost[${JSON.stringify(reportedId)}].algorithmVersion`), MATCH_VERSION);
-  assert.deepEqual(await evaluate("Object.fromEntries(['writespace.posts.v1','writespace.profile.v1','writespace.interest.v1','writespace.experience.dumpling.v1','writespace.capsules.v1'].map(key=>[key,localStorage.getItem(key)]))"), beforeCacheUpdate);
-  await evaluate("(() => { const posts=JSON.parse(localStorage.getItem('writespace.posts.v1')); posts[0].schedule.days=[1]; localStorage.setItem('writespace.posts.v1',JSON.stringify(posts)); })()");
+  assert.equal(await evaluate(`JSON.parse(localStorage.getItem('whitespace.matches.v1')).byPost[${JSON.stringify(reportedId)}].algorithmVersion`), MATCH_VERSION);
+  assert.deepEqual(await evaluate("Object.fromEntries(['whitespace.posts.v1','whitespace.profile.v1','whitespace.interest.v1','whitespace.experience.dumpling.v1','whitespace.capsules.v1'].map(key=>[key,localStorage.getItem(key)]))"), beforeCacheUpdate);
+  await evaluate("(() => { const posts=JSON.parse(localStorage.getItem('whitespace.posts.v1')); posts[0].schedule.days=[1]; localStorage.setItem('whitespace.posts.v1',JSON.stringify(posts)); })()");
   await reload(); await readyMatch(reportedTitle);
   assert.equal(await evaluate("document.querySelectorAll('.match-card').length"), 0);
   assert.match(await evaluate("document.querySelector('#matchList').textContent"), /时间冲突/);
   assert.match(await evaluate("document.querySelector('#matchDiagnostics').textContent"), /陈师傅.*每周日/);
   assert.match(await evaluate("document.querySelector('#matchingPostConditions').textContent"), /每周一/);
-  await evaluate("(() => { const posts=JSON.parse(localStorage.getItem('writespace.posts.v1')); posts[0].schedule.days=[0]; localStorage.setItem('writespace.posts.v1',JSON.stringify(posts)); })()");
+  await evaluate("(() => { const posts=JSON.parse(localStorage.getItem('whitespace.posts.v1')); posts[0].schedule.days=[0]; localStorage.setItem('whitespace.posts.v1',JSON.stringify(posts)); })()");
   await reload(); await readyMatch(reportedTitle);
   assert.equal(await evaluate("document.querySelector('[data-match-id=\"p3\"]') !== null"), true);
   passed("Version and input changes invalidate stale/empty cache; time conflicts identify Chen and the actual day");
 
-  const originalRepair = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0]");
+  const originalRepair = await evaluate("JSON.parse(localStorage.getItem('whitespace.posts.v1'))[0]");
   await click("#editMatchTime"); await until("document.querySelector('#scheduleDialog').open");
   await assertModal("#scheduleDialog", false);
   assert.equal(await evaluate("document.querySelector('#scheduleWeekday').value"), "0");
@@ -327,7 +419,7 @@ try {
   await click("#saveSchedule");
   assert.equal(await evaluate("document.querySelector('#scheduleDialog').open"), true);
   assert.match(await evaluate("document.querySelector('#scheduleError').textContent"), /结束时间/);
-  assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0]"), originalRepair);
+  assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('whitespace.posts.v1'))[0]"), originalRepair);
   await set("#scheduleEnd", "11:00");
   assert.match(await evaluate("document.querySelector('#schedulePreview').textContent"), /2026-10-10（周六）/);
   await click("#saveSchedule"); await readyMatch(reportedTitle);
@@ -335,7 +427,7 @@ try {
   assert.equal(await evaluate("document.querySelectorAll('.match-card').length"), 0);
   assert.match(await evaluate("document.querySelector('#matchDiagnostics').textContent"), /周六.*陈师傅.*每周日/);
   await click("#editMatchTime"); await set("#scheduleDate", "2026-10-11"); await click('#scheduleDialog [data-close="scheduleDialog"]');
-  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0].schedule.date"), "2026-10-10");
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('whitespace.posts.v1'))[0].schedule.date"), "2026-10-10");
   await click(`[data-post-id="${reportedId}"]`); await click("#detailTimeButton");
   assert.equal(await evaluate("document.querySelector('#scheduleDate').value"), "2026-10-10");
   await set("#scheduleDate", "2026-10-11");
@@ -343,11 +435,11 @@ try {
   await click("#saveSchedule"); await readyMatch(reportedTitle);
   assert.equal(await evaluate("document.querySelector('[data-match-id=\"p3\"]') !== null"), true);
   assert.match(await evaluate("document.querySelector('#matchingPostConditions').textContent"), /2026-10-11（周日）/);
-  const editedRepair = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0]");
+  const editedRepair = await evaluate("JSON.parse(localStorage.getItem('whitespace.posts.v1'))[0]");
   const { time: _oldTime, schedule: _oldSchedule, ...originalFields } = originalRepair;
   const { time: _newTime, schedule: _newSchedule, ...editedFields } = editedRepair;
   assert.deepEqual(editedFields, originalFields);
-  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1')).length"), 1);
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('whitespace.posts.v1')).length"), 1);
   await reload(); await readyMatch(reportedTitle);
   assert.equal(await evaluate("document.querySelector('[data-match-id=\"p3\"]') !== null"), true);
   assert.equal(await evaluate("document.documentElement.classList.contains('modal-open')"), false);
@@ -361,7 +453,7 @@ try {
   assert.match(await evaluate("document.querySelector('#toast').textContent"), /已保存时间：每周日/);
   passed("Actual date: Saturday conflict → adjust original post to Sunday → Chen card; invalid/cancelled edits preserve data");
 
-  await evaluate("(() => { const cache=JSON.parse(localStorage.getItem('writespace.matches.v1')); delete cache.byPost[cache.lastPostId]; localStorage.setItem('writespace.matches.v1',JSON.stringify(cache)); })()");
+  await evaluate("(() => { const cache=JSON.parse(localStorage.getItem('whitespace.matches.v1')); delete cache.byPost[cache.lastPostId]; localStorage.setItem('whitespace.matches.v1',JSON.stringify(cache)); })()");
   await connection.send("Network.setBlockedURLs", { urls: ["*/data.json"] });
   await connection.send("Page.reload"); await readyMatch(reportedTitle);
   assert.equal(await evaluate("document.querySelectorAll('.post-card').length"), 1);
@@ -472,14 +564,14 @@ try {
   assert.equal(await evaluate("document.querySelector('#needValue').value"), aiNeedReply.need);
   assert.match(await evaluate("document.querySelector('#needEvidence').textContent"), /希望听你分享照片背后的社区故事/);
   await assertModal("#needDialog", false);
-  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1')).length"), 1);
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('whitespace.posts.v1')).length"), 1);
   await click('#needDialog [data-close="needDialog"]'); await until("document.querySelector('#createDialog').open");
   assert.equal(await evaluate("document.querySelector('#postTitle').value"), aiOfferTitle);
   await click("#publishButton"); await until("document.querySelector('#needDialog').open && !document.querySelector('#extractNeed').disabled");
   const needShot = await connection.send("Page.captureScreenshot", { format: "png" });
   await writeFile(path.join(root, ".tmp", "need-extraction-mobile.png"), Buffer.from(needShot.data, "base64"));
   await click("#saveNeed"); await readyMatch(aiOfferTitle);
-  const aiOffer = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0]");
+  const aiOffer = await evaluate("JSON.parse(localStorage.getItem('whitespace.posts.v1'))[0]");
   assert.equal(aiOffer.need, aiNeedReply.need); assert.equal(aiOffer.needSummary.source, "ai");
   await reload(); await readyMatch(aiOfferTitle); await click(`[data-post-id="${aiOffer.id}"]`);
   assert.equal(await evaluate("document.querySelector('.need-source').textContent"), "AI 提炼");
@@ -488,9 +580,9 @@ try {
 
   await click("#detailNeedButton"); await until("document.querySelector('#needDialog').open && !document.querySelector('#extractNeed').disabled");
   await set("#needValue", "希望邻居分享搬家经验"); await click("#saveNeed"); await readyMatch(aiOfferTitle);
-  const manualOffer = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0]");
+  const manualOffer = await evaluate("JSON.parse(localStorage.getItem('whitespace.posts.v1'))[0]");
   assert.equal(manualOffer.id, aiOffer.id); assert.equal(manualOffer.createdAt, aiOffer.createdAt); assert.equal(manualOffer.needSummary.source, "manual");
-  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1')).length"), 2);
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('whitespace.posts.v1')).length"), 2);
   const { need: _aiNeed, needSummary: _aiSummary, ...aiFields } = aiOffer;
   const { need: _manualNeed, needSummary: _manualSummary, ...manualFields } = manualOffer;
   assert.deepEqual(manualFields, aiFields);
@@ -504,7 +596,7 @@ try {
   await evaluate("window.__releaseNeed(); window.fetch=window.__realNeedFetch"); await pause(150);
   assert.equal(await evaluate("document.querySelector('#needValue').value"), "手动填写不能被晚返回的 AI 覆盖");
   await click('#needDialog [data-close="needDialog"]');
-  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0].need"), manualOffer.need);
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('whitespace.posts.v1'))[0].need"), manualOffer.need);
   passed("Existing offer: regenerate/edit preserves post identity; cancelled edits and late AI responses cannot overwrite manual text");
 
   aiNeedReply = { need: "", evidence: "" };
@@ -518,10 +610,10 @@ try {
   assert.match(await evaluate("document.querySelector('#needStatus').textContent"), /未连接/);
   await set("#needValue", "手动补充社区故事交流"); await click("#saveNeed"); await readyMatch(aiOfferTitle);
   await connection.send("Network.setBlockedURLs", { urls: [] });
-  await evaluate("(() => { const posts=JSON.parse(localStorage.getItem('writespace.posts.v1')); posts[0].need='寻找适合的分享对象，具体交流方式见说明'; delete posts[0].needSummary; localStorage.setItem('writespace.posts.v1',JSON.stringify(posts)); })()");
+  await evaluate("(() => { const posts=JSON.parse(localStorage.getItem('whitespace.posts.v1')); posts[0].need='寻找适合的分享对象，具体交流方式见说明'; delete posts[0].needSummary; localStorage.setItem('whitespace.posts.v1',JSON.stringify(posts)); })()");
   await reload(); await readyMatch(aiOfferTitle); await click(`[data-post-id="${aiOffer.id}"]`);
   assert.match(await evaluate("document.querySelector('#detailContent').textContent"), /未说明/);
-  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0].need"), "");
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('whitespace.posts.v1'))[0].need"), "");
   await click('#detailDialog [data-close="detailDialog"]');
   passed("Unstated expectations stay empty; offline extraction permits manual save; legacy canned wishes are removed");
 
@@ -537,16 +629,27 @@ try {
       return originalFetch(url, options);
     };
     class FakeLngLat { constructor(lng, lat) { this.lng=lng; this.lat=lat; } getLng() { return this.lng; } getLat() { return this.lat; } }
-    class FakeMap { constructor(id, opts={}) { this.events={}; this.options=opts; this.center=opts.center || [120.067,30.297]; this.zoom=opts.zoom; document.getElementById(id).dataset.fakeMap='ready'; window.__maps.push(this); } on(name, fn) { this.events[name]=fn; } emit(name, data) { this.events[name]?.(data); } resize() {} setCenter(point) { this.center=point; } setZoom(zoom) { this.zoom=zoom; } getCenter() { return new FakeLngLat(...this.center); } }
+    class FakeMap { constructor(id, opts={}) { this.events={}; this.options=opts; this.mapStyle=opts.mapStyle; this.styleCalls=[]; this.center=opts.center || [120.067,30.297]; this.zoom=opts.zoom; document.getElementById(id).dataset.fakeMap='ready'; window.__maps.push(this); } on(name, fn) { this.events[name]=fn; } emit(name, data) { this.events[name]?.(data); } resize() {} setCenter(point) { this.center=point; } setZoom(zoom) { this.zoom=zoom; } getCenter() { return new FakeLngLat(...this.center); } setMapStyle(style) { this.styleCalls.push(style); if(this.failStyle)throw new Error('Test map style unavailable'); this.mapStyle=style; } }
     class FakeMarker { constructor(opts) { this.position=opts.position; this.title=opts.title; this.content=opts.content; this.events={}; window.__markers.push(this); } on(name, fn) { this.events[name]=fn; } emit(name, data) { if (name==='click' && this.content) this.content.click(); else this.events[name]?.(data); } setMap() {} setPosition(point) { this.position=point; } getPosition() { return new FakeLngLat(...this.position); } }
     class FakePolyline { constructor(opts) { this.path=opts.path; this.strokeColor=opts.strokeColor; this.active=true; window.__polylines.push(this); } setMap(map) { this.active=Boolean(map); } }
-    window.AMap={Map:FakeMap,Marker:FakeMarker,Polyline:FakePolyline,LngLat:FakeLngLat,convertFrom:(point,_kind,callback)=>callback('complete',{locations:[new FakeLngLat(point[0]+.0005,point[1]+.0005)]})};
+    window.__fakeAMap={Map:FakeMap,Marker:FakeMarker,Polyline:FakePolyline,LngLat:FakeLngLat,convertFrom:(point,_kind,callback)=>callback('complete',{locations:[new FakeLngLat(point[0]+.0005,point[1]+.0005)]})};
+    window.AMap=window.__fakeAMap;
   ` });
   await connection.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
   await connection.send("Page.navigate", { url: mapApp.url });
   await until("document.querySelectorAll('.post-card').length === 6 && !document.querySelector('#mapLocationOption').disabled");
+  await evaluate("WhiteSpaceTheme.setPreference('light');window.AMap=undefined");
+  mapScriptRequest=null;
+  await connection.send("Fetch.enable",{patterns:[{urlPattern:"https://webapi.amap.com/maps*",requestStage:"Request"}]});
   await click("#mapToggle");
+  for(let i=0;i<80&&!mapScriptRequest;i++)await pause(80);
+  assert.ok(mapScriptRequest,"Map SDK request is intercepted before using any external service");
+  await evaluate("WhiteSpaceTheme.setPreference('dark')");
+  assert.equal(await evaluate("window.__maps.length"),0,"A theme change must not initialize a map while its SDK is pending");
+  await connection.send("Fetch.fulfillRequest",{requestId:mapScriptRequest.requestId,responseCode:200,responseHeaders:[{name:"Content-Type",value:"application/javascript"}],body:Buffer.from("window.AMap=window.__fakeAMap;window.__whiteSpaceAMapReady();").toString("base64")});
+  await connection.send("Fetch.disable");
   await until("document.querySelector('#realMapCanvas').dataset.fakeMap === 'ready' && /已定位/.test(document.querySelector('#realMapArea').textContent)");
+  assert.equal(await evaluate("window.__maps[0].options.mapStyle"),'amap://styles/dark',"Deferred SDK initialization uses the latest theme");
   assert.equal(await evaluate("window.__maps[0].zoom"), 16);
   assert.equal(await evaluate("window.__maps[0].options.jogEnable"), false);
   assert.equal(await evaluate("window.__maps[0].options.animateEnable"), false);
@@ -569,6 +672,16 @@ try {
   assert.equal(await evaluate("document.querySelector('#realMissionDetail').textContent.includes('随机示意点')"), false);
   assert.equal(await evaluate("window.__polylines.filter(line=>line.active && line.strokeColor==='#2c82cf').length"), 1);
   assert.equal(await evaluate("window.__serviceWalkingCalls.length"), 1, "Only the selected task requests a route");
+  const activeRouteBeforeTheme=await evaluate("({calls:__serviceWalkingCalls.length,markers:__markers.length,center:__maps[0].center,zoom:__maps[0].zoom,title:document.querySelector('#realMissionDetail h4').textContent})");
+  await evaluate("window.originalMap=__maps[0];window.originalLine=__polylines.find(line=>line.active);WhiteSpaceTheme.setPreference('light')");
+  assert.equal(await evaluate("__maps[0].mapStyle"),'amap://styles/normal');
+  await evaluate("__maps[0].failStyle=true;WhiteSpaceTheme.setPreference('dark')");
+  assert.equal(await evaluate("__maps[0].mapStyle"),'amap://styles/normal',"Rejected style retains the existing usable map");
+  await evaluate("__maps[0].failStyle=false;WhiteSpaceTheme.setPreference('light');WhiteSpaceTheme.setPreference('dark');__maps[0].setMapStyle=undefined;WhiteSpaceTheme.setPreference('light');delete __maps[0].setMapStyle;WhiteSpaceTheme.setPreference('dark')");
+  assert.equal(await evaluate("__maps[0].mapStyle"),'amap://styles/dark');
+  assert.equal(await evaluate("__maps.length===1 && originalMap===__maps[0] && originalLine===__polylines.find(line=>line.active)"),true);
+  assert.deepEqual(await evaluate("({calls:__serviceWalkingCalls.length,markers:__markers.length,center:__maps[0].center,zoom:__maps[0].zoom,title:document.querySelector('#realMissionDetail h4').textContent})"),activeRouteBeforeTheme);
+  await assertTextContrast(evaluate,['.real-map-route-toggle','.real-route-summary','#realRouteStatus']);
   assert.equal(await evaluate(`JSON.stringify(window.__polylines.find(line=>line.active).path.at(-1)) === JSON.stringify(window.__markers.find(marker=>marker.title===${JSON.stringify(farthestDemoTitle)}).position)`), true);
   assert.equal(await evaluate("window.__markers.length"), markerCount, "Selecting a task keeps existing map markers");
   const nextDemoTitle = await evaluate(`window.__markers.find(marker=>marker.title && marker.title!==${JSON.stringify(farthestDemoTitle)}).title`);
@@ -614,7 +727,23 @@ try {
   assert.equal(await evaluate("document.querySelector('#mapLocationName').value"), "蒋村社区文化中心");
   await evaluate("window.__markers.at(-1).setPosition([120.068,30.2984]); window.__markers.at(-1).emit('dragend')");
   assert.equal(await evaluate("document.querySelector('#mapLocationName').value"), "");
-  await set("#mapLocationName", "社区文化中心正门"); await click("#publicPointCheck"); await click("#saveLocationPoint");
+  await set("#mapLocationName", "社区文化中心正门"); await click("#publicPointCheck");
+  assert.equal(await evaluate("__maps[1].options.mapStyle"),'amap://styles/dark');
+  const selectedPointBeforeTheme=await evaluate("({centers:__maps.map(m=>m.center),zooms:__maps.map(m=>m.zoom),point:__markers.at(-1).position,name:document.querySelector('#mapLocationName').value,confirmed:document.querySelector('#publicPointCheck').checked,title:document.querySelector('#postTitle').value,calls:__serviceWalkingCalls.length,markers:__markers.length})");
+  await evaluate("window.originalPicker=__maps[1];WhiteSpaceTheme.setPreference('light')");
+  assert.deepEqual(await evaluate("__maps.map(m=>m.mapStyle)"),['amap://styles/normal','amap://styles/normal']);
+  await evaluate("WhiteSpaceTheme.setPreference('dark');__maps[0].failStyle=true;WhiteSpaceTheme.setPreference('light')");
+  assert.deepEqual(await evaluate("__maps.map(m=>m.mapStyle)"),['amap://styles/dark','amap://styles/normal'],"One styling failure does not prevent the other instance updating");
+  await evaluate("__maps[0].failStyle=false;WhiteSpaceTheme.setPreference('system')");
+  await connection.send("Emulation.setEmulatedMedia",{features:[{name:'prefers-color-scheme',value:'dark'}]});
+  await until("__maps.every(m=>m.mapStyle==='amap://styles/dark')");
+  await connection.send("Emulation.setEmulatedMedia",{features:[{name:'prefers-color-scheme',value:'light'}]});
+  await until("__maps.every(m=>m.mapStyle==='amap://styles/normal')");
+  await evaluate("WhiteSpaceTheme.setPreference('dark')");
+  assert.equal(await evaluate("__maps.length===2 && originalMap===__maps[0] && originalPicker===__maps[1] && document.querySelector('#locationPickerDialog').open"),true);
+  assert.deepEqual(await evaluate("({centers:__maps.map(m=>m.center),zooms:__maps.map(m=>m.zoom),point:__markers.at(-1).position,name:document.querySelector('#mapLocationName').value,confirmed:document.querySelector('#publicPointCheck').checked,title:document.querySelector('#postTitle').value,calls:__serviceWalkingCalls.length,markers:__markers.length})"),selectedPointBeforeTheme);
+  passed("Map themes: delayed SDK uses latest mode; manual/system updates, missing/throwing methods preserve route, map instances and picker draft");
+  await click("#saveLocationPoint");
   await until("document.querySelector('#createDialog').open");
   await set("#mapFirstStep", "先问好");
   await click("#publishButton");
@@ -623,7 +752,7 @@ try {
   assert.match(await evaluate("document.querySelector('#realMissionDetail').textContent"), /点击地图上的任务点/);
   await evaluate("window.__markers.findLast(marker=>marker.title==='一起整理社区故事').emit('click',{originEvent:{stopPropagation(){}}})");
   await until("document.querySelector('#realMissionDetail h4')?.textContent === '一起整理社区故事'");
-  const mappedPost = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0]");
+  const mappedPost = await evaluate("JSON.parse(localStorage.getItem('whitespace.posts.v1'))[0]");
   assert.deepEqual(mappedPost.locationPoint, { lng: 120.068, lat: 30.2984 });
   assert.equal(mappedPost.firstStep, "先问好");
   await evaluate("window.__maps[0].emit('click',{lnglat:new AMap.LngLat(120.067,30.297)})");
@@ -662,13 +791,13 @@ try {
   await set("#mapFirstStep", "先一起挑选三张老照片并确认故事");
   await click("#publishButton");
   await until("document.querySelector('#realMissionDetail h4')?.textContent === '一起整理街区故事'");
-  const editedMapPost = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0]");
+  const editedMapPost = await evaluate("JSON.parse(localStorage.getItem('whitespace.posts.v1'))[0]");
   assert.equal(editedMapPost.id, mappedPost.id);
   assert.deepEqual(editedMapPost.locationPoint, { lng: 120.0701, lat: 30.3002 });
   await click("#realDelete"); await until("document.querySelector('#deleteDialog').open");
   await click("#confirmDelete");
   await until("document.querySelector('#realMissionDetail h4') === null");
-  assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))"), []);
+  assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('whitespace.posts.v1'))"), []);
   passed("Real map: no automatic route, selected task route, randomized demo tasks, browser location, search, reselection, publish, edit and delete");
   // Recommend existing others' publications, then reuse their detail and interest controls.
   await connection.send("Page.navigate", { url: app.url }); await until("document.querySelectorAll('.post-card').length >= 6");
@@ -699,7 +828,7 @@ try {
   assert.match(await evaluate("document.querySelector('.today-card ul').textContent"), /未说明单次参与时长/);
   assert.match(await evaluate("document.querySelector('.today-card ul').textContent"), /未说明完整材料要求/);
   assert.ok(await evaluate("document.querySelectorAll('.today-card ol li').length>=3"));
-  const plannerSavedAt = await evaluate("JSON.parse(localStorage.getItem('writespace.today.v1')).result.generatedAt");
+  const plannerSavedAt = await evaluate("JSON.parse(localStorage.getItem('whitespace.today.v1')).result.generatedAt");
   await click('[data-today-interest="p3"]');
   assert.equal(await evaluate("document.querySelector('[data-today-interest=\"p3\"]').textContent"), "取消参与意向");
   assert.equal(await evaluate("document.querySelector('[data-today-interest=\"p3\"]').getAttribute('aria-pressed')"), "true");
@@ -710,13 +839,13 @@ try {
   await click('#detailDialog [data-close="detailDialog"]'); await click("#openToday");
   assert.equal(await evaluate("document.querySelector('[data-today-interest=\"p3\"]').textContent"), "我想参与");
   await click('[data-today-interest="p3"]'); await click('#todayDialog [data-close="todayDialog"]');
-  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1')).length"), 0);
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('whitespace.posts.v1')).length"), 0);
   await reload();
   await evaluate("window.__todayFetch=window.fetch; window.__todayRequests=0; window.fetch=(...args)=>{if(args[0]==='/api/recommend-experiences')window.__todayRequests++;return window.__todayFetch(...args);}");
   await click("#openToday");
   assert.equal(await evaluate("window.__todayRequests"), 0);
   assert.equal(await evaluate("document.querySelector('#todayNotes').value"), plannerNotes);
-  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.today.v1')).result.generatedAt"), plannerSavedAt);
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('whitespace.today.v1')).result.generatedAt"), plannerSavedAt);
   assert.equal(await evaluate("document.querySelector('[data-today-interest=\"p3\"]').textContent"), "取消参与意向");
   await evaluate("window.fetch=window.__todayFetch");
   passed("Today: keyboard entry → conditions → original publication → suggestions → interest/cancel/rejoin → refresh without publishing or re-request");
@@ -755,7 +884,7 @@ try {
   assert.equal(await evaluate("document.querySelector('#recommendToday').disabled"), false);
   await click("#recommendToday"); await until("!document.querySelector('#recommendToday').disabled && !document.querySelector('#todayResults').hidden");
   await evaluate("window.__releaseToday();window.fetch=window.__heldTodayFetch"); await pause(150);
-  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.today.v1')).result.criteria.timePreference"), "short");
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('whitespace.today.v1')).result.criteria.timePreference"), "short");
   await evaluate("window.__closedTodayFetch=window.fetch;window.fetch=async(...args)=>{const response=await window.__closedTodayFetch(...args);if(args[0]==='/api/recommend-experiences')await new Promise(resolve=>window.__releaseClosedToday=resolve);return response;}");
   await click("#recommendToday"); await until("typeof window.__releaseClosedToday==='function'");
   await connection.send("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
@@ -763,8 +892,8 @@ try {
   await until("!document.querySelector('#todayDialog').open");
   await click("#resetDemo");
   await evaluate("window.__releaseClosedToday();window.fetch=window.__closedTodayFetch"); await pause(150);
-  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.today.v1')).result"), null);
-  assert.equal(await evaluate("JSON.parse(localStorage.getItem('writespace.today.v1')).criteria.timePreference"), "medium");
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('whitespace.today.v1')).result"), null);
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('whitespace.today.v1')).criteria.timePreference"), "medium");
   await click("#openToday"); assert.equal(await evaluate("document.querySelector('#todayResults').hidden"), true);
   await connection.send("Network.setBlockedURLs", { urls: ["*/api/recommend-experiences"] });
   await click("#recommendToday"); await until("!document.querySelector('#recommendToday').disabled && document.querySelectorAll('.today-card').length===3");
@@ -788,12 +917,12 @@ try {
     await writeFile(path.join(root, ".tmp", "today-results-" + width + ".png"), Buffer.from(todayResultShot.data, "base64"));
   }
   await click('#todayDialog [data-close="todayDialog"]');
-  await evaluate("(() => {const state=JSON.parse(localStorage.getItem('writespace.today.v1'));state.criteria.theme='学习交流';delete state.criteria.timePreference;state.criteria.minutes=60;state.result.version='old';localStorage.setItem('writespace.today.v1',JSON.stringify(state));})()");
+  await evaluate("(() => {const state=JSON.parse(localStorage.getItem('whitespace.today.v1'));state.criteria.theme='学习交流';delete state.criteria.timePreference;state.criteria.minutes=60;state.result.version='old';localStorage.setItem('whitespace.today.v1',JSON.stringify(state));})()");
   await reload(); await click("#openToday");
   assert.equal(await evaluate("document.querySelector('#todayTheme').value"), "学习交流");
   assert.equal(await evaluate("document.querySelector('#todayTimePreference').value"), "long");
   assert.equal(await evaluate("document.querySelector('#todayResults').hidden"), true);
-  await click('#todayDialog [data-close="todayDialog"]'); await evaluate("localStorage.setItem('writespace.today.v1','{broken')");
+  await click('#todayDialog [data-close="todayDialog"]'); await evaluate("localStorage.setItem('whitespace.today.v1','{broken')");
   await reload(); await click("#openToday");
   assert.equal(await evaluate("document.querySelector('#todayTheme').value"), "all");
   assert.equal(await evaluate("document.querySelector('#todayResults').hidden"), true);
@@ -826,14 +955,14 @@ try {
   aiExperienceReply = validExperienceReply;
   await connection.send("Network.setBlockedURLs", { urls: ["*/data.json"] });
   await connection.send("Page.reload");
-  await until("document.querySelector('#toast').textContent.includes('载入失败')");
+  await until("document.querySelector('#toast')?.textContent.includes('载入失败')");
   await click("#openToday"); await click("#recommendToday");
   await until("!document.querySelector('#recommendToday').disabled && document.querySelectorAll('.today-card').length===1");
   assert.equal(await evaluate("document.querySelector('#todaySource').textContent"), "AI 筛选推荐");
   await click('[data-today-post="p5"]'); await until("document.querySelector('#detailDialog').open");
   assert.match(await evaluate("document.querySelector('#detailContent').textContent"), /赵老师/);
   await click("#interestButton");
-  assert.ok(await evaluate("JSON.parse(localStorage.getItem('writespace.interest.v1')).includes('p5')"));
+  assert.ok(await evaluate("JSON.parse(localStorage.getItem('whitespace.interest.v1')).includes('p5')"));
   await click('#detailDialog [data-close="detailDialog"]');
   await connection.send("Network.setBlockedURLs", { urls: [] });
   passed("Today AI: original facts with suggestions; timeout, gateway and invented ids fall back; API snapshots support detail and interest when feed fails");
@@ -850,11 +979,11 @@ try {
   await click("#profileSection summary"); await set("#profileRole", "摄影爱好者");
   await click("#publishButton"); await until("document.querySelector('#needDialog').open && !document.querySelector('#extractNeed').disabled");
   await click("#saveNeed"); await readyMatch("可以教手机摄影，也想听听街区故事");
-  const deleteOffer = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0]");
+  const deleteOffer = await evaluate("JSON.parse(localStorage.getItem('whitespace.posts.v1'))[0]");
   await click("#openCreateTop"); await click('.form-examples summary'); await click('[data-example="repair"]');
   await click("#publishButton"); await readyMatch("想修好一把旧椅子，找会木工的人一起");
-  const deleteNeed = await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))[0]");
-  const beforeDelete = await evaluate("Object.fromEntries(['posts','matches','profile','interest','today'].map(key=>[key,localStorage.getItem('writespace.'+key+'.v1')]))");
+  const deleteNeed = await evaluate("JSON.parse(localStorage.getItem('whitespace.posts.v1'))[0]");
+  const beforeDelete = await evaluate("Object.fromEntries(['posts','matches','profile','interest','today'].map(key=>[key,localStorage.getItem('whitespace.'+key+'.v1')]))");
   await click(`[data-post-id="${deleteOffer.id}"]`);
   for (const [width, height] of [[1280, 800], [375, 667], [320, 568]]) {
     await connection.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
@@ -871,27 +1000,27 @@ try {
     } else await click(width === 375 ? '#deleteDialog [aria-label="关闭"]' : "#cancelDelete");
     await until("!document.querySelector('#deleteDialog').open");
     assert.equal(await evaluate("document.querySelector('#detailDialog').open && document.documentElement.classList.contains('modal-open')"), true);
-    assert.deepEqual(await evaluate("Object.fromEntries(['posts','matches','profile','interest','today'].map(key=>[key,localStorage.getItem('writespace.'+key+'.v1')]))"), beforeDelete);
+    assert.deepEqual(await evaluate("Object.fromEntries(['posts','matches','profile','interest','today'].map(key=>[key,localStorage.getItem('whitespace.'+key+'.v1')]))"), beforeDelete);
   }
   passed("Delete: only personal posts expose the action; cancel, close and Escape preserve data at 1280/375/320 px");
 
   await click("#detailDeleteButton");
-  await evaluate("window.__deleteSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='writespace.posts.v1')throw new DOMException('Simulated quota','QuotaExceededError');return window.__deleteSetItem.call(this,key,value);}");
+  await evaluate("window.__deleteSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='whitespace.posts.v1')throw new DOMException('Simulated quota','QuotaExceededError');return window.__deleteSetItem.call(this,key,value);}");
   await click("#confirmDelete");
   assert.equal(await evaluate("document.querySelector('#deleteDialog').open && !document.querySelector('#deleteError').hidden"), true);
   assert.match(await evaluate("document.querySelector('#deleteError').textContent"), /删除未完成/);
-  assert.deepEqual(await evaluate("Object.fromEntries(['posts','matches','profile','interest','today'].map(key=>[key,localStorage.getItem('writespace.'+key+'.v1')]))"), beforeDelete);
+  assert.deepEqual(await evaluate("Object.fromEntries(['posts','matches','profile','interest','today'].map(key=>[key,localStorage.getItem('whitespace.'+key+'.v1')]))"), beforeDelete);
   assert.equal(await evaluate("document.querySelectorAll('.post-card').length"), 8);
   await evaluate("Storage.prototype.setItem=window.__deleteSetItem");
   await click("#confirmDelete"); await until("!document.querySelector('#deleteDialog').open && !document.querySelector('#detailDialog').open");
-  assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))"), [deleteNeed]);
-  const remainingMatch = await evaluate("JSON.parse(localStorage.getItem('writespace.matches.v1'))");
+  assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('whitespace.posts.v1'))"), [deleteNeed]);
+  const remainingMatch = await evaluate("JSON.parse(localStorage.getItem('whitespace.matches.v1'))");
   assert.equal(remainingMatch.byPost[deleteOffer.id], undefined);
   assert.deepEqual(remainingMatch.byPost[deleteNeed.id], JSON.parse(beforeDelete.matches).byPost[deleteNeed.id]);
   assert.equal(remainingMatch.lastPostId, deleteNeed.id);
   assert.equal(await evaluate("document.querySelector('#matchingPostTitle').textContent"), deleteNeed.title);
   assert.equal(await evaluate("document.querySelector('#myPostCount').textContent"), "1");
-  for (const key of ["profile", "interest", "today"]) assert.equal(await evaluate(`localStorage.getItem('writespace.${key}.v1')`), beforeDelete[key]);
+  for (const key of ["profile", "interest", "today"]) assert.equal(await evaluate(`localStorage.getItem('whitespace.${key}.v1')`), beforeDelete[key]);
   await reload(); await readyMatch(deleteNeed.title);
   assert.equal(await evaluate(`document.querySelector('[data-post-id="${deleteOffer.id}"]')`), null);
   passed("Delete: storage failure preserves content; retry removes one offer and its cache while keeping other posts, matching, profile and interest after reload");
@@ -900,20 +1029,20 @@ try {
   await evaluate("window.__deleteFetch=window.fetch;window.fetch=async(...args)=>{const response=await window.__deleteFetch(...args);if(args[0]==='/api/match')await new Promise(resolve=>window.__releaseDeleteMatch=resolve);return response;}");
   await click("#rerunMatch"); await until("typeof window.__releaseDeleteMatch === 'function'");
   await click(`[data-post-id="${deleteNeed.id}"]`); await click("#detailDeleteButton"); await click("#confirmDelete");
-  assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))"), []);
-  assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('writespace.matches.v1'))"), { byPost: {} });
+  assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('whitespace.posts.v1'))"), []);
+  assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('whitespace.matches.v1'))"), { byPost: {} });
   assert.equal(await evaluate("document.querySelectorAll('.post-card').length"), 0);
   assert.equal(await evaluate("!document.querySelector('#emptyState').hidden && document.querySelector('#myPostCount').hidden"), true);
   assert.equal(await evaluate("!document.querySelector('#matchWelcome').hidden && document.querySelector('#matchResults').hidden && document.querySelector('#matchLoading').hidden"), true);
   assert.equal(await evaluate("document.documentElement.classList.contains('modal-open')"), false);
   await evaluate("window.__releaseDeleteMatch();window.fetch=window.__deleteFetch"); await pause(200);
-  assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('writespace.matches.v1'))"), { byPost: {} });
+  assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('whitespace.matches.v1'))"), { byPost: {} });
   assert.equal(await evaluate("document.querySelectorAll('.match-card').length"), 0);
   await reload();
   assert.equal(await evaluate("document.querySelectorAll('.post-card').length"), 6);
   assert.equal(await evaluate("document.querySelector('#matchWelcome').hidden"), false);
   await evaluate("document.querySelector('#rerunMatch').click()");
-  assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('writespace.posts.v1'))"), []);
+  assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('whitespace.posts.v1'))"), []);
   await click('.filter-chip[data-filter="mine"]');
   await click("#emptyCreate"); await until("document.querySelector('#createDialog').open");
   await click('#createDialog [data-close="createDialog"]');

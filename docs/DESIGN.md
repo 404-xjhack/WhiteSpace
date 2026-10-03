@@ -1,5 +1,5 @@
 ---
-name: WriteSpace 留白
+name: WhiteSpace 留白
 description: 面向附近协作的温暖、清晰的社区工作台
 colors:
   bg: "#f8f8f4"
@@ -78,7 +78,7 @@ components:
     padding: "20px 21px 18px"
 ---
 
-# Design System: WriteSpace 留白
+# Design System: WhiteSpace 留白
 
 ## Overview
 

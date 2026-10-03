@@ -1,5 +1,5 @@
 export const EXPERIENCE_ID = "dumpling-house";
-export const STORAGE_KEY = "writespace.experience.dumpling.v1";
+export const STORAGE_KEY = "whitespace.experience.dumpling.v1";
 export const STEPS = [
   { id: "dough", title: "和面与醒面", short: "和面", station: "dough", tool: "面盆 · 水壶 · 盖布", question: "散开的面粉，怎样变成能包住馅料的皮？", intro: "把水逐渐加入面粉，先拌成絮状，再用手揉合成团。盖住静置，就是醒面。这里用几秒的变化示意过程。", why: "水让面粉结合，揉面让面团更均匀。醒面让水分进一步分布，也让面团放松，随后更容易擀开。", observe: "看面粉是否已经结合成团，表面是否趋于均匀；过干容易开裂，过湿则容易粘手。不同面粉需要的水量会有差异。", actions: [{ id: "water", label: "逐渐加水", result: "面粉变成了絮状。水要逐渐加，才能根据面粉的状态调整。" }, { id: "knead", label: "揉合成团", result: "揉压让散开的面絮结合，成为表面较均匀的面团。" }, { id: "rest", label: "盖布醒面 · 示意", result: "盖布减少表面失水。静置后的面团更容易延展；真实制作需要留出醒面的时间。" }], insight: "手工制饺的第一项判断，是观察面团的状态，再决定是否调整水分。" },
   { id: "filling", title: "处理食材与制馅", short: "制馅", station: "filling", tool: "菜刀 · 砧板 · 馅碗 · 调羹", question: "馅料为什么要切细，还要留意水分？", intro: "这里用蔬菜馅示范：切细食材，根据食材状态处理多余水分，再调味拌匀。肉馅等做法会有不同的处理方式。", why: "大小接近的食材更容易混合和分配。馅料太湿容易让饺子皮软塌，颗粒太大则不容易包合。", observe: "观察颗粒是否接近、调味是否分布均匀，碗底是否积有明显多余水分。馅料并不是越干越好。", actions: [{ id: "chop", label: "切细食材", result: "食材变成小颗粒，方便混合，也方便一份份放到饺子皮上。" }, { id: "mix", label: "处理水分并拌匀", result: "馅料已混合。处理多少水分，要根据食材与实际状态判断。" }], insight: "馅料的颗粒和水分，会影响后面能否顺利包合。" },

@@ -1,4 +1,4 @@
-# WriteSpace 留白
+# WhiteSpace 留白
 
 <!-- impeccable:product-schema 1 -->
 
@@ -20,7 +20,7 @@ Rework the everyday process of finding someone to do something together. People 
 
 ## Positioning
 
-WriteSpace is a local collaboration network prototype, built around intent rather than credentials or a social feed alone. Its headline is “想做一件事，找到一起做的人。” Matching considers the task, relevant help, complementary participation and time conditions, with an explanation and a small first action. The aim is to find people who can start this particular thing together, rather than rank the most accomplished person.
+WhiteSpace is a local collaboration network prototype, built around intent rather than credentials or a social feed alone. Its headline is “想做一件事，找到一起做的人。” Matching considers the task, relevant help, complementary participation and time conditions, with an explanation and a small first action. The aim is to find people who can start this particular thing together, rather than rank the most accomplished person.
 
 ## Operating Context
 
@@ -38,7 +38,7 @@ People browse community examples, describe what they want to do or can share, ad
 
 ## Brand Commitments
 
-Name: WriteSpace 留白. Keep the warm, familiar community workspace and accessible everyday language. Lead with a concrete thing the user wants to do and who might help. Explain the prototype boundary near its first-screen promise. Use current community situations instead of speculative automation as the problem statement.
+Name: WhiteSpace 留白. Keep the warm, familiar community workspace and accessible everyday language. Lead with a concrete thing the user wants to do and who might help. Explain the prototype boundary near its first-screen promise. Use current community situations instead of speculative automation as the problem statement.
 
 ## Evidence on Hand
 
@@ -55,4 +55,4 @@ No real user database or validated matching outcomes were supplied. All visible 
 
 ## Long-term Vision
 
-If more repetitive tasks become automated, people may have more time for creativity, interests and helping others. WriteSpace hopes to make human collaboration as easy to begin as using an internet service. AI should make human collaboration easier. This is a long-term direction, presented after today's problem, solution and community value; it is not a claim that automation has made people lose their purpose.
+If more repetitive tasks become automated, people may have more time for creativity, interests and helping others. WhiteSpace hopes to make human collaboration as easy to begin as using an internet service. AI should make human collaboration easier. This is a long-term direction, presented after today's problem, solution and community value; it is not a claim that automation has made people lose their purpose.

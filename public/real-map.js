@@ -17,7 +17,7 @@ function loadAMap(key) {
   if (scriptPromise) return scriptPromise;
   window._AMapSecurityConfig = { serviceHost: `${location.origin}/_AMapService` };
   scriptPromise = new Promise((resolve, reject) => {
-    const callbackName = "__writeSpaceAMapReady";
+    const callbackName = "__whiteSpaceAMapReady";
     const script = document.createElement("script");
     const timer = setTimeout(() => fail(new Error("地图加载超时")), 15000);
     function fail(error) { clearTimeout(timer); delete window[callbackName]; script.remove(); scriptPromise = null; reject(error); }
@@ -36,6 +36,17 @@ function loadAMap(key) {
 export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest, openCreate, onPick, editPost, deletePost }) {
   let config = { enabled: false, servicesEnabled: false };
   let map, pickerMap, pickerMarker, startMarker, routeLine;
+  const currentMapStyle = () => window.WhiteSpaceTheme?.getState().resolvedTheme === "dark" ? "amap://styles/dark" : "amap://styles/normal";
+  let lastMapStyle = currentMapStyle();
+  window.addEventListener("whitespace:themechange", () => {
+    const style = currentMapStyle();
+    if (style === lastMapStyle) return;
+    lastMapStyle = style;
+    for (const instance of [map, pickerMap]) {
+      try { instance?.setMapStyle?.(style); }
+      catch { /* A styling failure must not discard the map, route or selected point. */ }
+    }
+  });
   let markers = [], markerKey = "", selectedId = null, startPoint = null, pickerPoint = null;
   let pickerResults = [], areaResults = [], routeVersion = 0, locationAttempted = false;
   let routeKey = "", routeState = "idle", routeResult = null, routesVisible = true;
@@ -135,7 +146,7 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
       const AMap = await loadAMap(config.key);
       if (!map) {
         $("#realMapCanvas").replaceChildren();
-        map = new AMap.Map("realMapCanvas", { zoom: 16, center: coordinates(DEMO_MAP_CENTER), viewMode: "2D", jogEnable: false, animateEnable: false });
+        map = new AMap.Map("realMapCanvas", { zoom: 16, center: coordinates(DEMO_MAP_CENTER), viewMode: "2D", jogEnable: false, animateEnable: false, mapStyle: currentMapStyle() });
         $("#realMapCanvas").append(routeToggle);
         markerKey = "";
         map.on("click", (event) => {
@@ -298,7 +309,7 @@ export function initRealMap({ getPosts, showDetail, isInterested, toggleInterest
       const AMap = await loadAMap(config.key);
       if (!pickerMap) {
         const initial = startPoint || (map ? normalizeLocationPoint({ lng: map.getCenter().getLng(), lat: map.getCenter().getLat() }) : null);
-        pickerMap = new AMap.Map("locationPickerCanvas", { zoom: initial ? 16 : 15, ...(initial ? { center: coordinates(initial) } : {}), viewMode: "2D", jogEnable: false, animateEnable: false });
+        pickerMap = new AMap.Map("locationPickerCanvas", { zoom: initial ? 16 : 15, ...(initial ? { center: coordinates(initial) } : {}), viewMode: "2D", jogEnable: false, animateEnable: false, mapStyle: currentMapStyle() });
         pickerMap.on("click", (event) => { setPickerPoint({ lng: event.lnglat.getLng(), lat: event.lnglat.getLat() }); $("#mapLocationName").value = ""; });
       } else pickerMap.resize();
       const prior = normalizeLocationPoint({ lng: $("#locationLng").value, lat: $("#locationLat").value });

@@ -26,7 +26,7 @@ async function experienceClick(selector){
   await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,x:point.x,y:point.y});await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,x:point.x,y:point.y});await pause(50);
 }
 async function shot(name,fullPage=true){await pause(650);const s=await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:fullPage});await writeFile(path.join(root,'.tmp',name),Buffer.from(s.data,'base64'));}
-async function stored(){return evaluate("JSON.parse(localStorage.getItem('writespace.experience.dumpling.v1'))");}
+async function stored(){return evaluate("JSON.parse(localStorage.getItem('whitespace.experience.dumpling.v1'))");}
 async function step(id){await click(`[data-step="${id}"]`);await pause(480);}
 async function drag(kind,touch=false,valid=true,distance=68){
   const coords=await evaluate(`(()=>{const a=document.querySelector('#drag-tool').getBoundingClientRect(),b=document.querySelector('#drop-target').getBoundingClientRect();return{x:a.x+a.width/2,y:a.y+a.height/2,tx:b.x+b.width/2,ty:b.y+b.height/2}})()`);
@@ -43,9 +43,19 @@ try{
   let port;for(let i=0;i<120;i++){try{port=Number((await readFile(path.join(profile,'DevToolsActivePort'),'utf8')).split('\n')[0]);break;}catch{await pause(100);}}
   assert.ok(port,'Chromium starts');const pages=await(await fetch(`http://127.0.0.1:${port}/json/list`)).json();cdp=new CDP(pages.find(p=>p.type==='page').webSocketDebuggerUrl);
   await cdp.send('Runtime.enable');await cdp.send('Page.enable');await cdp.send('Network.enable');await cdp.send('Emulation.setFocusEmulationEnabled',{enabled:true});
-  await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:"window.experienceEvents=[];window.addEventListener('writespace:experience',e=>window.experienceEvents.push(e.detail));"});
+  await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:"window.experienceEvents=[];window.addEventListener('whitespace:experience',e=>window.experienceEvents.push(e.detail));"});
   await cdp.send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
   await navigate(app.url+'/dumpling-house.html');assert.equal(await evaluate("document.querySelector('#viewport').dataset.renderer"),'webgl');
+  await evaluate("WhiteSpaceTheme.setPreference('dark');window.themeCanvas=document.querySelector('#viewport canvas');window.themeProgress=localStorage.getItem('whitespace.experience.dumpling.v1')");
+  await cdp.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-color-scheme',value:'light'}]});
+  assert.equal(await evaluate("document.documentElement.dataset.theme"),'dark');
+  await evaluate("WhiteSpaceTheme.setPreference('system')");
+  await cdp.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-color-scheme',value:'dark'}]});
+  await until("document.documentElement.dataset.theme==='dark'");
+  assert.equal(await evaluate("window.themeCanvas===document.querySelector('#viewport canvas') && window.themeProgress===localStorage.getItem('whitespace.experience.dumpling.v1')"),true);
+  await evaluate("WhiteSpaceTheme.setPreference('dark')");
+  assert.notEqual(await evaluate("getComputedStyle(document.querySelector('.step-tab.active')).backgroundColor"),await evaluate("getComputedStyle(document.querySelector('.step-tab:not(.active)')).backgroundColor"));
+  passed('Standalone theme follows system or manual choice without rebuilding WebGL or changing progress');
   await until("document.querySelector('#standalone-header img.brand-mark')?.naturalWidth>0");
   assert.equal(await evaluate("document.querySelector('#standalone-header img.brand-mark').getAttribute('src')"),'/favicon.svg');
   await click('#standalone-header .brand');await until("location.pathname==='/' && document.querySelectorAll('.post-card').length===6");
@@ -103,7 +113,7 @@ try{
   await cdp.send('Emulation.setDeviceMetricsOverride',{width:768,height:1024,deviceScaleFactor:1,mobile:false});await click('#guide-mode');await shot('dumpling-tablet-768.png');assert.equal(await evaluate('document.documentElement.scrollWidth>innerWidth'),false);
   await cdp.send('Emulation.setDeviceMetricsOverride',{width:375,height:900,deviceScaleFactor:1,mobile:true});await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:1});
   await step('roll');await click('#replay');await click('#action');await evaluate("document.querySelector('#viewport').scrollIntoView({block:'center',behavior:'instant'})");await drag('pin',true);assert.equal((await stored()).steps.roll.passes,1);
-  await evaluate("document.querySelector('#action').focus()");await cdp.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13,nativeVirtualKeyCode:13,text:'\r',unmodifiedText:'\r'});await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13,nativeVirtualKeyCode:13});await until("JSON.parse(localStorage.getItem('writespace.experience.dumpling.v1')).steps.roll.passes===2");
+  await evaluate("document.querySelector('#action').focus()");await cdp.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13,nativeVirtualKeyCode:13,text:'\r',unmodifiedText:'\r'});await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13,nativeVirtualKeyCode:13});await until("JSON.parse(localStorage.getItem('whitespace.experience.dumpling.v1')).steps.roll.passes===2");
   await click('#action');await evaluate('scrollTo(0,0)');await shot('dumpling-mobile-375.png');assert.equal(await evaluate('document.documentElement.scrollWidth>innerWidth'),false);
   passed('Tablet/mobile layout, actual touch rolling and keyboard button alternative');
   await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});await cdp.send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
@@ -112,6 +122,23 @@ try{
   await click('[data-post-id="p1"]');await shot('dumpling-entry-desktop.png');await click('#openDumplingExperience');
   await until("document.querySelector('#experienceStatus').textContent.includes('六步已体验完成')");
   const embedded="document.querySelector('#dumplingExperience').contentWindow";
+  await until(`${embedded}.document.documentElement.dataset.theme==='dark'`);
+  const beforeThemeProgress=await stored();
+  await evaluate(`window.themeFrame=document.querySelector('#dumplingExperience');window.themeChildCanvas=${embedded}.document.querySelector('#viewport canvas');window.themeOriginalWrite=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k==='whitespace.theme.v1')throw new DOMException('Full','QuotaExceededError');return themeOriginalWrite.call(this,k,v)};const control=document.querySelector('#experienceDialog [data-theme-select]');control.value='light';control.dispatchEvent(new Event('change',{bubbles:true}));`);
+  await until(`${embedded}.document.documentElement.dataset.theme==='light'`);
+  assert.equal(await evaluate(`themeFrame===document.querySelector('#dumplingExperience') && themeChildCanvas===${embedded}.document.querySelector('#viewport canvas')`),true);
+  assert.deepEqual(await stored(),beforeThemeProgress);
+  await evaluate(`${embedded}.dispatchEvent(new MessageEvent('message',{origin:'https://wrong.example',source:window,data:{channel:'whitespace-theme',version:1,type:'sync',preference:'dark',resolvedTheme:'dark'}}))`);
+  assert.equal(await evaluate(`${embedded}.document.documentElement.dataset.theme`),'light');
+  await evaluate(`${embedded}.dispatchEvent(new MessageEvent('message',{origin:location.origin,source:${embedded},data:{channel:'whitespace-theme',version:1,type:'sync',preference:'dark',resolvedTheme:'dark'}}))`);
+  assert.equal(await evaluate(`${embedded}.document.documentElement.dataset.theme`),'light');
+  await evaluate("Storage.prototype.setItem=themeOriginalWrite;delete window.themeOriginalWrite;WhiteSpaceTheme.setPreference('system')");
+  await cdp.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-color-scheme',value:'light'}]});
+  await until(`${embedded}.document.documentElement.dataset.theme==='light'`);
+  await cdp.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-color-scheme',value:'dark'}]});
+  await until(`${embedded}.document.documentElement.dataset.theme==='dark'`);
+  await evaluate("WhiteSpaceTheme.setPreference('dark')");
+  passed('Open iframe mirrors manual and system changes even with denied writes; origin/sender checks, canvas and progress remain intact');
   assert.equal(await evaluate(`${embedded}.document.querySelector('#viewport').dataset.renderer`),'webgl');
   assert.equal(await evaluate("document.querySelector('#detailDialog').open"),false);
   for(const invalid of ["origin:'https://wrong.example',source:"+embedded,"origin:location.origin,source:window"]){
@@ -137,7 +164,7 @@ try{
   await until("document.querySelector('#detailDialog').open && !document.querySelector('#dumplingExperience')");
   assert.match(await evaluate("document.querySelector('#detailContent').textContent"),/王阿姨/);
   assert.equal(await evaluate("document.querySelector('#interestButton').textContent"),'我想参与');
-  assert.equal(await evaluate("localStorage.getItem('writespace.interest.v1')"),null);
+  assert.equal(await evaluate("localStorage.getItem('whitespace.interest.v1')"),null);
   await click('#openDumplingExperience');await until("document.querySelector('#experienceStatus').textContent.includes('六步已体验完成')");
   await evaluate(`${embedded}.document.querySelector('#guide-mode').focus()`);
   await cdp.send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27,nativeVirtualKeyCode:27});await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27,nativeVirtualKeyCode:27});
@@ -161,7 +188,7 @@ try{
   await until("sceneMessages.some(m=>m.type==='ready')");
   const frame="document.querySelector('#scene-frame').contentWindow";
   assert.equal(await evaluate(`getComputedStyle(${frame}.document.querySelector('#standalone-header')).display`),'none');
-  await evaluate(`${frame}.postMessage({version:1,experienceId:'dumpling-house',type:'reset'},location.origin)`);await until(`JSON.parse(localStorage.getItem('writespace.experience.dumpling.v1')).completedStepIds.length===0`);
+  await evaluate(`${frame}.postMessage({version:1,experienceId:'dumpling-house',type:'reset'},location.origin)`);await until(`JSON.parse(localStorage.getItem('whitespace.experience.dumpling.v1')).completedStepIds.length===0`);
   await evaluate(`${frame}.postMessage({version:1,experienceId:'dumpling-house',type:'focus-step',data:{stepId:'wrap'}},location.origin)`);await until(`${frame}.document.body.dataset.step==='wrap'`);
   await evaluate(`${frame}.dispatchEvent(new MessageEvent('message',{data:{version:1,experienceId:'dumpling-house',type:'focus-step',data:{stepId:'cook'}},source:window,origin:'https://wrong.example'}))`);assert.equal(await evaluate(`${frame}.document.body.dataset.step`),'wrap');
   await evaluate(`${frame}.dispatchEvent(new MessageEvent('message',{data:{version:1,experienceId:'dumpling-house',type:'reset'},source:${frame},origin:location.origin}))`);assert.equal(await evaluate(`${frame}.document.body.dataset.step`),'wrap');

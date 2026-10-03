@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { root } from "./helpers.mjs";
+import { root, assertTextContrast } from "./helpers.mjs";
 import { gpsToAmapPoint } from "../public/coordinates.js";
 
 const browserPath = process.env.BROWSER_PATH || [
@@ -73,12 +73,28 @@ try {
   await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
   await send("Page.addScriptToEvaluateOnNewDocument", { source: "Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(success){success({coords:{longitude:120.067,latitude:30.297}})}}});" });
   await send("Page.navigate", { url });
-  await until("document.querySelector('#mapToggle') && !document.querySelector('#mapLocationOption').disabled", "应用和地图配置");
+  await until("document.querySelector('#mapToggle') && !document.querySelector('#mapLocationOption').disabled && document.querySelectorAll('.post-card').length>=6", "应用和地图配置");
   await evaluate("document.querySelector('#mapToggle').click()");
   await until("/已定位到你的附近/.test(document.querySelector('#realMapArea')?.textContent || '') || /真实地图暂不可用/.test(document.querySelector('#realMapStatus')?.textContent || '')", "高德地图定位结果");
   const status = await evaluate("document.querySelector('#realMapStatus').textContent");
   assert.doesNotMatch(status, /暂不可用/, `高德地图未加载：${status}`);
   await until("document.querySelector('#realMapCanvas .amap-maps')", "高德底图容器");
+  await until("document.querySelector('#realMapCanvas .amap-logo') && document.querySelector('#realMapCanvas .amap-copyright')", "高德原始标识与版权信息");
+  const themeMapState = await evaluate("({posts:localStorage.getItem('whitespace.posts.v1'),count:document.querySelectorAll('#realMapCanvas .real-task-marker').length,area:document.querySelector('#realMapArea').textContent})");
+  await evaluate("window.liveThemeCanvas=document.querySelector('#realMapCanvas');window.liveLogo=document.querySelector('#realMapCanvas .amap-logo');window.liveLogoMarkup=liveLogo.innerHTML;WhiteSpaceTheme.setPreference('dark')");
+  await pause(1600);
+  assert.equal(await evaluate("document.documentElement.dataset.theme"),"dark");
+  assert.equal(await evaluate("getComputedStyle(liveLogo).backgroundColor"),"rgb(255, 255, 255)","Black SDK logo lettering has a light background in dark mode");
+  await assertTextContrast(evaluate,["#realMapCanvas .amap-copyright"]);
+  const darkThemeShot=await send("Page.captureScreenshot",{format:"png"});
+  await writeFile(path.join(root,".tmp","real-map-live-theme-dark.png"),Buffer.from(darkThemeShot.data,"base64"));
+  await evaluate("WhiteSpaceTheme.setPreference('light')");
+  await pause(1600);
+  const lightThemeShot=await send("Page.captureScreenshot",{format:"png"});
+  await writeFile(path.join(root,".tmp","real-map-live-theme-light.png"),Buffer.from(lightThemeShot.data,"base64"));
+  assert.equal(await evaluate("liveThemeCanvas===document.querySelector('#realMapCanvas')"),true);
+  assert.equal(await evaluate("liveLogo===document.querySelector('#realMapCanvas .amap-logo') && liveLogo.innerHTML===liveLogoMarkup"),true,"Theme changes preserve the SDK logo and its link");
+  assert.deepEqual(await evaluate("({posts:localStorage.getItem('whitespace.posts.v1'),count:document.querySelectorAll('#realMapCanvas .real-task-marker').length,area:document.querySelector('#realMapArea').textContent})"),themeMapState);
   assert.equal(await evaluate("document.querySelector('#realRouteSummary').dataset.state"), "idle", "初始地图不自动选路线");
   assert.equal(await evaluate("document.querySelector('#realRouteToggle').hidden"), true);
   await pause(300);
@@ -88,7 +104,7 @@ try {
   console.log("MAP_BASE_OK: 高德底图已加载；截图保存在 .tmp/real-map-live.png。密钥未输出。");
   const locatedPoint = gpsToAmapPoint({ lng: 120.067, lat: 30.297 });
   const nearbyPoint = { lng: locatedPoint.lng + 0.0008, lat: locatedPoint.lat + 0.001 };
-  await evaluate(`localStorage.setItem('writespace.posts.v1',JSON.stringify([{id:'mine-live-smoke',type:'need',name:'我',title:'一起整理街区故事',description:'仅用于隔离浏览器截图的测试发布。',categories:['社区生活'],category:'社区生活',tags:['社区生活'],time:'周六下午',location:'公共集合点',locationPoint:${JSON.stringify(nearbyPoint)},firstStep:'先一起挑选三张老照片并确认故事',createdAt:new Date().toISOString()}]))`);
+  await evaluate(`localStorage.setItem('whitespace.posts.v1',JSON.stringify([{id:'mine-live-smoke',type:'need',name:'我',title:'一起整理街区故事',description:'仅用于隔离浏览器截图的测试发布。',categories:['社区生活'],category:'社区生活',tags:['社区生活'],time:'周六下午',location:'公共集合点',locationPoint:${JSON.stringify(nearbyPoint)},firstStep:'先一起挑选三张老照片并确认故事',createdAt:new Date().toISOString()}]))`);
   await send("Page.reload");
   await until("document.querySelectorAll('.post-card').length === 7", "隔离浏览器测试发布");
   await evaluate("document.querySelector('#mapToggle').click()");
